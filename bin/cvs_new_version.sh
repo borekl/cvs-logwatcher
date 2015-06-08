@@ -1,10 +1,23 @@
 #!/bin/bash
 
+#--- decide prefix based on the scripts pathname
+#--- solution from: 
+#--- http://stackoverflow.com/questions/4774054/reliable-way-for-a-bash-script-to-get-the-full-path-to-itself
+
+SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+if [[ $SCRIPTPATH =~ '/prod' ]]; then
+  PREFIX=/opt/cvs/prod
+else
+  PREFIX=/opt/cvs/dev
+fi
+
+#---
+
 HOST="$1"
 HOST2="$2"
 MSG="$3"
 TYPE="$4"
-DIR_REPOSIT="/opt/cvs/prod/data/$5";
+DIR_REPOSIT="$PREFIX/data/$5";
 IOS_TYPE="$6"
 
 SNMP_VERSION="1";
