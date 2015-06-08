@@ -1,29 +1,46 @@
-#!/usr/bin/perl -w
-#
-# (c) 2000 Expert & Partner engineering
-#
+#!/usr/bin/perl
 
-use Expect;
+#=============================================================================
+# CVS_CISCO
+#
+# Script to pull configuration log out of a Cisco device after detecting
+# change by observing the device's logfile. The usual way of getting the
+# config file is by configuring a transfer by setting SNMP variables and
+# getting the file over TFTP.
+# For IOS XR device, interactive session over SSH is used instead. Note, that
+# this is done because the TFTP transfer doesn't properly use the admin
+# interface in VRF, not that TFTP wouldn't be available.
+# 
+# (c) 2000 Expert & Partner Engineering
+# (c) 2009 Alexander Leonov / Vodafone CZ
+# (c) 2015 Borek Lupomesky / Vodafone CZ
+#=============================================================================
+
+
+#=== modules and pragmas =====================================================
+
 use strict;
+use warnings;
+use Expect;
+use Cwd qw(abs_path);
 
-my $cisco_logfile = "/var/log/cisco_all.log";
-my $logfile = "/var/log/cvs_cisco.log";
-my $myip = "172.20.113.120";
+
+#=== variables and configuration =============================================
+
+my $dev               = 0;
+my $prefix            = '/opt/cvs/%s';
+my $cisco_logfile     = "/var/log/cisco_all.log";
+my $logfile           = "/var/log/cvs_cisco.log";
+my $myip              = "172.20.113.120";
 my $myip_new_external = "217.77.161.62";
-my $mib_config = ".1.3.6.1.4.1.9.2.1.55";
-my $mib_hostname = ".1.3.6.1.4.1.9.2.1.3.0";
-my $oid_version = ".1.3.6.1.2.1.1.1.0";
-#my $comm_rw = "07antoN69sOi71SOiGA";
-my $comm_rw = "34antoN26sOi91SOiGA";
-my $comm_ro = "600meC73nerOK";
-my $snmp_version = "1";
-my $tftp = "/tftpboot";
-my $repository = "/opt/cvs/routers";
-my $home = "/opt/bin";
-my $sset = "/usr/bin/snmpset";
-my $sget = "/usr/bin/snmpget";
-my $rcs = "/usr/bin/rcs";
-my $ci = "/usr/bin/ci";
+my $mib_config        = ".1.3.6.1.4.1.9.2.1.55";
+my $mib_hostname      = ".1.3.6.1.4.1.9.2.1.3.0";
+my $oid_version       = ".1.3.6.1.2.1.1.1.0";
+my $comm_rw           = "34antoN26sOi91SOiGA";
+my $comm_ro           = "600meC73nerOK";
+my $snmp_version      = "1";
+my $sset              = "/usr/bin/snmpset";
+my $sget              = "/usr/bin/snmpget";
 
 my $host = "";
 my $host2 = "";
@@ -43,144 +60,158 @@ my $ssh_bin = "/usr/bin/ssh -v -o UserKnownHostsFile=/dev/null -o StrictHostKeyC
 my $ssh_login = "cvs";
 my $ssh_pass = "!Password123";
 
+
+#=== decide if we are development or production ==============================
+
+if(abs_path($0) =~ /\/dev/) {
+  $dev = 1;
+}
+$prefix = sprintf($prefix, $dev ? 'dev' : 'prod');
+
+
+#=== opening the logfile =====================================================
+
 open LOG, "tail -f -c 0 $cisco_logfile|";
 
-while (1) {
 
-while (<LOG>) {
-	/^(.+?) +(\d+) +([\d:]+) (.+?) .*SYS.*-CONFIG_I.*:(.*)$/ && do {
+#=== eternal loop ============================================================
+
+# this makes no sense, since quitting out of the inner loop won't cause
+# logfile reopening
+
+while(1) {
+
+
+#=== logfile reading loop ====================================================
+
+  while (<LOG>) {
+
+
+#--- this regex triggers the processing, anything else is ignored
+#--- the message being intercepted looks like the example below:
+
+# Jun  5 10:12:10 stos20.oskarmobil.cz 1030270: Jun  5 08:12:10.109: \
+# %SYS-5-CONFIG_I: Configured from console by rborelupo on vty0 \
+# (172.20.113.120)
+
+    /^(.+?) +(\d+) +([\d:]+) (.+?) .*SYS.*-CONFIG_I.*:(.*)$/ && do {
     
+      $host = $4;
+      $message = "$1 $2 $3 $5"; 
 
-	$host = $4;
-	$message = "$1 $2 $3 $5"; 
+      print qq{Host: "$host"\n};
+      print qq{Message: "$message"\n};
 
-	print "Host: \"$host\"\n";
-	print "Message: \"$message\"\n";
+      print qq{Running command: "$sget -v $snmp_version $host -c $comm_ro $mib_hostname"\n};
 
+      open(F,qq{$sget -v $snmp_version $host -c $comm_ro $mib_hostname |});
+      $resultstring = <F>;
+      close(F);
 
-	print "Running command: \"$sget -v $snmp_version $host -c $comm_ro $mib_hostname\"\n";
-
-	open(F,"$sget -v $snmp_version $host -c $comm_ro $mib_hostname |");
-		$resultstring = <F>;
-	close(F);
-
-	if ($resultstring) {
-		print "Resultstring: \"$resultstring\"\n";
-		($a, $host2, $c) = split('"',$resultstring);
-		print "Real hostname: \"$host2\"\n";
-	} else {
-		print "Cant get hostname from snmp!\n";
-		print "Parsing hostname from FQDN: $host.\n";
-		$host2 = $host;
-		$host2 =~ s/\..*//;
-		#($host2, $a, $c) = split('.',$host);
-		print "Real hostname: \"$host2\"\n";
-	}
-
+      if ($resultstring) {
+        print qq{Resultstring: "$resultstring"\n};
+        ($a, $host2, $c) = split('"',$resultstring);
+        print qq{Real hostname: "$host2"\n};
+      } else {
+        print "Can't get hostname from snmp!\n";
+        print "Parsing hostname from FQDN: $host.\n";
+        $host2 = $host;
+        $host2 =~ s/\..*//;
+        print "Real hostname: \"$host2\"\n";
+      }
 	
-	print "Checking IOS version...\n";
-	print "Running command: \"$sget -v $snmp_version $host -c $comm_ro $oid_version\"\n";
-        open(F,"$sget -v $snmp_version $host -c $comm_ro $oid_version |");
-                $resultstring = <F>;
-        close(F);
+      print "Checking IOS version...\n";
+      print qq{Running command: "$sget -v $snmp_version $host -c $comm_ro $oid_version"\n};
+      open(F,"$sget -v $snmp_version $host -c $comm_ro $oid_version |");
+      $resultstring = <F>;
+      close(F);
 
-	if ($resultstring =~ m/^.*Cisco IOS XR Software.*$/) {
-		#print "Resultstring: \"$resultstring\"\n";
-		print "IOS: Cisco IOS XR Software";
-		$ios_type = "xr";
-		$ssh_login = 'cvs1';
-		$ssh_pass =  'yJhNSX4MbV';
+      # IOS XR is handled by connecting over SSH
+      # apparently, this is merely done because TFTP doesn't
+      # properly handle mgmt interface in an VRF
 
-		my $ssh_cmd = "backup-config";
-                print "SSH Command: $ssh_cmd\n";
-                my $cmd = "$ssh_bin -l $ssh_login $host";
+      if ($resultstring =~ m/Cisco IOS XR Software/) {
+        print 'IOS: Cisco IOS XR Software';
+        $ios_type = 'xr';
+        $ssh_login = 'cvs1';
+        $ssh_pass =  'yJhNSX4MbV';
 
-                print "Running shell command: $cmd\n";
-                my $ssh = Expect->spawn("$cmd");
-                $ssh->log_stdout(0);
+        my $ssh_cmd = "backup-config";
+        print "SSH Command: $ssh_cmd\n";
+        my $cmd = "$ssh_bin -l $ssh_login $host";
 
-                if ($ssh->expect(undef, "password:")) {
-                        print "Inserting password...\n";
-                        print $ssh "$ssh_pass\r";
-                }
+        print "Running shell command: $cmd\n";
+        my $ssh = Expect->spawn("$cmd");
+        $ssh->log_stdout(0);
 
-                if ($ssh->expect(undef,'-re', '^RP/.*/RSP.*/CPU.*:.*NB00#$')) {
-                        print "Running remote ssh command...\n";
-                        #$ssh->log_file("$tftpdir/$host", "w");dd
-                        #open OUTPUT, '>', "$tftpdir/$host" or die "Can't create filehandle: $!";
-                        #print OUTPUT $ssh "$ssh_cmd\r";
-                        print $ssh "$ssh_cmd\r";
-                        #close(OUTPUT);
-			sleep 1;
-                }
+        if($ssh->expect(undef, "password:")) {
+          print "Inserting password...\n";
+          print $ssh "$ssh_pass\r";
+        }
+  
+        if($ssh->expect(undef,'-re', '^RP/.*/RSP.*/CPU.*:.*NB00#$')) {
+          print "Running remote ssh command...\n";
+          print $ssh "$ssh_cmd\r";
+         sleep 1;
+        }
 
-		if ($ssh->expect(undef,'-re', "control-c to abort")) {
-                        print "Confirmation...\n";
-                        print $ssh "\n";
-			sleep 1;
-                }
+        if($ssh->expect(undef,'-re', "control-c to abort")) {
+          print "Confirmation...\n";
+          print $ssh "\n";
+          sleep 1;
+        }
+  
+        if($ssh->expect(undef,'-re', "control-c to abort")) {
+          print "Confirmation...\n";
+          print $ssh "\n";
+	  sleep 1;
+        }
+  
+        if($ssh->expect(undef,'-re', '^RP/.*/RSP.*/CPU.*:.*NB00#$')) {
+          print "Logging out...\n";
+          print $ssh "exit\n";
+        }
 
-		if ($ssh->expect(undef,'-re', "control-c to abort")) {
-                        print "Confirmation...\n";
-                        print $ssh "\n";
-			sleep 1;
-                }
+        sleep 2;
 
-                if ($ssh->expect(undef,'-re', '^RP/.*/RSP.*/CPU.*:.*NB00#$')) {
-                        print "Logging out...\n";
-                        print $ssh "exit\n";
-                }
+      } 
+    
+      # normal IOS
+    
+      else {
+        print "IOS: Normal\n";
+        $ios_type = "normal";
+      }
 
-                sleep 2;
+      # assign admin group
 
-	} else {
-		print "IOS: Normal\n";
-		$ios_type = "normal";
-	}
+      if(
+        $host2 =~ m/^(bsc|rnc|bud|sitR|sitS|gtsR|bce|sitnb|strnb).+$/
+        || $host2 =~ m/^rcnR0(4|5)m$/
+        || $host2 =~ m/^.*(C2811OB).*$/
+        || $host2 =~ m/^vinR00i$/
+      ) {
+        $group = "nsu";
+      } elsif(
+        $host2 =~ m/^(vinPE02|sitPE0[23].*|A[123456]|CA|DCN|.*INFSERV.*)$/
+      ) {
+        $group = "infserv";
+      } else {
+        $group = "netit";
+      }
 
+      my $exec = sprintf(
+        '%s/bin/cvs_new_version.sh %s %s "%s" %s %s %s',
+        $prefix, $host, $host2, $message, $type, $group, $ios_type
+      );
+      print "Running CVS script...\n";
+      print $exec, "\n";
+      #system($exec);
+      print "Done...\n";
+    }
+    
+  }
 
-	#next if $host2;
-
-	#if($host =~ /^(isp|gts|sitr00i)/i) {
-	#	print "External host: \"$host2\"";
-	#	print "Running command: \"$sset -t 20 -r 2 -c $comm_rw $host $mib_config.$myip_new_external s cs/$host2\"\n";
-
-	#	next if system("$sset -t 20 -r 2 -c $comm_rw $host $mib_config.$myip_new_external s cs/$host2");
-
-	#} else {
-#		print "Normal host: \"$host2\"\n";
-#		sleep 15;
-#		print "Running command: \"$sset -t 200 -c $comm_rw  $host $mib_config.$myip s cs/$host2\"\n";
-		
-#      	next if system("$sset -t 200 -c $comm_rw  $host $mib_config.$myip s cs/$host2");
-	#}
-
-	if (($host2 =~ m/^(bsc|rnc|bud|sitR|sitS|gtsR|bce|sitnb|strnb).+$/) || ($host2 =~ m/^rcnR0(4|5)m$/) || ($host2 =~ m/^.*(C2811OB).*$/) || ($host2 =~ m/^vinR00i$/)) {
-		$group = "nsu";
-	} elsif ($host2 =~ m/^(vinPE02|sitPE0[23].*|A[123456]|CA|DCN|.*INFSERV.*)$/) {
-		$group = "infserv";
-	} else {
-		$group = "netit";
-	}
-
-	print "Running CVS script...\n";
-	print "/bin/bash /opt/cvs/prod/bin/cvs_new_version.sh $host $host2 \"$message\" $type $group $ios_type";
-	system("/bin/bash /opt/cvs/prod/bin/cvs_new_version.sh $host $host2 \"$message\" $type $group $ios_type");
-
-#	do {
-#		open RCS, "|$rcs -i -U $repository/$host2,v";
-#		print RCS "$host2 configuration"; close RCS;
-#	} if !-f "$repository/$host2,v";
-#		open RCS, "|$ci $tftp/cs/$host2 $repository/$host2,v"; 
-#		print RCS "$message\n"; close RCS;
-#
-#	print "Setting permission 0666 to CVS file...\n";
-#	system("/bin/chmod 666 $repository/$host2,v");
-
-	print "Done...\n"
-	} #REGEXP
-} #WHILE
-
-} #1
+}
 
 
