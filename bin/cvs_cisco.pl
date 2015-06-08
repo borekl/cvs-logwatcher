@@ -206,7 +206,7 @@ while(1) {
       );
       print "Running CVS script...\n";
       print $exec, "\n";
-      #system($exec);
+      system($exec);
       print "Done...\n";
     }
     
