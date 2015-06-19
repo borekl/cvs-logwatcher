@@ -40,6 +40,9 @@ my $dev               = 0;
 my $prefix            = '/opt/cvs/%s';
 my $id                = '[cvs]';
 
+my $ios_type;
+
+
 
 #=============================================================================
 #=== FUNCTIONS                                                             ===
@@ -132,7 +135,9 @@ sub snmp_get_value
 
 
 #=============================================================================
-# Execute batch of expect-response pairs.
+# Execute batch of expect-response pairs. If there's third value in the 
+# arrayref containing the exp-resp pair, it will be taken as a file to
+# begin logging into.
 #=============================================================================
 
 sub run_expect_batch
@@ -141,7 +146,8 @@ sub run_expect_batch
   
   my (
     $expect_def,   # 1. expect conversion definitions from the config.json
-    $host          # 2. hostname
+    $host,         # 2. hostname
+    $host_nodomain # 3. hostname without domain 
   ) = @_;
     
   #--- variables
@@ -164,11 +170,32 @@ sub run_expect_batch
 
     for my $row (@$chat) {
       my $chat_send = $row->[1];
+      my $chat_send_disp;
+      my $open_log = $row->[2];
+      
+      #--- replace %s with hostname
       $chat_send =~ s/%h/$host/g;
-      $logger->debug(
-        "$id Expect command: " . 
-        ($chat_send eq "\r" ? '[CR]' : $chat_send)
-      );
+      $chat_send =~ s/%H/$host_nodomain/g;
+      $open_log =~ s/%h/$host/g if $open_log;
+      $open_log =~ s/%H/$host_nodomain/g if $open_log;
+
+      #--- hide passwords, make CR visible
+      $chat_send_disp = $chat_send;
+      if($row->[0] =~ /password/i) {
+        $chat_send_disp = '***';
+      }
+      if($chat_send eq "\r") {
+        $chat_send_disp = '[CR]';
+      }
+      
+      #--- open log
+      if($open_log) {
+        $exh->log_file($open_log, 'w') or die;
+        $logger->info("$id Logfile opened: ", $open_log);
+      }
+      
+      #--- perform the handshake
+      $logger->debug("$id Expect command: " . $chat_send_disp);
       $exh->expect(undef, '-re', $row->[0]) or die;
       $exh->print($row->[1]);
       sleep($sleep) if $sleep;
@@ -252,6 +279,13 @@ open(LOG, "tail -f -c 0 $logfile|");
 
 #--- compile matching regex
 
+# the regular expression is defined externally, in configuration file, and
+# it must contain two (optionally three) named capture groups:
+#
+# host -- hostname of log entry source
+# msg  -- message to be used as commit log entry
+# name -- (optional) parsed out username a user who made the change
+
 my $regex_src = $cfg->{'logfiles'}{$logdef}{'match'};
 my $regex = qr/$regex_src/;
 
@@ -259,53 +293,80 @@ my $regex = qr/$regex_src/;
 
 while (<LOG>) {
 
-#--- this regex triggers the processing, anything else is ignored
-#--- the message being intercepted looks like the example below:
-
-# Jun  5 10:12:10 stos20.oskarmobil.cz 1030270: Jun  5 08:12:10.109: \
-# %SYS-5-CONFIG_I: Configured from console by rborelupo on vty0 \
-# (172.20.113.120)
+#--- match
 
   /$regex/ && do {
 
     #------------------------------------------------------------------------
-    #--- cisco --------------------------------------------------------------
+    #--- generic ------------------------------------------------------------
+    #------------------------------------------------------------------------
+
+    #--- basic data processing
+      
+    chomp;
+    $logger->debug(qq{$id Line matched: "$_"});
+    my ($host, $message, $chgwho) = ( $+{'host'}, $+{'msg'}, $+{'user'} );
+
+    #--- log some information
+    
+    $logger->info(qq{$id Source host: $host (from syslog)});
+    $logger->info(qq{$id Message:     }, $message);
+    $logger->info(qq{$id User:        }, $chgwho) if $chgwho;
+
+    #--- skip if ignored user
+    
+    # "ignoreusers" configuration object is a list of users that should
+    # be ignored and no processing be done for them (this is mainly for
+    # debugging purposes).
+    
+    if(
+      $chgwho
+      && exists $cfg->{'ignoreusers'}
+      && $chgwho ~~ @{$cfg->{'ignoreusers'}}
+    ) {
+      $logger->info(qq{$id Ignored user, skipping processing});
+      next;
+    }
+    
+    #--- get hostname without trailing domain name
+    
+    my $host_nodomain = $host;
+    $host_nodomain =~ s/\..*$//g;
+
+    #--- assign admin group
+    
+    my $group = get_admin_group($host_nodomain, $logdef);
+    if($group) {
+      $logger->info(qq{$id Admin group '$group'});
+    } else {
+      $logger->error(qq{$id No admin group for $host_nodomain, skipping});
+      next;
+    }
+      
+    #------------------------------------------------------------------------
+    #--- Cisco --------------------------------------------------------------
     #------------------------------------------------------------------------
 
     if($logdef eq 'cisco') {
 
-      chomp;
-      $logger->debug(qq{$id Line matched: "$_"});
-      my $host = $4;
-      my $message = "$1 $2 $3 $5"; 
-
-      $logger->info(qq{$id Source host: $host (from syslog)});
-      $logger->info(qq{$id Message: }, $message);
-
       #--- get hostname via SNMP
-      
-      # FIXME: Why messing with hostname from snmp/logfile?
-      # Shouldn't it suffice to use one or another?
+
+      # This is somewhat redundant and unnecessary, but for historical
+      # reasons, we keep this here. The thing is that in the RCS repository
+      # we use device's own hostname, retrieved with SNMP, not the name
+      # from syslog entry.
 
       $logger->info(qq{$id Getting hostname from SNMP});
-      my $host2 = snmp_get_value($host, 'cisco', 'hostName');
-      $host2 = $host if !$host2;
-      $host2 =~ s/\..*$//;
-      $logger->info(qq{$id Source host: $host2 (from SNMP)});
-      
+      my $host_snmp = snmp_get_value($host, 'cisco', 'hostName');
+      $host_snmp =~ s/\..*$//;
+      $logger->info(qq{$id Source host: $host_snmp (from SNMP)});
+      $host_nodomain = $host_snmp if $host_snmp;
+
+      #--- get sysDescr (to detect IOS XR)
+            
       $logger->info(qq{$id Checking IOS version});
       my $sysdescr = snmp_get_value($host, 'cisco', 'sysDescr');
 
-      #--- assign admin group
-      
-      my $group = get_admin_group($host2, 'cisco');
-      if($group) {
-        $logger->info(qq{$id Admin group '$group'});
-      } else {
-        $logger->error(qq{$id No admin group for $host2, skipping});
-        next;
-      }
-      
       #--- special handling for IOS XR routers
             
       # IOS XR is handled by connecting over SSH
@@ -317,30 +378,41 @@ while (<LOG>) {
       #
       # where file must be host's hostname in lowercase
 
-      my $ios_type = 'normal';
+      $ios_type = 'normal';
       if($sysdescr =~ /Cisco IOS XR/) {
-        $logger->info(qq{$id IOS XR detected on $host2});
+        $logger->info(qq{$id IOS XR detected on $host_nodomain});
         $ios_type = 'xr';
         run_expect_batch(
           $cfg->{'logfiles'}{$logdef}{'expect'},
-          $host
+          $host, $host_nodomain
         );
-        
       }
-
-      #--- run RCS commit
-      
-      my $exec = sprintf(
-        '%s/bin/cvs_new_version.sh %s %s "%s" %s %s %s',
-        $prefix, $host, $host2, $message, 'cisco', $group, $ios_type
-      );
-      
-      $logger->info(qq{$id Running CVS script});
-      $logger->debug(qq{$id Running command '$exec'});
-      system($exec);
-      $logger->info(qq{$id CVS script finished});
     }
 
-  }
+    #------------------------------------------------------------------------
+    #--- non-Cisco devices --------------------------------------------------
+    #------------------------------------------------------------------------
+
+    else {
+      run_expect_batch(
+        $cfg->{'logfiles'}{$logdef}{'expect'},
+        $host, $host_nodomain
+      );
+    }
     
+    #--- run RCS commit
+      
+    my $exec = sprintf(
+      '%s/bin/cvs_new_version.sh %s %s "%s" %s %s',
+      $prefix, $host, $host_nodomain, $message, $logdef, $group
+    );
+    $exec .= " $ios_type" if $ios_type;
+    
+    $logger->info(qq{$id Running CVS script});
+    $logger->debug(qq{$id Running command '$exec'});
+    system($exec);
+    $logger->info(qq{$id CVS script finished});
+
+  };
+
 }
