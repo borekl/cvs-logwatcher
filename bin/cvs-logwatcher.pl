@@ -13,7 +13,7 @@
 # 
 # (c) 2000 Expert & Partner Engineering
 # (c) 2009 Alexander Leonov / Vodafone CZ
-# (c) 2015 Borek Lupomesky / Vodafone CZ
+# (c) 2015 Borek Lupomesky / Vodafone CZ (mostly rewritten)
 #=============================================================================
 
 
@@ -39,14 +39,30 @@ my ($cfg, $logger);
 my $dev               = 0;
 my $prefix            = '/opt/cvs/%s';
 my $id                = '[cvs]';
-
-my $ios_type;
-
+my $tftpdir;
+my %replacements;
 
 
 #=============================================================================
 #=== FUNCTIONS                                                             ===
 #=============================================================================
+
+#=============================================================================
+# Perform token replacement in a string.
+#=============================================================================
+
+sub repl
+{
+  my $string = shift;
+
+  return undef if !$string;  
+  for my $k (keys %replacements) {
+    my $v = $replacements{$k};
+    $string =~ s/$k/$v/g;
+  }
+  return $string;
+}
+
 
 #=============================================================================
 # Gets admin group name from hostname. Admin group is decided based on
@@ -152,14 +168,13 @@ sub run_expect_batch
     
   #--- variables
   
-  my $spawn = $expect_def->{'spawn'};
+  my $spawn = repl($expect_def->{'spawn'});
   my $sleep = $expect_def->{'sleep'};
   my $chat = $expect_def->{'chat'};
   
   #--- spawn command
 
-  $spawn =~ s/%h/$host/g;
-  $logger->info("$id Spawning Expect instance ($spawn)");
+  $logger->debug("$id Spawning Expect instance ($spawn)");
   my $exh = Expect->spawn($spawn) or do {
     $logger->fatal("$id Failed to spawn Expect instance ($spawn)");
     die;
@@ -169,16 +184,10 @@ sub run_expect_batch
   eval {  #<--- eval begins here ---------------------------------------------
 
     for my $row (@$chat) {
-      my $chat_send = $row->[1];
+      my $chat_send = repl($row->[1]);
       my $chat_send_disp;
-      my $open_log = $row->[2];
+      my $open_log = repl($row->[2]);
       
-      #--- replace %s with hostname
-      $chat_send =~ s/%h/$host/g;
-      $chat_send =~ s/%H/$host_nodomain/g;
-      $open_log =~ s/%h/$host/g if $open_log;
-      $open_log =~ s/%H/$host_nodomain/g if $open_log;
-
       #--- hide passwords, make CR visible
       $chat_send_disp = $chat_send;
       if($row->[0] =~ /password/i) {
@@ -197,7 +206,7 @@ sub run_expect_batch
       #--- perform the handshake
       $logger->debug("$id Expect command: " . $chat_send_disp);
       $exh->expect(undef, '-re', $row->[0]) or die;
-      $exh->print($row->[1]);
+      $exh->print(repl($row->[1]));
       sleep($sleep) if $sleep;
     }
   
@@ -208,6 +217,8 @@ sub run_expect_batch
     $logger->error(qq{$id Expect failed});
     $exh->soft_close();
     die;
+  } else {
+    $exh->soft_close();
   }
 }
 
@@ -244,6 +255,17 @@ $prefix = sprintf($prefix, $dev ? 'dev' : 'prod');
 
 Log::Log4perl->init("$prefix/cfg/logging.conf");
 $logger = get_logger('CVS::Main');
+
+#--- initialze tftpdir variable
+
+$tftpdir = $cfg->{'config'}{'tftproot'};
+$tftpdir .= '/' . $cfg->{'config'}{'tftpdir'} if $cfg->{'config'}{'tftpdir'};
+$replacements{'%T'} = $tftpdir;
+$replacements{'%t'} = $cfg->{'config'}{'tftpdir'};
+
+#--- source address
+
+$replacements{'%i'} = $cfg->{'config'}{'src-ip'};
 
 #--- title
 
@@ -306,7 +328,8 @@ while (<LOG>) {
     chomp;
     $logger->debug(qq{$id Line matched: "$_"});
     my ($host, $message, $chgwho) = ( $+{'host'}, $+{'msg'}, $+{'user'} );
-
+    $replacements{'%h'} = $host;
+    
     #--- log some information
     
     $logger->info(qq{$id Source host: $host (from syslog)});
@@ -332,7 +355,8 @@ while (<LOG>) {
     
     my $host_nodomain = $host;
     $host_nodomain =~ s/\..*$//g;
-
+    $replacements{'%H'} = $host_nodomain;
+    
     #--- assign admin group
     
     my $group = get_admin_group($host_nodomain, $logdef);
@@ -360,7 +384,10 @@ while (<LOG>) {
       my $host_snmp = snmp_get_value($host, 'cisco', 'hostName');
       $host_snmp =~ s/\..*$//;
       $logger->info(qq{$id Source host: $host_snmp (from SNMP)});
-      $host_nodomain = $host_snmp if $host_snmp;
+      if($host_snmp) {
+        $host_nodomain = $host_snmp;
+        $replacements{'%H'} = $host_snmp;
+      }
 
       #--- get sysDescr (to detect IOS XR)
             
@@ -378,14 +405,52 @@ while (<LOG>) {
       #
       # where file must be host's hostname in lowercase
 
-      $ios_type = 'normal';
       if($sysdescr =~ /Cisco IOS XR/) {
         $logger->info(qq{$id IOS XR detected on $host_nodomain});
-        $ios_type = 'xr';
         run_expect_batch(
           $cfg->{'logfiles'}{$logdef}{'expect'},
           $host, $host_nodomain
         );
+      } 
+      
+      #--- non-IOS XR devices
+      
+      # Non-IOS XR Cisco devices provide their configurations upon triggering
+      # writeNet SNMP variable, which causes them to initiate TFTP upload
+      
+      else {
+        local $/;
+            
+        #--- request config upload: assemble the command
+        
+        my $exec = sprintf(
+          '%s -v%s -t200 -c%s %s %s.%s s %s/%s',
+          $cfg->{'snmp'}{'set'},                       # snmpset binary
+          $cfg->{'logfiles'}{$logdef}{'snmp'}{'ver'},  # SNMP version
+          $cfg->{'logfiles'}{$logdef}{'snmp'}{'rw'},   # RW community
+          $host,                                       # hostname
+          $cfg->{'mib'}{'writeNet'},                   # writeNet OID
+          $cfg->{'config'}{'src-ip'},                  # source IP addr
+          $cfg->{'config'}{'tftpdir'},                 # TFTP subdir
+          $host_nodomain                               # TFTP filename
+        );
+        $logger->debug(qq{$id Cmd: }, $exec);
+        
+        #--- request config upload: perform the command
+        
+        open(my $fh, '-|', $exec) || do {
+          $logger->fatal(qq{$id Failed to request config ($exec)});
+          next;
+        };
+        <$fh>;
+        close($fh);
+
+        my $file = sprintf(
+          '%s/%s', 
+          $tftpdir, 
+          $host_nodomain
+        );
+        
       }
     }
 
@@ -399,19 +464,133 @@ while (<LOG>) {
         $host, $host_nodomain
       );
     }
-    
-    #--- run RCS commit
-      
-    my $exec = sprintf(
-      '%s/bin/cvs_new_version.sh %s %s "%s" %s %s',
-      $prefix, $host, $host_nodomain, $message, $logdef, $group
+
+    #------------------------------------------------------------------------
+    #--- RCS check-in -------------------------------------------------------
+    #------------------------------------------------------------------------
+
+    my ($exec, $rv);
+    my $file = "$tftpdir/$host_nodomain";
+    my $repo = sprintf(
+      '%s/%s/%s', $prefix, $cfg->{'rcs'}{'rcsrepo'}, $group
     );
-    $exec .= " $ios_type" if $ios_type;
+
+    #--- check if we really have the input file
     
-    $logger->info(qq{$id Running CVS script});
-    $logger->debug(qq{$id Running command '$exec'});
-    system($exec);
-    $logger->info(qq{$id CVS script finished});
+    if(! -f $file) {
+      $logger->fatal(
+        "$id File $file does not exist, aborting"
+      );
+      exit(1);
+    } else {
+      $logger->info(
+        sprintf('%s File %s received, %d bytes', $id, $file, -s $file )
+      );
+    }
+    
+    #--- compare current version with the most recent CVS version
+    
+    # This is done to avoid storing configs that are not significantly
+    # changed. Normally, even if user doesn't make change to configrations
+    # on some platforms, the config files still change because they contain
+    # things like date of config generation etc. Following code goes over
+    # the files and compares them line by line, but disregard changes
+    # in comment lines (comment lines are not editable by user anyway).
+    
+    eval {
+      
+      my (@f_new, @f_repo);
+      
+      #--- read the newly obtained config file
+      
+      open(my $fh_new, $file) 
+        or die "Failed to open the new file\n";
+      while(<$fh_new>) {
+        chomp;
+        next if /^[!#]/;
+        push(@f_new, $_);
+      }
+      close($fh_new);
+      
+      #--- read the most recent CVS version
+
+      $exec = sprintf(
+        '%s -q -p %s/%s,v',
+        $cfg->{'rcs'}{'rcsco'},
+        $repo,
+        $host_nodomain
+      );
+      $logger->debug("$id Cmd: $exec");
+      open(my $fh_repo, "$exec |") 
+        or die "Failed to open the last CVS revision\n";
+      while(<$fh_repo>) {
+        chomp;
+        next if /^[!#]/;
+        push(@f_repo, $_);
+      }
+      close($fh_repo);
+      
+      #--- compare line counts
+      
+      if(scalar(@f_new) != scalar(@f_repo)) {
+        die "OK\n"
+      }
+      
+      #--- compare contents
+      
+      for(my $i = 0; $i < scalar(@f_new); $i++) {
+        if($f_new[$i] ne $f_repo[$i]) {
+          die "OK\n";
+        }
+      }
+      
+    };
+    if($@) {
+      chomp($@);
+      if($@ ne "OK") {
+        $logger->fatal("$id Failed to compare revisions ($@)");
+        next;
+      }
+    } else {
+      $logger->info("$id No change to current revision, skipping check-in");
+      unlink($file);
+      next;
+    }
+    
+    #--- create new revision
+    
+    # is this really needed? I have no idea.
+    if(-f "$repo/$host_nodomain,v") {
+      $exec = sprintf(
+        '%s -q -U %s/%s,v',
+        $cfg->{'rcs'}{'rcsctl'},                     # rcs binary
+        $repo, $host_nodomain                        # config in repo
+      );
+      $logger->debug("$id Cmd: $exec");
+      $rv = system($exec);
+      if($rv) {
+        $logger->error("$id Cmd failed with: ", $rv);
+        next;
+      }
+    }      
+      
+    $exec = sprintf(
+      '%s -q "-m%s" -t-%s %s/%s %s/%s,v',
+      $cfg->{'rcs'}{'rcsci'},                      # rcs ci binary
+      $message,                                    # commit message
+      $host,                                       # file description
+      $tftpdir,                                    # tftp directory
+      $host_nodomain,                              # config from device
+      $repo, $host_nodomain                        # config in repo
+    );
+    $logger->debug("$id Cmd: $exec");
+    $rv = system($exec);
+    if($rv) {
+      $logger->error("$id Cmd failed with: ", $rv);
+      next;
+    }
+    
+    $logger->info(qq{$id CVS check-in completed successfully});
 
   };
 
