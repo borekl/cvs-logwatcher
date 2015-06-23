@@ -253,7 +253,7 @@ $prefix = sprintf($prefix, $dev ? 'dev' : 'prod');
 
 #--- initialize Log4perl logging system
 
-Log::Log4perl->init("$prefix/cfg/logging.conf");
+Log::Log4perl->init_and_watch("$prefix/cfg/logging.conf", 60);
 $logger = get_logger('CVS::Main');
 
 #--- initialze tftpdir variable
@@ -405,7 +405,8 @@ while (<LOG>) {
       #
       # where file must be host's hostname in lowercase
 
-      if($sysdescr =~ /Cisco IOS XR/) {
+      my $xrre = $cfg->{'logfiles'}{$logdef}{'matchxr'};
+      if($sysdescr =~ /$xrre/) {
         $logger->info(qq{$id IOS XR detected on $host_nodomain});
         run_expect_batch(
           $cfg->{'logfiles'}{$logdef}{'expect'},
