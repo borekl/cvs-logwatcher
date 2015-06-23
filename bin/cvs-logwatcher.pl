@@ -269,8 +269,8 @@ $replacements{'%i'} = $cfg->{'config'}{'src-ip'};
 
 #--- title
 
-$logger->info(qq{$id --------------------------------------});
-$logger->info(qq{$id NetIT CVS // Cisco Log Watcher started});
+$logger->info(qq{$id --------------------------------});
+$logger->info(qq{$id NetIT CVS // Log Watcher started});
 $logger->info(qq{$id Mode is }, $dev ? 'development' : 'production');
 
 #--- processing command-line
