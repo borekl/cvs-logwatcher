@@ -239,7 +239,7 @@ sub run_expect_batch
 
 $dev = 1 if abs_path($0) =~ /\/dev/;
 $prefix = sprintf($prefix, $dev ? 'dev' : 'prod');
-$replacements{'%d'} = '-dev' if $dev;
+$replacements{'%d'} = ($dev ? '-dev' : '');
 
 #--- read configuration
 
@@ -274,7 +274,7 @@ $logger = get_logger('CVS::Main');
 #--- initialze tftpdir variable
 
 $tftpdir = $cfg->{'config'}{'tftproot'};
-$tftpdir .= '/' . repl($cfg->{'config'}{'tftpdir'}) if $cfg->{'config'}{'tftpdir'};
+$tftpdir .= '/' . $cfg->{'config'}{'tftpdir'} if $cfg->{'config'}{'tftpdir'};
 $tftpdir = repl($tftpdir);
 $replacements{'%T'} = $tftpdir;
 $replacements{'%t'} = repl($cfg->{'config'}{'tftpdir'});
