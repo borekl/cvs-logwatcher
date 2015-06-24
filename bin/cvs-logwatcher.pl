@@ -239,6 +239,7 @@ sub run_expect_batch
 
 $dev = 1 if abs_path($0) =~ /\/dev/;
 $prefix = sprintf($prefix, $dev ? 'dev' : 'prod');
+$replacements{'%d'} = '-dev' if $dev;
 
 #--- read configuration
 
