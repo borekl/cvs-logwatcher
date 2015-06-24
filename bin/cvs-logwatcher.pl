@@ -125,7 +125,7 @@ sub snmp_get_value
     $cfg->{'snmp'}{'get'},
     $cfg->{'logfiles'}{$logfile}{'snmp'}{'ver'},
     $host,
-    $cfg->{'logfiles'}{$logfile}{'snmp'}{'ro'},
+    repl($cfg->{'logfiles'}{$logfile}{'snmp'}{'ro'}),
     $cfg->{'mib'}{$oid}
   );
   
@@ -252,6 +252,20 @@ $replacements{'%d'} = '-dev' if $dev;
   $cfg = decode_json($cfg_json) or die;
 }
 
+#--- read keyring
+
+if(exists $cfg->{'config'}{'keyring'}) {
+  local $/;
+  my ($fh, $krg);
+  open($fh, '<', "$prefix/cfg/" . $cfg->{'config'}{'keyring'}) or die;
+  my $krg_json = <$fh>;
+  close($fh);
+  $krg = decode_json($krg_json) or die;
+  for my $k (keys %$krg) {
+    $replacements{$k} = $krg->{$k};
+  }
+}
+
 #--- initialize Log4perl logging system
 
 Log::Log4perl->init_and_watch("$prefix/cfg/logging.conf", 60);
@@ -260,9 +274,10 @@ $logger = get_logger('CVS::Main');
 #--- initialze tftpdir variable
 
 $tftpdir = $cfg->{'config'}{'tftproot'};
-$tftpdir .= '/' . $cfg->{'config'}{'tftpdir'} if $cfg->{'config'}{'tftpdir'};
+$tftpdir .= '/' . repl($cfg->{'config'}{'tftpdir'}) if $cfg->{'config'}{'tftpdir'};
+$tftpdir = repl($tftpdir);
 $replacements{'%T'} = $tftpdir;
-$replacements{'%t'} = $cfg->{'config'}{'tftpdir'};
+$replacements{'%t'} = repl($cfg->{'config'}{'tftpdir'});
 
 #--- source address
 
@@ -273,6 +288,7 @@ $replacements{'%i'} = $cfg->{'config'}{'src-ip'};
 $logger->info(qq{$id --------------------------------});
 $logger->info(qq{$id NetIT CVS // Log Watcher started});
 $logger->info(qq{$id Mode is }, $dev ? 'development' : 'production');
+$logger->info(qq{$id Tftp dir is $tftpdir});
 
 #--- processing command-line
 
@@ -427,14 +443,14 @@ while (<LOG>) {
         
         my $exec = sprintf(
           '%s -v%s -t200 -c%s %s %s.%s s %s/%s',
-          $cfg->{'snmp'}{'set'},                       # snmpset binary
-          $cfg->{'logfiles'}{$logdef}{'snmp'}{'ver'},  # SNMP version
-          $cfg->{'logfiles'}{$logdef}{'snmp'}{'rw'},   # RW community
-          $host,                                       # hostname
-          $cfg->{'mib'}{'writeNet'},                   # writeNet OID
-          $cfg->{'config'}{'src-ip'},                  # source IP addr
-          $cfg->{'config'}{'tftpdir'},                 # TFTP subdir
-          $host_nodomain                               # TFTP filename
+          $cfg->{'snmp'}{'set'},                           # snmpset binary
+          $cfg->{'logfiles'}{$logdef}{'snmp'}{'ver'},      # SNMP version
+          repl($cfg->{'logfiles'}{$logdef}{'snmp'}{'rw'}), # RW community
+          $host,                                           # hostname
+          $cfg->{'mib'}{'writeNet'},                       # writeNet OID
+          $cfg->{'config'}{'src-ip'},                      # source IP addr
+          repl($cfg->{'config'}{'tftpdir'}),               # TFTP subdir
+          $host_nodomain                                   # TFTP filename
         );
         $logger->debug(qq{$id Cmd: }, $exec);
         
