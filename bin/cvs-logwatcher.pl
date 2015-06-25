@@ -525,7 +525,8 @@ while (<LOG>) {
         or die "Failed to open the new file\n";
       while(<$fh_new>) {
         chomp;
-        next if /^[!#]/;
+        next if /^[!#]/;             # skip comments
+        next if /^ntp clock-period/; # skip ntp junk
         push(@f_new, $_);
       }
       close($fh_new);
