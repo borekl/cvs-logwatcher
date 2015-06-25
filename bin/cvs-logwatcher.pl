@@ -544,7 +544,8 @@ while (<LOG>) {
         or die "Failed to open the last CVS revision\n";
       while(<$fh_repo>) {
         chomp;
-        next if /^[!#]/;
+        next if /^[!#]/;             # skip comments
+        next if /^ntp clock-period/; # skip ntp junk
         push(@f_repo, $_);
       }
       close($fh_repo);
