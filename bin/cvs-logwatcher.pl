@@ -514,10 +514,21 @@ while (<LOG>) {
     # things like date of config generation etc. Following code goes over
     # the files and compares them line by line, but disregard changes
     # in comment lines (comment lines are not editable by user anyway).
+    # What is considered a comment or other non-significant part of the
+    # configuration is decided by matching regex from "ignoreline"
+    # configuration item.
     
     eval {
       
       my (@f_new, @f_repo);
+      my ($re_src, $re_com);
+      
+      #--- compile regex (if any)
+      
+      if(exists $cfg->{'logfiles'}{$logdef}{'ignoreline'}) {
+        $re_src = $cfg->{'logfiles'}{$logdef}{'ignoreline'};
+        $re_com = qr/$re_src/;
+      }
       
       #--- read the newly obtained config file
       
@@ -525,8 +536,7 @@ while (<LOG>) {
         or die "Failed to open the new file\n";
       while(<$fh_new>) {
         chomp;
-        next if /^[!#]/;             # skip comments
-        next if /^ntp clock-period/; # skip ntp junk
+        next if $re_src && /$re_com/;
         push(@f_new, $_);
       }
       close($fh_new);
@@ -544,8 +554,7 @@ while (<LOG>) {
         or die "Failed to open the last CVS revision\n";
       while(<$fh_repo>) {
         chomp;
-        next if /^[!#]/;             # skip comments
-        next if /^ntp clock-period/; # skip ntp junk
+        next if $re_src && /$re_com/;
         push(@f_repo, $_);
       }
       close($fh_repo);
