@@ -523,6 +523,7 @@ while (1) {
         $logger->fatal(
           "$id2 File $file does not exist, skipping further processing"
         );
+        next;
       } else {
         $logger->info(
           sprintf('%s File %s received, %d bytes', $id2, $file, -s $file )
