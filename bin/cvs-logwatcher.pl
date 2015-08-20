@@ -466,7 +466,7 @@ while (1) {
 #--- request config upload: assemble the command
           
           my $exec = sprintf(
-            '%s -v%s -t200 -c%s %s %s.%s s %s/%s',
+            '%s -v%s -t60 -r1 -c%s %s %s.%s s %s/%s',
             $cfg->{'snmp'}{'set'},                           # snmpset binary
             $cfg->{'logfiles'}{$logdef}{'snmp'}{'ver'},      # SNMP version
             repl($cfg->{'logfiles'}{$logdef}{'snmp'}{'rw'}), # RW community
