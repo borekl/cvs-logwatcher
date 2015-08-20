@@ -327,7 +327,7 @@ while (1) {
     @logfiles
   );
 
-#--- timeout reached withou any data arriving
+#--- timeout reached without any data arriving
   
   if(!$nfound) {
     $logger->info('[cvs] Heartbeat');
