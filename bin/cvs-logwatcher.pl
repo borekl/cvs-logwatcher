@@ -29,6 +29,7 @@ use Cwd qw(abs_path);
 use Log::Log4perl qw(get_logger);
 use JSON;
 use File::Tail;
+use Getopt::Long;
 
 
 
@@ -43,6 +44,7 @@ my $id                = '[cvs]';
 my $id2;
 my $tftpdir;
 my %replacements;
+
 
 
 #=============================================================================
@@ -227,6 +229,23 @@ sub run_expect_batch
 
 
 #=============================================================================
+# Display usage help
+#=============================================================================
+
+sub help
+{
+  print "Usage: cvs-logwatcher.pl [options]\n\n";
+  print "  --help            get this information text\n";
+  print "  --trigger=LOGID   trigger processing as if LOGID matched\n";
+  print "  --host=HOST       define host for --trigger\n";
+  print "  --user=USER       define user for --trigger\n";
+  print "  --msg=MSG         define message for --trigger\n";
+  print "\n";
+}
+
+
+
+#=============================================================================
 #===================  _  =====================================================
 #===  _ __ ___   __ _(_)_ __  ================================================
 #=== | '_ ` _ \ / _` | | '_ \  ===============================================
@@ -236,6 +255,23 @@ sub run_expect_batch
 #=============================================================================
 #=============================================================================
 
+
+#--- get command-line options
+
+my $cmd_trigger;
+my $cmd_host;
+my $cmd_user;
+my $cmd_msg;
+
+if(!GetOptions(
+  'trigger=s' => \$cmd_trigger,
+  'host=s'    => \$cmd_host,
+  'user=s'    => \$cmd_user,
+  'msg=s'     => \$cmd_msg
+)) {
+  help();
+  exit(1);
+}
 
 #--- decide if we are development or production
 
@@ -291,6 +327,25 @@ $logger->info(qq{$id --------------------------------});
 $logger->info(qq{$id NetIT CVS // Log Watcher started});
 $logger->info(qq{$id Mode is }, $dev ? 'development' : 'production');
 $logger->info(qq{$id Tftp dir is $tftpdir});
+
+#--- verify command-line parameters
+
+if($cmd_trigger) {
+  if(grep { $_ eq lc($cmd_trigger) } keys %{$cfg->{'logfiles'}}) {
+    if(!$cmd_host) {
+      $logger->fatal(qq{$id No target host defined, aborting});
+      exit(1);
+    }
+  } else {
+    $logger->fatal(qq{$id --trigger refers to non-existent log id, aborting});
+    exit(1);
+  }
+}
+$cmd_trigger = lc($cmd_trigger);
+$logger->info(sprintf('%s Explicit target %s triggered', $id, $cmd_trigger));
+$logger->info(sprintf('%s Explicit host is %s', $id, $cmd_host));
+$logger->info(sprintf('%s Explicit user is %s', $id, $cmd_user)) if $cmd_user;
+$logger->info(sprintf('%s Explicit message is "%s"', $id, $cmd_msg)) if $cmd_msg;
 
 #--- initializing the logfiles
 
