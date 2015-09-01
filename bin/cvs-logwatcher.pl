@@ -142,19 +142,50 @@ sub snmp_get_value
   };
   my $val = <FH>;
   close(FH);
-  $logger->debug(
-    sprintf("%s SNMP get returned %d", $id2, $?)
-  );
+  if($?) {
+    $logger->debug(
+      sprintf("%s SNMP get returned %d", $id2, $?)
+    );
+    return undef;
+  }
   
   #--- parse
 
   $val =~ s/\R/ /mg;
-  $val =~ s/^.*= STRING:\s"(.*)".*$/$1/;
+  $val =~ s/^.*= STRING:\s+(.*)$/$1/;
+  $val =~ s/^\"(.*)\"$/$1/;  # hostName is returned with quotes
 
   #--- finish
   
   return $val;
 }
+
+
+
+#=============================================================================
+# Get system name for Cisco device.
+#=============================================================================
+
+sub snmp_get_cisco_name
+{
+  my $host = shift;
+  my $logdef = shift;
+  
+  #--- first use hostName
+  my $host_snmp = snmp_get_value($host, $logdef, 'hostName');
+  return $host_snmp if $host_snmp;
+  
+  #--- if that fails, try sysName
+  $host_snmp = snmp_get_value($host, $logdef, 'sysName');
+  if($host_snmp) {
+    $host_snmp =~ s/\..*$//;
+    return $host_snmp;
+  }
+
+  #--- otherwise fail  
+  return undef;
+}
+
 
 
 #=============================================================================
@@ -401,8 +432,7 @@ sub process_match
   # from syslog entry.
 
     $logger->info(qq{$id2 Getting hostname from SNMP});
-    $host_snmp = snmp_get_value($host, 'cisco', 'hostName');
-    $host_snmp =~ s/\..*$//;
+    $host_snmp = snmp_get_cisco_name($host, $logdef);
     $logger->info(qq{$id2 Source host: $host_snmp (from SNMP)});
     if($host_snmp) {
       $host_nodomain = $host_snmp;
