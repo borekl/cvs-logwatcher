@@ -142,6 +142,9 @@ sub snmp_get_value
   };
   my $val = <FH>;
   close(FH);
+  $logger->debug(
+    sprintf("%s SNMP get returned %d", $id2, $?)
+  );
   
   #--- parse
 
@@ -229,6 +232,344 @@ sub run_expect_batch
 
 
 #=============================================================================
+# Read file into array of lines
+#=============================================================================
+
+sub read_file
+{
+  my $file = shift;
+  my $regex = shift;
+  my @re;
+  
+  open(my $fh, $file) or return undef;
+  while(<$fh>) {
+    chomp;
+    next if $regex && /$regex/;
+    push(@re, $_);
+  }
+  close($fh);
+
+  return \@re;
+}
+
+
+
+#=============================================================================
+# Compare a file with its last revision in CVS and return true if there is a
+# difference.
+#=============================================================================
+
+sub compare_to_prev
+{
+  #--- arguments
+
+  my $logdef = shift;   # logfile id  
+  my $host = shift;     # host
+  my $file = shift;     # file to compare
+  my $repo = shift;     # repository file
+
+  $logger->debug("$id2 ", "compare_to_prev() entry");
+  $logger->debug("$id2 ", "logdef = $logdef");
+  $logger->debug("$id2 ", "host = $host");
+  $logger->debug("$id2 ", "file = $file");
+  $logger->debug("$id2 ", "repo = $repo");
+  
+  #--- other variables
+  
+  my ($re_src, $re_com);
+  
+  #--- compile regex (if any)
+        
+  if(exists $cfg->{'logfiles'}{$logdef}{'ignoreline'}) {
+    $re_src = $cfg->{'logfiles'}{$logdef}{'ignoreline'};
+    $re_com = qr/$re_src/;
+  }
+  $logger->debug("$id2 ", "Ignoreline regexp: $re_src");
+  
+  #--- read the new file
+  
+  my $f_new = read_file($file, $re_com);
+  return 0 if !ref($f_new);
+  
+  #--- read the most recent CVS version
+
+  my $exec = sprintf(
+    '%s -q -p %s/%s,v',
+    $cfg->{'rcs'}{'rcsco'},
+    $repo,
+    $host
+  );
+  $logger->debug("$id2 Cmd: $exec");
+  my $f_repo = read_file("$exec |", $re_com);
+  return 0 if !ref($f_repo);
+
+  #--- compare line counts
+
+  $logger->debug("$id2 ", sprintf("Linecounts: new = %d, repo = %d", scalar(@$f_new), scalar(@$f_repo)));  
+  if(scalar(@$f_new) != scalar(@$f_repo)) {
+    return 1;
+  }
+  
+  #--- compare contents
+        
+  for(my $i = 0; $i < scalar(@$f_new); $i++) {
+    if($f_new->[$i] ne $f_repo->[$i]) {
+      return 1;
+    }
+  }
+
+  #--- return false
+  
+  return 0;
+  
+}
+
+
+
+#=============================================================================
+# Process a match
+#=============================================================================
+
+sub process_match
+{
+  #--- arguments
+  
+  my (
+    $logdef,
+    $host,
+    $msg,
+    $chgwho,
+    $force
+  ) = @_;
+  
+  #--- other variables
+  
+  my $host_nodomain;    # hostname without domain
+  my $host_snmp;        # hostname from SNMP
+  my $group;            # administrative group
+  my $sysdescr;         # system description from SNMP
+  
+  #--- log some information
+      
+  $logger->info(qq{$id2 Source host: $host (from syslog)});
+  $logger->info(qq{$id2 Message:     }, $msg);
+  $logger->info(qq{$id2 User:        }, $chgwho) if $chgwho;
+
+  #--- skip if ignored user
+       
+  # "ignoreusers" configuration object is a list of users that should
+  # be ignored and no processing be done for them (this is mainly for
+  # debugging purposes).
+      
+  if(
+    $chgwho
+    && exists $cfg->{'ignoreusers'}
+    && $chgwho ~~ @{$cfg->{'ignoreusers'}}
+  ) {
+    $logger->info(qq{$id2 Ignored user, skipping processing});
+    return;
+  }
+  
+  #--- get hostname without trailing domain name
+      
+  $host_nodomain = $host;
+  $host_nodomain =~ s/\..*$//g;
+  $replacements{'%H'} = $host_nodomain;
+  $replacements{'%h'} = $host;
+
+  #--- assign admin group
+      
+  $group = get_admin_group($host_nodomain, $logdef);
+  if($group) {
+    $logger->info(qq{$id2 Admin group '$group'});
+  } else {
+    $logger->error(qq{$id2 No admin group for $host_nodomain, skipping});
+    return;
+  }
+  
+  #--------------------------------------------------------------------------
+  #--- Cisco ----------------------------------------------------------------
+  #--------------------------------------------------------------------------
+
+  if($logdef eq 'cisco') {
+
+  #--- get hostname via SNMP
+    
+  # This is somewhat redundant and unnecessary, but for historical
+  # reasons, we keep this here. The thing is that in the RCS repository
+  # we use device's own hostname, retrieved with SNMP, not the name
+  # from syslog entry.
+
+    $logger->info(qq{$id2 Getting hostname from SNMP});
+    $host_snmp = snmp_get_value($host, 'cisco', 'hostName');
+    $host_snmp =~ s/\..*$//;
+    $logger->info(qq{$id2 Source host: $host_snmp (from SNMP)});
+    if($host_snmp) {
+      $host_nodomain = $host_snmp;
+      $replacements{'%H'} = $host_snmp;
+    }
+  
+  #--- get sysDescr (to detect IOS XR)
+              
+    $logger->info(qq{$id2 Checking IOS version});
+    $sysdescr = snmp_get_value($host, 'cisco', 'sysDescr');
+  
+  #--- special handling for IOS XR routers
+              
+  # IOS XR is handled by connecting over SSH
+  # apparently, this is merely done because TFTP doesn't
+  # properly handle mgmt interface in an VRF.
+  # On the IOS XR boxes there's "backup-config" alias defined as:
+  #
+  # alias backup-config copy running-config tftp://172.20.113.120/cs/<file> vrf MGMT
+  #
+  # where file must be host's hostname in lowercase
+
+    my $xrre = $cfg->{'logfiles'}{$logdef}{'matchxr'};
+    if($sysdescr =~ /$xrre/) {
+      $logger->info(qq{$id2 IOS XR detected on $host_nodomain});
+      run_expect_batch(
+        $cfg->{'logfiles'}{$logdef}{'expect'},
+        $host, $host_nodomain
+      );
+    } 
+
+  #--- non-IOS XR devices
+
+  # Non-IOS XR Cisco devices provide their configurations upon triggering
+  # writeNet SNMP variable, which causes them to initiate TFTP upload
+        
+    else {
+      local $/;
+
+  #--- request config upload: assemble the command
+          
+      my $exec = sprintf(
+        '%s -v%s -t60 -r1 -c%s %s %s.%s s %s/%s',
+        $cfg->{'snmp'}{'set'},                           # snmpset binary
+        $cfg->{'logfiles'}{$logdef}{'snmp'}{'ver'},      # SNMP version
+        repl($cfg->{'logfiles'}{$logdef}{'snmp'}{'rw'}), # RW community
+        $host,                                           # hostname
+        $cfg->{'mib'}{'writeNet'},                       # writeNet OID
+        $cfg->{'config'}{'src-ip'},                      # source IP addr
+        repl($cfg->{'config'}{'tftpdir'}),               # TFTP subdir
+        $host_nodomain                                   # TFTP filename
+      );
+      $logger->debug(qq{$id2 Cmd: }, $exec);
+
+  #--- request config upload: perform the command
+          
+      open(my $fh, '-|', $exec) || do {
+        $logger->fatal(qq{$id2 Failed to request config ($exec)});
+        next;
+      };
+      <$fh>;
+      close($fh);
+
+      #my $file = sprintf(
+      #  '%s/%s', 
+      #  $tftpdir, 
+      #  $host_nodomain
+      #);
+    }
+  }
+
+  #--------------------------------------------------------------------------
+  #--- non-Cisco devices ----------------------------------------------------
+  #--------------------------------------------------------------------------
+
+  else {
+    run_expect_batch(
+      $cfg->{'logfiles'}{$logdef}{'expect'},
+      $host, $host_nodomain
+    );
+  }
+
+  #--------------------------------------------------------------------------
+  #--- RCS check-in ---------------------------------------------------------
+  #--------------------------------------------------------------------------
+
+  my ($exec, $rv);
+  my $file = "$tftpdir/$host_nodomain";
+  my $repo = sprintf(
+    '%s/%s/%s', $prefix, $cfg->{'rcs'}{'rcsrepo'}, $group
+  );
+
+  #--- check if we really have the input file
+      
+  if(! -f $file) {
+    $logger->fatal(
+      "$id2 File $file does not exist, skipping further processing"
+    );
+    return;
+  } else {
+    $logger->info(
+      sprintf('%s File %s received, %d bytes', $id2, $file, -s $file )
+    );
+  }
+
+  #--- compare current version with the most recent CVS version
+
+  # This is done to avoid storing configs that are not significantly
+  # changed. Normally, even if user doesn't make change to configrations
+  # on some platforms, the config files still change because they contain
+  # things like date of config generation etc. Following code goes over
+  # the files and compares them line by line, but disregard changes
+  # in comment lines (comment lines are not editable by user anyway).
+  # What is considered a comment or other non-significant part of the
+  # configuration is decided by matching regex from "ignoreline"
+  # configuration item.
+      
+  if(!compare_to_prev($logdef, $host_nodomain, $file, $repo)) {
+    if($force) {
+      $logger->info("$id2 No change to current revision, but --force in effect");
+    } else {
+      $logger->info("$id2 No change to current revision, skipping check-in");
+      return;
+    }
+  }
+
+  #--- create new revision
+    
+  # is this really needed? I have no idea.
+  if(-f "$repo/$host_nodomain,v") {
+    $exec = sprintf(
+      '%s -q -U %s/%s,v',
+      $cfg->{'rcs'}{'rcsctl'},                     # rcs binary
+      $repo, $host_nodomain                        # config in repo
+    );
+    $logger->debug("$id2 Cmd: $exec");
+    $rv = system($exec);
+    if($rv) {
+      $logger->error("$id2 Cmd failed with: ", $rv);
+      return;
+    }
+  }      
+    
+  $exec = sprintf(
+    '%s -q "-m%s" -t-%s %s/%s %s/%s,v',
+    $cfg->{'rcs'}{'rcsci'},                      # rcs ci binary
+    $msg,                                        # commit message
+    $host,                                       # file description
+    $tftpdir,                                    # tftp directory
+    $host_nodomain,                              # config from device
+    $repo, $host_nodomain                        # config in repo
+  );
+  $logger->debug("$id2 Cmd: $exec");
+  $rv = system($exec);
+  if($rv) {
+    $logger->error("$id2 Cmd failed with: ", $rv);
+    return;
+  }
+  
+  $logger->info(qq{$id2 CVS check-in completed successfully});
+
+}
+
+
+
+
+#=============================================================================
 # Display usage help
 #=============================================================================
 
@@ -237,9 +578,10 @@ sub help
   print "Usage: cvs-logwatcher.pl [options]\n\n";
   print "  --help            get this information text\n";
   print "  --trigger=LOGID   trigger processing as if LOGID matched\n";
-  print "  --host=HOST       define host for --trigger\n";
+  print "  --host=HOST       define host for --trigger or limit processing to it\n";
   print "  --user=USER       define user for --trigger\n";
   print "  --msg=MSG         define message for --trigger\n";
+  print "  --force           force check-in when using --trigger\n";
   print "\n";
 }
 
@@ -262,13 +604,17 @@ my $cmd_trigger;
 my $cmd_host;
 my $cmd_user;
 my $cmd_msg;
+my $cmd_force;
+my $cmd_help;
 
 if(!GetOptions(
   'trigger=s' => \$cmd_trigger,
   'host=s'    => \$cmd_host,
   'user=s'    => \$cmd_user,
-  'msg=s'     => \$cmd_msg
-)) {
+  'msg=s'     => \$cmd_msg,
+  'force'     => \$cmd_force,
+  'help'      => \$cmd_help
+) || $cmd_help) {
   help();
   exit(1);
 }
@@ -309,7 +655,7 @@ if(exists $cfg->{'config'}{'keyring'}) {
 Log::Log4perl->init_and_watch("$prefix/cfg/logging.conf", 60);
 $logger = get_logger('CVS::Main');
 
-#--- initialze tftpdir variable
+#--- initialize tftpdir variable
 
 $tftpdir = $cfg->{'config'}{'tftproot'};
 $tftpdir .= '/' . $cfg->{'config'}{'tftpdir'} if $cfg->{'config'}{'tftpdir'};
@@ -341,11 +687,22 @@ if($cmd_trigger) {
     exit(1);
   }
 }
-$cmd_trigger = lc($cmd_trigger);
-$logger->info(sprintf('%s Explicit target %s triggered', $id, $cmd_trigger));
-$logger->info(sprintf('%s Explicit host is %s', $id, $cmd_host));
-$logger->info(sprintf('%s Explicit user is %s', $id, $cmd_user)) if $cmd_user;
-$logger->info(sprintf('%s Explicit message is "%s"', $id, $cmd_msg)) if $cmd_msg;
+if($cmd_trigger) {
+  $cmd_trigger = lc($cmd_trigger);
+  $logger->info(sprintf('%s Explicit target %s triggered', $id, $cmd_trigger));
+  $logger->info(sprintf('%s Explicit host is %s', $id, $cmd_host));
+  $logger->info(sprintf('%s Explicit user is %s', $id, $cmd_user)) if $cmd_user;
+  $logger->info(sprintf('%s Explicit message is "%s"', $id, $cmd_msg)) if $cmd_msg;
+}
+
+#--- manual check
+
+if($cmd_trigger) {
+  $id2 = sprintf('[cvs/%s]', $cmd_trigger);
+  process_match($cmd_trigger, $cmd_host, $cmd_msg, $cmd_user, $cmd_force);
+  $logger->info("$id2 Finishing");
+  exit(0);
+}
 
 #--- initializing the logfiles
 
@@ -371,6 +728,7 @@ if(scalar(@logfiles) == 0) {
 
 #--- main loop
 
+$logger->debug($id, ' Entering main loop');
 while (1) {
 
 #--- wait for new data becoming available in any of the watched logs
@@ -407,300 +765,30 @@ while (1) {
       $file eq $cfg->{'logfiles'}{$_}{'logfile'} 
     } (keys %{$cfg->{'logfiles'}});
     if(!$logdef) { 
-      $logger->fatal(qq{[cvs] No log id found for '$file', aborting'});
-      die "No log id found for '$file'!"; 
+      $logger->fatal("[cvs] No log id found for '$file', aborting'");
+      die "No log id found for '$file'!";
     }
     $id2 = sprintf('[cvs/%s]', $logdef);
     
     #--- match the line
     my $regex = $cfg->{'logfiles'}{$logdef}{'match'};
     $l =~ /$regex/ && do {
-
-#----------------------------------------------------------------------------
-#--- generic ----------------------------------------------------------------
-#----------------------------------------------------------------------------
-
-#--- basic data processing
-        
       $logger->debug("$id2 $l");
-      my ($host, $message, $chgwho) = ( $+{'host'}, $+{'msg'}, $+{'user'} );
-      $replacements{'%h'} = $host;
-      
-#--- log some information
-      
-      $logger->info(qq{$id2 Source host: $host (from syslog)});
-      $logger->info(qq{$id2 Message:     }, $message);
-      $logger->info(qq{$id2 User:        }, $chgwho) if $chgwho;
 
-#--- skip if ignored user
-       
-# "ignoreusers" configuration object is a list of users that should
-# be ignored and no processing be done for them (this is mainly for
-# debugging purposes).
-      
-      if(
-        $chgwho
-        && exists $cfg->{'ignoreusers'}
-        && $chgwho ~~ @{$cfg->{'ignoreusers'}}
-      ) {
-        $logger->info(qq{$id2 Ignored user, skipping processing});
-        next;
-      }
-      
-#--- get hostname without trailing domain name
-      
-      my $host_nodomain = $host;
-      $host_nodomain =~ s/\..*$//g;
-      $replacements{'%H'} = $host_nodomain;
-      
-#--- assign admin group
-      
-      my $group = get_admin_group($host_nodomain, $logdef);
-      if($group) {
-        $logger->info(qq{$id2 Admin group '$group'});
-      } else {
-        $logger->error(qq{$id2 No admin group for $host_nodomain, skipping});
-        next;
-      }
-        
-#----------------------------------------------------------------------------
-#--- Cisco ------------------------------------------------------------------
-#----------------------------------------------------------------------------
-
-      if($logdef eq 'cisco') {
-
-        #--- get hostname via SNMP
-
-# This is somewhat redundant and unnecessary, but for historical
-# reasons, we keep this here. The thing is that in the RCS repository
-# we use device's own hostname, retrieved with SNMP, not the name
-# from syslog entry.
-
-        $logger->info(qq{$id2 Getting hostname from SNMP});
-        my $host_snmp = snmp_get_value($host, 'cisco', 'hostName');
-        $host_snmp =~ s/\..*$//;
-        $logger->info(qq{$id2 Source host: $host_snmp (from SNMP)});
-        if($host_snmp) {
-          $host_nodomain = $host_snmp;
-          $replacements{'%H'} = $host_snmp;
-        }
-
-#--- get sysDescr (to detect IOS XR)
-              
-        $logger->info(qq{$id2 Checking IOS version});
-        my $sysdescr = snmp_get_value($host, 'cisco', 'sysDescr');
-
-#--- special handling for IOS XR routers
-              
-# IOS XR is handled by connecting over SSH
-# apparently, this is merely done because TFTP doesn't
-# properly handle mgmt interface in an VRF.
-# On the IOS XR boxes there's "backup-config" alias defined as:
-#
-# alias backup-config copy running-config tftp://172.20.113.120/cs/<file> vrf MGMT
-#
-# where file must be host's hostname in lowercase
-
-        my $xrre = $cfg->{'logfiles'}{$logdef}{'matchxr'};
-        if($sysdescr =~ /$xrre/) {
-          $logger->info(qq{$id2 IOS XR detected on $host_nodomain});
-          run_expect_batch(
-            $cfg->{'logfiles'}{$logdef}{'expect'},
-            $host, $host_nodomain
+      # ignore hosts if --host is specified
+      if(!$cmd_trigger && $cmd_host) {
+        if($+{'host'} !~ /^$cmd_host\./i) {
+          $logger->info(
+            sprintf("%s Ignoring host %s (--host)", $id2, $+{'host'})
           );
-        } 
-        
-#--- non-IOS XR devices
-
-# Non-IOS XR Cisco devices provide their configurations upon triggering
-# writeNet SNMP variable, which causes them to initiate TFTP upload
-        
-        else {
-          local $/;
-              
-#--- request config upload: assemble the command
-          
-          my $exec = sprintf(
-            '%s -v%s -t60 -r1 -c%s %s %s.%s s %s/%s',
-            $cfg->{'snmp'}{'set'},                           # snmpset binary
-            $cfg->{'logfiles'}{$logdef}{'snmp'}{'ver'},      # SNMP version
-            repl($cfg->{'logfiles'}{$logdef}{'snmp'}{'rw'}), # RW community
-            $host,                                           # hostname
-            $cfg->{'mib'}{'writeNet'},                       # writeNet OID
-            $cfg->{'config'}{'src-ip'},                      # source IP addr
-            repl($cfg->{'config'}{'tftpdir'}),               # TFTP subdir
-            $host_nodomain                                   # TFTP filename
-          );
-          $logger->debug(qq{$id2 Cmd: }, $exec);
-          
-#--- request config upload: perform the command
-          
-          open(my $fh, '-|', $exec) || do {
-            $logger->fatal(qq{$id2 Failed to request config ($exec)});
-            next;
-          };
-          <$fh>;
-          close($fh);
-
-          my $file = sprintf(
-            '%s/%s', 
-            $tftpdir, 
-            $host_nodomain
-          );
-          
-        }
-      }
-
-#----------------------------------------------------------------------------
-#--- non-Cisco devices ------------------------------------------------------
-#----------------------------------------------------------------------------
-
-      else {
-        run_expect_batch(
-          $cfg->{'logfiles'}{$logdef}{'expect'},
-          $host, $host_nodomain
-        );
-      }
-
-#----------------------------------------------------------------------------
-#--- RCS check-in -----------------------------------------------------------
-#----------------------------------------------------------------------------
-
-      my ($exec, $rv);
-      my $file = "$tftpdir/$host_nodomain";
-      my $repo = sprintf(
-        '%s/%s/%s', $prefix, $cfg->{'rcs'}{'rcsrepo'}, $group
-      );
-
-#--- check if we really have the input file
-      
-      if(! -f $file) {
-        $logger->fatal(
-          "$id2 File $file does not exist, skipping further processing"
-        );
-        next;
-      } else {
-        $logger->info(
-          sprintf('%s File %s received, %d bytes', $id2, $file, -s $file )
-        );
-      }
-      
-#--- compare current version with the most recent CVS version
-
-# This is done to avoid storing configs that are not significantly
-# changed. Normally, even if user doesn't make change to configrations
-# on some platforms, the config files still change because they contain
-# things like date of config generation etc. Following code goes over
-# the files and compares them line by line, but disregard changes
-# in comment lines (comment lines are not editable by user anyway).
-# What is considered a comment or other non-significant part of the
-# configuration is decided by matching regex from "ignoreline"
-# configuration item.
-      
-      eval {
-        
-        my (@f_new, @f_repo);
-        my ($re_src, $re_com);
-        
-#--- compile regex (if any)
-        
-        if(exists $cfg->{'logfiles'}{$logdef}{'ignoreline'}) {
-          $re_src = $cfg->{'logfiles'}{$logdef}{'ignoreline'};
-          $re_com = qr/$re_src/;
-        }
-        
-#--- read the newly obtained config file
-        
-        open(my $fh_new, $file) 
-          or die "Failed to open the new file\n";
-        while(<$fh_new>) {
-          chomp;
-          next if $re_src && /$re_com/;
-          push(@f_new, $_);
-        }
-        close($fh_new);
-        
-#--- read the most recent CVS version
-
-        $exec = sprintf(
-          '%s -q -p %s/%s,v',
-          $cfg->{'rcs'}{'rcsco'},
-          $repo,
-          $host_nodomain
-        );
-        $logger->debug("$id2 Cmd: $exec");
-        open(my $fh_repo, "$exec |") 
-          or die "Failed to open the last CVS revision\n";
-        while(<$fh_repo>) {
-          chomp;
-          next if $re_src && /$re_com/;
-          push(@f_repo, $_);
-        }
-        close($fh_repo);
-        
-#--- compare line counts
-        
-        if(scalar(@f_new) != scalar(@f_repo)) {
-          die "OK\n"
-        }
-        
-#--- compare contents
-        
-        for(my $i = 0; $i < scalar(@f_new); $i++) {
-          if($f_new[$i] ne $f_repo[$i]) {
-            die "OK\n";
-          }
-        }
-        
-      };
-      if($@) {
-        chomp($@);
-        if($@ ne "OK") {
-          $logger->fatal("$id2 Failed to compare revisions ($@)");
           next;
         }
-      } else {
-        $logger->info("$id2 No change to current revision, skipping check-in");
-        unlink($file);
-        next;
       }
-      
-#--- create new revision
-      
-      # is this really needed? I have no idea.
-      if(-f "$repo/$host_nodomain,v") {
-        $exec = sprintf(
-          '%s -q -U %s/%s,v',
-          $cfg->{'rcs'}{'rcsctl'},                     # rcs binary
-          $repo, $host_nodomain                        # config in repo
-        );
-        $logger->debug("$id2 Cmd: $exec");
-        $rv = system($exec);
-        if($rv) {
-          $logger->error("$id2 Cmd failed with: ", $rv);
-          next;
-        }
-      }      
-        
-      $exec = sprintf(
-        '%s -q "-m%s" -t-%s %s/%s %s/%s,v',
-        $cfg->{'rcs'}{'rcsci'},                      # rcs ci binary
-        $message,                                    # commit message
-        $host,                                       # file description
-        $tftpdir,                                    # tftp directory
-        $host_nodomain,                              # config from device
-        $repo, $host_nodomain                        # config in repo
-      );
-      $logger->debug("$id2 Cmd: $exec");
-      $rv = system($exec);
-      if($rv) {
-        $logger->error("$id2 Cmd failed with: ", $rv);
-        next;
-      }
-      
-      $logger->info(qq{$id2 CVS check-in completed successfully});
-    }
+
+      # start processing
+      process_match($logdef, $+{'host'}, $+{'msg'}, $+{'user'});
+    };
   }
-  
+
 }
-  
+    
