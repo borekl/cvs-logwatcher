@@ -152,9 +152,9 @@ sub snmp_get_value
   #--- parse
 
   $val =~ s/\R/ /mg;
-  $val =~ s/^.*= STRING:\s+(.*)$/$1/;
+  $val =~ s/^.*= STRING:\s+(.*?)\s*$/$1/;
   $val =~ s/^\"(.*)\"$/$1/;  # hostName is returned with quotes
-
+  
   #--- finish
   
   return $val;
@@ -299,12 +299,6 @@ sub compare_to_prev
   my $file = shift;     # file to compare
   my $repo = shift;     # repository file
 
-  $logger->debug("$id2 ", "compare_to_prev() entry");
-  $logger->debug("$id2 ", "logdef = $logdef");
-  $logger->debug("$id2 ", "host = $host");
-  $logger->debug("$id2 ", "file = $file");
-  $logger->debug("$id2 ", "repo = $repo");
-  
   #--- other variables
   
   my ($re_src, $re_com);
@@ -423,6 +417,10 @@ sub process_match
   #--------------------------------------------------------------------------
 
   if($logdef eq 'cisco') {
+  
+  #--- default platform
+  
+    my $platform = 'ios';
 
   #--- get hostname via SNMP
     
@@ -439,34 +437,36 @@ sub process_match
       $replacements{'%H'} = $host_snmp;
     }
   
-  #--- get sysDescr (to detect IOS XR)
+  #--- get sysDescr (to detect OS platform)
               
     $logger->info(qq{$id2 Checking IOS version});
     $sysdescr = snmp_get_value($host, 'cisco', 'sysDescr');
+    
+  #--- detect platform (IOS XR or NX-OS)
   
-  #--- special handling for IOS XR routers
-              
-  # IOS XR is handled by connecting over SSH
-  # apparently, this is merely done because TFTP doesn't
-  # properly handle mgmt interface in an VRF.
-  # On the IOS XR boxes there's "backup-config" alias defined as:
-  #
-  # alias backup-config copy running-config tftp://172.20.113.120/cs/<file> vrf MGMT
-  #
-  # where file must be host's hostname in lowercase
+    my $m = $cfg->{'logfiles'}{$logdef}{'matchxr'};
+    if($sysdescr =~ /$m/) { $platform = 'ios-xr'; }
+    $m = $cfg->{'logfiles'}{$logdef}{'matchnxos'};
+    if($sysdescr =~ /$m/) { $platform = 'nx-os'; }
+    $logger->info(sprintf("%s Platform is %s", $id2, uc($platform)));
+  
+  #--- IOS XR / NX-OS devices
 
-    my $xrre = $cfg->{'logfiles'}{$logdef}{'matchxr'};
-    if($sysdescr =~ /$xrre/) {
-      $logger->info(qq{$id2 IOS XR detected on $host_nodomain});
+  # bacause getting the config upon setting writeNet SNMP variable
+  # doesn't work properly in IOS XR and NX-OS, we use alternate way
+  # of doing things, that is loggin in over SSH and issuing a copy
+  # command              
+
+    if($platform eq 'ios-xr' || $platform eq 'nx-os') {
       run_expect_batch(
-        $cfg->{'logfiles'}{$logdef}{'expect'},
+        $cfg->{'logfiles'}{$logdef}{'expect'}{$platform},
         $host, $host_nodomain
       );
     } 
+    
+  #--- IOS devices
 
-  #--- non-IOS XR devices
-
-  # Non-IOS XR Cisco devices provide their configurations upon triggering
+  # IOS Cisco devices provide their configurations upon triggering
   # writeNet SNMP variable, which causes them to initiate TFTP upload
         
     else {
