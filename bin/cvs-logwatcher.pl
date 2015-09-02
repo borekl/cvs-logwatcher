@@ -577,8 +577,9 @@ sub process_match
   }      
     
   $exec = sprintf(
-    '%s -q "-m%s" -t-%s %s/%s %s/%s,v',
+    '%s -q -w%s "-m%s" -t-%s %s/%s %s/%s,v',
     $cfg->{'rcs'}{'rcsci'},                      # rcs ci binary
+    $chgwho,                                     # author
     $msg,                                        # commit message
     $host,                                       # file description
     $tftpdir,                                    # tftp directory
@@ -816,7 +817,12 @@ while (1) {
       }
 
       # start processing
-      process_match($logdef, $+{'host'}, $+{'msg'}, $+{'user'});
+      process_match(
+        $logdef, 
+        $+{'host'}, 
+        $+{'msg'}, 
+        $+{'user'} ? $+{'user'} : 'unknown'
+      );
     };
   }
 
