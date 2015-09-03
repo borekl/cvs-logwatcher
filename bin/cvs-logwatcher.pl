@@ -360,11 +360,11 @@ sub process_match
   #--- arguments
   
   my (
-    $logdef,
-    $host,
-    $msg,
-    $chgwho,
-    $force
+    $logdef,            # 1. log id
+    $host,              # 2. host
+    $msg,               # 3. message
+    $chgwho,            # 3. username
+    $force              # 4. --force option
   ) = @_;
   
   #--- other variables
