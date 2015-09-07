@@ -405,7 +405,7 @@ sub process_match
       
   $group = get_admin_group($host_nodomain, $logdef);
   if($group) {
-    $logger->info(qq{$id2 Admin group '$group'});
+    $logger->info(qq{$id2 Admin group: $group});
   } else {
     $logger->error(qq{$id2 No admin group for $host_nodomain, skipping});
     return;
@@ -428,7 +428,7 @@ sub process_match
   # we use device's own hostname, retrieved with SNMP, not the name
   # from syslog entry.
 
-    $logger->info(qq{$id2 Getting hostname from SNMP});
+    $logger->debug(qq{$id2 Getting hostname from SNMP});
     $host_snmp = snmp_get_cisco_name($host, $logdef);
     $logger->info(qq{$id2 Source host: $host_snmp (from SNMP)});
     if($host_snmp) {
@@ -438,7 +438,7 @@ sub process_match
   
   #--- get sysDescr (to detect OS platform)
               
-    $logger->info(qq{$id2 Checking IOS version});
+    $logger->debug(qq{$id2 Checking IOS version});
     $sysdescr = snmp_get_value($host, 'cisco', 'sysDescr');
     
   #--- detect platform (IOS XR or NX-OS)
@@ -447,7 +447,7 @@ sub process_match
     if($sysdescr =~ /$m/) { $platform = 'ios-xr'; }
     $m = $cfg->{'logfiles'}{$logdef}{'matchnxos'};
     if($sysdescr =~ /$m/) { $platform = 'nx-os'; }
-    $logger->info(sprintf("%s Platform is %s", $id2, uc($platform)));
+    $logger->info(sprintf("%s Platform:    %s", $id2, uc($platform)));
   
   #--- IOS XR / NX-OS devices
 
