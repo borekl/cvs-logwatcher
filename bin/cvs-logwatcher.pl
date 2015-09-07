@@ -83,7 +83,6 @@ sub get_admin_group
     $logfile
   ) = @_;
 
-
   #--- do the matching
   
   for my $grp (keys $cfg->{'groups'}) {
@@ -495,12 +494,6 @@ sub process_match
       };
       <$fh>;
       close($fh);
-
-      #my $file = sprintf(
-      #  '%s/%s', 
-      #  $tftpdir, 
-      #  $host_nodomain
-      #);
     }
   }
 
