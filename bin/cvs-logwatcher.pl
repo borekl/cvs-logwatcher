@@ -136,7 +136,7 @@ sub snmp_get_value
   #--- run the command
 
   $logger->debug(qq{$id2 Cmd: $cmd});  
-  open(FH, "$cmd |") || do {
+  open(FH, "$cmd 2>/dev/null |") || do {
     $logger->fatal(qq{$id2 Failed to execute SNMP get ($cmd), aborting});
     die;
   };
@@ -325,7 +325,7 @@ sub compare_to_prev
     $host
   );
   $logger->debug("$id2 Cmd: $exec");
-  my $f_repo = read_file("$exec |", $re_com);
+  my $f_repo = read_file("$exec 2>/dev/null |", $re_com);
   return 0 if !ref($f_repo);
 
   #--- compare line counts
