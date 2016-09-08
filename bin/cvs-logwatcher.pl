@@ -124,7 +124,7 @@ sub snmp_get_value
   #--- SNMP command to run
   
   my $cmd = sprintf(
-    '%s -v %d %s -c %s %s',
+    '%s -Lf /dev/null -v %d %s -c %s %s',
     $cfg->{'snmp'}{'get'},
     $cfg->{'logfiles'}{$logfile}{'snmp'}{'ver'},
     $host,
