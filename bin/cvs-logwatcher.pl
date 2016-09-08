@@ -62,9 +62,38 @@ sub repl
   return undef if !$string;  
   for my $k (keys %replacements) {
     my $v = $replacements{$k};
+    $k = quotemeta($k);
     $string =~ s/$k/$v/g;
   }
   return $string;
+}
+
+
+#=============================================================================
+# This function adds the list of arguments into %replacements under keys
+# %+0, %+1 etc. It also removes all keys that are in this form (ie. purges
+# previous replacements).
+#
+# This is used to enable using capture groups in expect response strings.
+#=============================================================================
+
+sub repl_capture_groups
+{
+  #--- purge old values
+
+  for my $key (keys %replacements) {
+    if($key =~ /^%\+\d$/) {
+      delete $replacements{$key};
+    }
+  }
+
+  #--- add new values
+
+  for(my $i = 0; $i < scalar(@_); $i++) {
+    if($_[$i]) {
+      $replacements{ sprintf('%%+%d', $i) } = $_[$i];
+    }
+  }
 }
 
 
@@ -220,6 +249,7 @@ sub run_expect_batch
 
   eval {  #<--- eval begins here ---------------------------------------------
 
+    my $i = 1;
     for my $row (@$chat) {
       my $chat_send = repl($row->[1]);
       my $chat_send_disp;
@@ -233,18 +263,36 @@ sub run_expect_batch
       if($chat_send eq "\r") {
         $chat_send_disp = '[CR]';
       }
-      
+
       #--- open log
       if($open_log) {
         $exh->log_file($open_log, 'w') or die;
         $logger->info("$id2 Logfile opened: ", $open_log);
       }
-      
+
       #--- perform the handshake
-      $logger->debug("$id2 Expect command: " . $chat_send_disp);
+      $logger->debug(
+        sprintf('%s Expect string(%d): %s', $id2, $i, $row->[0])
+      );
       $exh->expect(undef, '-re', $row->[0]) or die;
+      my @g = $exh->matchlist();
+      $logger->debug(
+        sprintf('%s Expect receive(%d): %s', $id2, $i, $exh->match())
+      );
+      if(@g) {
+        $logger->debug(
+          sprintf('%s Expect groups(%d): %s', $id2, $i, join(',', @g))
+        );
+      }
+      repl_capture_groups(@g);
+      $logger->debug(
+        sprintf('%s Expect send(%d): ', $id2, $i, repl($chat_send_disp))
+      );
       $exh->print(repl($row->[1]));
       sleep($sleep) if $sleep;
+
+      #--- next line
+      $i++;
     }
   
   }; #<--- eval ends here ----------------------------------------------------
