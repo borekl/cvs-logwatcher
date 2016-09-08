@@ -274,7 +274,7 @@ sub run_expect_batch
       $logger->debug(
         sprintf('%s Expect string(%d): %s', $id2, $i, $row->[0])
       );
-      $exh->expect(undef, '-re', $row->[0]) or die;
+      $exh->expect($cfg->{'expmax'} // 300, '-re', $row->[0]) or die;
       my @g = $exh->matchlist();
       $logger->debug(
         sprintf('%s Expect receive(%d): %s', $id2, $i, $exh->match())
