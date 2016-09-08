@@ -509,27 +509,31 @@ sub process_match
   }
 
   #--------------------------------------------------------------------------
+
+  eval {
+
+  #--------------------------------------------------------------------------
   #--- RCS check-in ---------------------------------------------------------
   #--------------------------------------------------------------------------
 
-  my ($exec, $rv);
-  my $file = "$tftpdir/$host_nodomain";
-  my $repo = sprintf(
-    '%s/%s/%s', $prefix, $cfg->{'rcs'}{'rcsrepo'}, $group
-  );
+    my ($exec, $rv);
+    my $file = "$tftpdir/$host_nodomain";
+    my $repo = sprintf(
+      '%s/%s/%s', $prefix, $cfg->{'rcs'}{'rcsrepo'}, $group
+    );
 
   #--- check if we really have the input file
       
-  if(! -f $file) {
-    $logger->fatal(
-      "$id2 File $file does not exist, skipping further processing"
-    );
-    return;
-  } else {
-    $logger->info(
-      sprintf('%s File %s received, %d bytes', $id2, $file, -s $file )
-    );
-  }
+    if(! -f $file) {
+      $logger->fatal(
+        "$id2 File $file does not exist, skipping further processing"
+      );
+      die;
+    } else {
+      $logger->info(
+        sprintf('%s File %s received, %d bytes', $id2, $file, -s $file )
+      );
+    }
 
   #--- compare current version with the most recent CVS version
 
@@ -543,51 +547,61 @@ sub process_match
   # configuration is decided by matching regex from "ignoreline"
   # configuration item.
       
-  if(!compare_to_prev($logdef, $host_nodomain, $file, $repo)) {
-    if($force) {
-      $logger->info("$id2 No change to current revision, but --force in effect");
-    } else {
-      $logger->info("$id2 No change to current revision, skipping check-in");
-      return;
+    if(!compare_to_prev($logdef, $host_nodomain, $file, $repo)) {
+      if($force) {
+        $logger->info("$id2 No change to current revision, but --force in effect");
+      } else {
+        $logger->info("$id2 No change to current revision, skipping check-in");
+        die;
+      }
     }
-  }
 
   #--- create new revision
-    
-  # is this really needed? I have no idea.
-  if(-f "$repo/$host_nodomain,v") {
+
+    # is this really needed? I have no idea.
+    if(-f "$repo/$host_nodomain,v") {
+      $exec = sprintf(
+        '%s -q -U %s/%s,v',
+        $cfg->{'rcs'}{'rcsctl'},                     # rcs binary
+        $repo, $host_nodomain                        # config in repo
+      );
+      $logger->debug("$id2 Cmd: $exec");
+      $rv = system($exec);
+      if($rv) {
+        $logger->error("$id2 Cmd failed with: ", $rv);
+        die;
+      }
+    }
+
     $exec = sprintf(
-      '%s -q -U %s/%s,v',
-      $cfg->{'rcs'}{'rcsctl'},                     # rcs binary
+      '%s -q -w%s "-m%s" -t-%s %s/%s %s/%s,v',
+      $cfg->{'rcs'}{'rcsci'},                      # rcs ci binary
+      $chgwho,                                     # author
+      $msg,                                        # commit message
+      $host,                                       # file description
+      $tftpdir,                                    # tftp directory
+      $host_nodomain,                              # config from device
       $repo, $host_nodomain                        # config in repo
     );
     $logger->debug("$id2 Cmd: $exec");
     $rv = system($exec);
     if($rv) {
       $logger->error("$id2 Cmd failed with: ", $rv);
-      return;
+      die;
     }
-  }      
-    
-  $exec = sprintf(
-    '%s -q -w%s "-m%s" -t-%s %s/%s %s/%s,v',
-    $cfg->{'rcs'}{'rcsci'},                      # rcs ci binary
-    $chgwho,                                     # author
-    $msg,                                        # commit message
-    $host,                                       # file description
-    $tftpdir,                                    # tftp directory
-    $host_nodomain,                              # config from device
-    $repo, $host_nodomain                        # config in repo
-  );
-  $logger->debug("$id2 Cmd: $exec");
-  $rv = system($exec);
-  if($rv) {
-    $logger->error("$id2 Cmd failed with: ", $rv);
-    return;
-  }
-  
-  $logger->info(qq{$id2 CVS check-in completed successfully});
 
+    $logger->info(qq{$id2 CVS check-in completed successfully});
+
+  #--- end of eval ----------------------------------------------------------
+
+  };
+
+  #--- remove the file
+
+  if(-f "$tftpdir/$host_nodomain" ) {
+    $logger->debug(qq{$id2 Removing file $tftpdir/$host_nodomain});
+    unlink("$tftpdir/$host_nodomain");
+  }
 }
 
 
