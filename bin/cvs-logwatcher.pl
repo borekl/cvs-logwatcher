@@ -208,7 +208,7 @@ sub run_expect_batch
   my $spawn = repl($expect_def->{'spawn'});
   my $sleep = $expect_def->{'sleep'};
   my $chat = $expect_def->{'chat'};
-  
+
   #--- spawn command
 
   $logger->debug("$id2 Spawning Expect instance ($spawn)");
