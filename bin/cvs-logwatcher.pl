@@ -458,7 +458,14 @@ sub process_match
     $logger->error(qq{$id2 No admin group for $host_nodomain, skipping});
     return;
   }
-  
+
+  #--- ensure reachability
+
+  if($cfg->{'ping'} && system(repl($cfg->{'ping'})) >> 8) {
+    $logger->error(qq{$id2 Host $host_nodomain unreachable, skipping});
+    return;
+  }
+
   #--------------------------------------------------------------------------
   #--- Cisco ----------------------------------------------------------------
   #--------------------------------------------------------------------------
