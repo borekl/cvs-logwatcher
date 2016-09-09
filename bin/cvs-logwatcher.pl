@@ -790,9 +790,36 @@ if($cmd_trigger) {
 
 #--- manual check
 
+# manual run can be executed from the command line by using the
+# --trigger=LOGID option. This might be used for creating the initial commit
+# or for devices that cannot be triggered using logfiles. When using this mode
+# --host=HOST must be used to tell which device to check; --user and --msg
+# should be used to specify commit author and message.
+
 if($cmd_trigger) {
   $id2 = sprintf('[cvs/%s]', $cmd_trigger);
-  process_match($cmd_trigger, $cmd_host, $cmd_msg, $cmd_user, $cmd_force);
+
+  # get list of hosts to process
+  my @hosts;
+  if($cmd_host =~ /^@(.*)$/) {
+    my $group = $1;
+    @hosts = @{$cfg->{'devgroups'}{$group}};
+  } else {
+    @hosts = ( $cmd_host );
+  }
+
+  # process each host
+  for my $host (@hosts) {
+    process_match(
+      $cmd_trigger,
+      $host,
+      $cmd_msg // 'Manual check-in',
+      $cmd_user // 'cvs',
+      $cmd_force
+    );
+  }
+
+  # exit
   $logger->info("$id2 Finishing");
   exit(0);
 }
