@@ -2,18 +2,12 @@
 
 #=============================================================================
 # CVS LOG WATCHER
-#
+# """""""""""""""
 # Script to pull configuration log out of a network device after detecting
-# change by observing the device's logfile. The usual way of getting the
-# config file is by configuring a transfer by setting SNMP variables and
-# getting the file over TFTP.
-# For IOS XR device, interactive session over SSH is used instead. Note, that
-# this is done because the TFTP transfer doesn't properly use the admin
-# interface in VRF, not that TFTP wouldn't be available.
-# 
-# (c) 2000 Expert & Partner Engineering
-# (c) 2009 Alexander Leonov / Vodafone CZ
-# (c) 2015 Borek Lupomesky / Vodafone CZ (mostly rewritten)
+# change by observing the device's logfile. The details of operation are
+# configured in cfg/config.json file.
+#
+# See README.md for more details.
 #=============================================================================
 
 
