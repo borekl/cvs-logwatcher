@@ -1,0 +1,322 @@
+#=============================================================================
+# cvs-logwatcher.pl configuration file
+# """""""""""""""""
+# Note: This file is in "extended" JSON format; comments and trailing commas
+# are allowed.
+#
+# This file configures the configuration of the cvs-logwatcher.pl script. The
+# configuration is deep and involved. Please read carefully the information
+# in the comments before making changes.
+#
+# In certain strings, following tokens can be used:
+#
+# %d - becomes '-dev' if running in development mode, otherwise ''
+# %T - full tftp target directory
+# %t - tftp subdirectory relative to tftp root
+# %i - source IP address
+# %h - device hostname as gleaned given in the monitored logfile
+# %H - same as %h but without domain
+#=============================================================================
+
+{
+
+#=============================================================================
+# CONFIG section
+#=============================================================================
+
+  "config" : {
+
+    #--- path to logfiles, no trailing slash, better be absolute
+
+    "logprefix" : "/var/log",
+
+    #--- the IP address that will be used to make all requests; this should
+    #--- be preferred outgoing interface of the server
+
+    "src-ip"    : "172.16.1.10",
+
+    #--- the tftp server's root directory; this should not be a subdirectory
+    #--- thereof, use "tftpdir" for this
+
+    "tftproot"  : "/tftpboot",
+
+    #--- directory within "tftproot", it must be a relative path without
+    #--- trailing slash; token "%d" will be replace with "-dev" when running
+    #--- in development mode (allows for keeping development files separate)
+
+    "tftpdir"   : "cs%d",
+
+    #--- defines external file that may be used to define passwords; this
+    #--- allows to separate the secrets away from this configuration file
+
+    "keyring"   : "keyring.json",
+
+    #--- how often is the script checking the logfiles
+
+    "tailint"   : 4,
+
+    #--- how long will the script wait for output to arrive in a logfile;
+    #--- if this time expires, the logfile will be reopened and message is
+    #--- written into the log
+
+    "tailmax"   : 3600,
+
+    #--- expect timeout; this defines how long will the expect scripts wait
+    #--- for input
+
+    "expmax"    : 240
+  },
+
+#=============================================================================
+# RCS section
+#=============================================================================
+
+  "rcs" : {
+
+    #--- subdirectory of the scripts main directory where the RCS repository
+    #--- will be located
+
+    "rcsrepo"   : "data",
+
+    #--- location of RCS binaries
+
+    "rcsctl"    : "/usr/bin/rcs",
+    "rcsci"     : "/usr/bin/ci",
+    "rcsco"     : "/usr/bin/co"
+  },
+
+#=============================================================================
+# MIB section
+#=============================================================================
+
+  "mib" : {
+    "writeNet" : ".1.3.6.1.4.1.9.2.1.55",
+    "hostName" : ".1.3.6.1.4.1.9.2.1.3.0",
+    "sysName" : ".1.3.6.1.2.1.1.5.0",
+    "sysDescr" : ".1.3.6.1.2.1.1.1.0"
+  },
+
+#=============================================================================
+# SNMP UTILS section
+#=============================================================================
+
+  "snmp"  : {
+
+    #--- define location of snmpget and snmpset
+
+    "get" : "/usr/bin/snmpget",
+    "set" : "/usr/bin/snmpset"
+  },
+
+#=============================================================================
+# PING section
+#=============================================================================
+
+  #--- define the ping command used to ascertain that target is alive
+
+  "ping" : "ping -c 1 -W 2 %h >/dev/null 2>&1",
+
+#=============================================================================
+# GROUPS section
+#
+# This assigns hosts (ie. network devices we are getting the configs off) into
+# groups. These groups are stored separately in the RCS repository, so that,
+# for example, different teams may have different directories etc. The
+# assignments are done by matching a set of regular expressions that are
+# defined in this section.
+#=============================================================================
+
+  "groups" : {
+    "corenet" : [
+      "^(bsc|rnc|bud|sitR|sitS|gtsR|bce|sitnb|strnb).+$",
+      "^rcnR0[45]m$"
+    ],
+    "lanserv" : [
+      "^(vinPE02|sitPE0[23].*|A[123456]|CA|DCN|.*INFSERV.*)$"
+    ]
+  },
+
+#=============================================================================
+# IGNORE USERS section
+#
+# This defines a list of usernames who won't trigger action by cvs-logwatcher
+# when they make config change; this is useful for other system tools that
+# might trigger unwanted repository check-ins.
+#=============================================================================
+
+  "ignoreusers" : [
+    "cvs",
+    "alu-stats",
+    "account_stat"
+  ],
+
+#=============================================================================
+# LOGFILES section
+#
+# This is the most complex and most involved section. Each key under
+# "logfiles" defines one logfile and its handling. Note, that "cisco" key has
+# some special options and handling hardcoded for it (this should be
+# regularized). Apart from this, the keys can be named freely.
+#=============================================================================
+
+  "logfiles" : {
+
+    #--- "cisco" has some special hardcoded options and handling; the default
+    #--- way of getting a config is to trigger the "writeNet" SNMP OID, which
+    #--- causes the device to upload its configuration via tftp; this requires
+    #--- running tftp server, of course; the other two options are for IOS XR
+    #--- and NX-OS switches, where the SNMP/tftp method doesn't work the way
+    #--- we need
+
+    "cisco" : {
+
+    #--- default group for this log, can be overriden by "groups" (see above)
+
+      "defgrp"     : "netit",
+
+    #--- logfile name
+
+      "logfile"    : "cisco_all.log",
+
+    #--- this regexp triggers the processing if a matching line appears in
+    #--- the logfile; it should provide "host", "user" and "msg" named capture
+    #--- groups if possible
+
+      "match"      : "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\\w+).*)\\s*$",
+
+    #--- following two options define regexp matched against sysDescr, these
+    #--- allow special processing for IOS XR and NX-OS"
+
+      "matchxr"    : "Cisco IOS XR",
+      "matchnxos"  : "Cisco NX-OS",
+
+    #--- device config lines matching this regexp are not considered for the
+    #--- purposes of checking whether the configuration changed
+
+      "ignoreline" : "^(!|ntp clock-period)",
+
+    #--- this defines RO and RW SNMP communities; the %N tokens defined in
+    #--- file referenced in config->keyring (see above) can and should be
+    #--- used
+    
+      "snmp" : {
+        "ro" : "%1",
+        "rw" : "%2",
+        "ver" : 1
+      },
+
+    #--- two expect definitions have special meaning in the "cisco" log: "ios-xr"
+    #--- and "nx-os", triggered by the "matchxr" or "matchnxos" regexps
+    #--- respectively; % tokens can be used in expect scripts, see the top of
+    #--- this file
+
+      "expect" : {
+        "ios-xr" : {
+
+    #--- command to spawn a session with the device
+
+          "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",
+
+    #--- wait this long (in seconds) between each line
+
+          "sleep" : 1,
+
+    #--- expect chat; list of expect/send pair; expect value is a regexp
+
+          "chat" : [
+            [ "password:",                   "%3\r"    ],
+            [ "^RP/.*/RSP.*/CPU.*:.*NB00#$", "copy running-config tftp://%i/%t/%H vrf MGMT\r" ],
+            [ "control-c to abort",          "\r"              ],
+            [ "control-c to abort",          "\r"              ],
+            [ "^RP/.*/RSP.*/CPU.*:.*NB00#$", "exit\r"          ]
+          ]
+        },
+        "nx-os" : {
+          "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",
+          "sleep" : 1,
+          "chat" : [
+            [ "Password:", "%3\r" ],
+            [ "#", "echo $(SRCVRF)\r" ],
+            [ "^([a-z]+)\\r?$", "copy running-config tftp://%i/%t/%H vrf %+0\r" ],
+            [ "#", "exit\r" ]
+          ]
+        }
+      }
+    },
+
+    #--- definition for Alcatel-Lucent 7750SR, this is completely regular
+    #--- definition as opposed to the cisco def above
+
+    "alu" : {
+      "defgrp"     : "nsu",
+      "logfile"    : "cpn_change.log",
+      "match"      : "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*cli_user_logout.* (?<msg>\\[(?<user>[\\w\\d]+)\\]:\\s+.*)\\s*$",
+      "ignoreline" : "^#",
+      "expect" : {
+        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h",
+        "sleep" : 1,
+        "chat" : [
+          [ "password:", "%4\r" ],
+          [ "#", "admin save tftp://%i/%t/%H\r" ],
+          [ "#", "admin save\r" ],
+          [ "#", "logout\r" ]
+        ]
+      }
+    },
+
+    #--- definition for a Juniper device; the configuration is retrieved by
+    #--- issuing "show configuration" command and then recording the session;
+    #--- note the third field added to the expect/send pairs: it is a file
+    #--- where the session is to be recorded
+
+    "juniper" : {
+      "defgrp"     : "secit",
+      "logfile"    : "network/fw.log",
+      "match"      : "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*(?<msg>UI_COMMIT_PROGRESS: Commit operation in progress: commit complete)\\s*$",
+      "ignoreline" : "^#",
+      "expect" : {
+        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l tufin %h",
+        "sleep" : 1,
+        "chat" : [
+          [ "[Pp]assword:", "%5\r" ],
+          [ "^tufin@.*> $", "show configuration | display set | no-more\r", "%T/%H" ],
+          [ "^tufin@.*> $", "exit\r" ]
+        ]
+      }
+    },
+
+    #--- more of the same
+
+    "extreme" : {
+      "defgrp"    : "ims",
+      "logfile"   : "network/ims.log",
+      "match"     : "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+(?<msg>.*\\s(?<user>[\\w\\d]+):\\ssave\\sconfiguration)\\s*$",
+      "ignoreline" : "^#",
+      "expect" : {
+        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h",
+        "sleep" : 1,
+        "chat" : [
+          [ "Enter password for cvs: ", "%4\r" ],
+          [ " #", "disable clipaging\r" ],
+          [ " #", "show configuration\r", "%T/%H" ],
+          [ " #", "exit\r" ]
+        ]
+      }
+    }
+
+  },
+
+#=============================================================================
+# DEVICE GROUPS section
+#
+# These groups allow manual polling of a group of hosts using the
+# --host=@group command-line option.
+#=============================================================================
+
+  "devgroups" : {
+    "nxosswitches" : [
+      "strs38", "strs39", "strs90", "strs91", "rcns17", "rcns18", "rcns19", "rcns20"
+    ]
+  }
+
+}
