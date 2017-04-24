@@ -38,7 +38,7 @@ my $id                = '[cvs]';
 my $id2;
 my $tftpdir;
 my %replacements;
-
+my $js                = JSON->new()->relaxed(1);
 
 
 #=============================================================================
@@ -720,7 +720,7 @@ $replacements{'%d'} = ($dev ? '-dev' : '');
   open($fh, '<', "$prefix/cfg/config.json") or die;
   my $cfg_json = <$fh>;
   close($fh);
-  $cfg = decode_json($cfg_json) or die;
+  $cfg = $js->decode($cfg_json) or die;
 }
 
 #--- read keyring
@@ -731,7 +731,7 @@ if(exists $cfg->{'config'}{'keyring'}) {
   open($fh, '<', "$prefix/cfg/" . $cfg->{'config'}{'keyring'}) or die;
   my $krg_json = <$fh>;
   close($fh);
-  $krg = decode_json($krg_json) or die;
+  $krg = $js->decode($krg_json) or die;
   for my $k (keys %$krg) {
     $replacements{$k} = $krg->{$k};
   }
