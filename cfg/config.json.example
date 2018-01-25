@@ -151,15 +151,15 @@
   ],
 
 #=============================================================================
-# LOGFILES section
+# TARGETS section
 #
 # This is the most complex and most involved section. Each key under
-# "logfiles" defines one logfile and its handling. Note, that "cisco" key has
+# "targets" defines one logfile and its handling. Note, that "cisco" key has
 # some special options and handling hardcoded for it (this should be
 # regularized). Apart from this, the keys can be named freely.
 #=============================================================================
 
-  "logfiles" : {
+  "targets" : {
 
     #--- "cisco" has some special hardcoded options and handling; the default
     #--- way of getting a config is to trigger the "writeNet" SNMP OID, which

@@ -94,7 +94,7 @@ sub repl_capture_groups
 #=============================================================================
 # Gets admin group name from hostname. Admin group is decided based on
 # regexes define in "groups" top-level config object. If no match is found,
-# "defgroup" key is tried under "logfiles"->{logid}.
+# "defgroup" key is tried under "targets"->{logid}.
 #=============================================================================
 
 sub get_admin_group
@@ -103,7 +103,7 @@ sub get_admin_group
 
   my (
     $host,
-    $logfile
+    $target
   ) = @_;
 
   #--- do the matching
@@ -117,8 +117,8 @@ sub get_admin_group
   
   #--- if no match, try to get the default group
   
-  if(exists $cfg->{'logfiles'}{$logfile}{'defgrp'}) {
-    return $cfg->{'logfiles'}{$logfile}{'defgrp'}
+  if(exists $cfg->{'targets'}{$target}{'defgrp'}) {
+    return $cfg->{'targets'}{$target}{'defgrp'}
   } else {
     return undef;
   }
@@ -136,7 +136,7 @@ sub snmp_get_value
   
   my (
     $host,         # 1. hostname
-    $logfile,      # 2. logfile definition
+    $target,       # 2. target definition
     $oid           # 3. oid (shortname)   
   ) = @_;
 
@@ -149,9 +149,9 @@ sub snmp_get_value
   my $cmd = sprintf(
     '%s -Lf /dev/null -v %d %s -c %s %s',
     $cfg->{'snmp'}{'get'},
-    $cfg->{'logfiles'}{$logfile}{'snmp'}{'ver'},
+    $cfg->{'targets'}{$target}{'snmp'}{'ver'},
     $host,
-    repl($cfg->{'logfiles'}{$logfile}{'snmp'}{'ro'}),
+    repl($cfg->{'targets'}{$target}{'snmp'}{'ro'}),
     $cfg->{'mib'}{$oid}
   );
   
@@ -191,14 +191,14 @@ sub snmp_get_value
 sub snmp_get_cisco_name
 {
   my $host = shift;
-  my $logdef = shift;
+  my $target = shift;
   
   #--- first use hostName
-  my $host_snmp = snmp_get_value($host, $logdef, 'hostName');
+  my $host_snmp = snmp_get_value($host, $target, 'hostName');
   return $host_snmp if $host_snmp;
   
   #--- if that fails, try sysName
-  $host_snmp = snmp_get_value($host, $logdef, 'sysName');
+  $host_snmp = snmp_get_value($host, $target, 'sysName');
   if($host_snmp) {
     $host_snmp =~ s/\..*$//;
     return $host_snmp;
@@ -335,7 +335,7 @@ sub compare_to_prev
 {
   #--- arguments
 
-  my $logdef = shift;   # logfile id  
+  my $target = shift;   # target id
   my $host = shift;     # host
   my $file = shift;     # file to compare
   my $repo = shift;     # repository file
@@ -346,8 +346,8 @@ sub compare_to_prev
   
   #--- compile regex (if any)
         
-  if(exists $cfg->{'logfiles'}{$logdef}{'ignoreline'}) {
-    $re_src = $cfg->{'logfiles'}{$logdef}{'ignoreline'};
+  if(exists $cfg->{'targets'}{$target}{'ignoreline'}) {
+    $re_src = $cfg->{'targets'}{$target}{'ignoreline'};
     $re_com = qr/$re_src/;
   }
   $logger->debug("$id2 ", "Ignoreline regexp: $re_src");
@@ -401,7 +401,7 @@ sub process_match
   #--- arguments
   
   my (
-    $logdef,            # 1. log id
+    $target,            # 1. target id
     $host,              # 2. host
     $msg,               # 3. message
     $chgwho,            # 3. username
@@ -445,7 +445,7 @@ sub process_match
 
   #--- assign admin group
       
-  $group = get_admin_group($host_nodomain, $logdef);
+  $group = get_admin_group($host_nodomain, $target);
   if($group) {
     $logger->info(qq{$id2 Admin group: $group});
   } else {
@@ -464,7 +464,7 @@ sub process_match
   #--- Cisco ----------------------------------------------------------------
   #--------------------------------------------------------------------------
 
-  if($logdef eq 'cisco') {
+  if($target eq 'cisco') {
   
   #--- default platform
   
@@ -478,7 +478,7 @@ sub process_match
   # from syslog entry.
 
     $logger->debug(qq{$id2 Getting hostname from SNMP});
-    $host_snmp = snmp_get_cisco_name($host, $logdef);
+    $host_snmp = snmp_get_cisco_name($host, $target);
     $logger->info(qq{$id2 Source host: $host_snmp (from SNMP)});
     if($host_snmp) {
       $host_nodomain = $host_snmp;
@@ -492,9 +492,9 @@ sub process_match
     
   #--- detect platform (IOS XR or NX-OS)
   
-    my $m = $cfg->{'logfiles'}{$logdef}{'matchxr'};
+    my $m = $cfg->{'targets'}{$target}{'matchxr'};
     if($sysdescr =~ /$m/) { $platform = 'ios-xr'; }
-    $m = $cfg->{'logfiles'}{$logdef}{'matchnxos'};
+    $m = $cfg->{'targets'}{$target}{'matchnxos'};
     if($sysdescr =~ /$m/) { $platform = 'nx-os'; }
     $logger->info(sprintf("%s Platform:    %s", $id2, uc($platform)));
   
@@ -507,7 +507,7 @@ sub process_match
 
     if($platform eq 'ios-xr' || $platform eq 'nx-os') {
       run_expect_batch(
-        $cfg->{'logfiles'}{$logdef}{'expect'}{$platform},
+        $cfg->{'targets'}{$target}{'expect'}{$platform},
         $host, $host_nodomain
       );
     } 
@@ -525,8 +525,8 @@ sub process_match
       my $exec = sprintf(
         '%s -v%s -t60 -r1 -c%s %s %s.%s s %s/%s',
         $cfg->{'snmp'}{'set'},                           # snmpset binary
-        $cfg->{'logfiles'}{$logdef}{'snmp'}{'ver'},      # SNMP version
-        repl($cfg->{'logfiles'}{$logdef}{'snmp'}{'rw'}), # RW community
+        $cfg->{'targets'}{$target}{'snmp'}{'ver'},       # SNMP version
+        repl($cfg->{'targets'}{$target}{'snmp'}{'rw'}),  # RW community
         $host,                                           # hostname
         $cfg->{'mib'}{'writeNet'},                       # writeNet OID
         $cfg->{'config'}{'src-ip'},                      # source IP addr
@@ -552,7 +552,7 @@ sub process_match
 
   else {
     run_expect_batch(
-      $cfg->{'logfiles'}{$logdef}{'expect'},
+      $cfg->{'targets'}{$target}{'expect'},
       $host, $host_nodomain
     );
   }
@@ -596,7 +596,7 @@ sub process_match
   # configuration is decided by matching regex from "ignoreline"
   # configuration item.
       
-    if(!compare_to_prev($logdef, $host_nodomain, $file, $repo)) {
+    if(!compare_to_prev($target, $host_nodomain, $file, $repo)) {
       if($force) {
         $logger->info("$id2 No change to current revision, but --force in effect");
       } else {
@@ -867,7 +867,7 @@ $logger->info(qq{$id Tftp dir is $tftpdir});
 #--- verify command-line parameters
 
 if($cmd_trigger) {
-  if(grep { $_ eq lc($cmd_trigger) } keys %{$cfg->{'logfiles'}}) {
+  if(grep { $_ eq lc($cmd_trigger) } keys %{$cfg->{'targets'}}) {
     if(!$cmd_host) {
       $logger->fatal(qq{$id No target host defined, aborting});
       exit(1);
@@ -924,11 +924,11 @@ if($cmd_trigger) {
 #--- initializing the logfiles
 
 my @logfiles;
-for my $lf (keys %{$cfg->{'logfiles'}}) {
+for my $lf (keys %{$cfg->{'targets'}}) {
   my $lfpath = sprintf(
     '%s/%s',
     $cfg->{'config'}{'logprefix'},
-    $cfg->{'logfiles'}{$lf}{'logfile'}
+    $cfg->{'targets'}{$lf}{'logfile'}
   );
   push(
     @logfiles, 
@@ -978,17 +978,17 @@ while (1) {
     $file =~ s/^$lprefix\///g;
     
     #--- get the log id
-    my ($logdef) = grep { 
-      $file eq $cfg->{'logfiles'}{$_}{'logfile'} 
-    } (keys %{$cfg->{'logfiles'}});
-    if(!$logdef) { 
-      $logger->fatal("[cvs] No log id found for '$file', aborting'");
+    my ($target) = grep {
+      $file eq $cfg->{'targets'}{$_}{'logfile'}
+    } (keys %{$cfg->{'targets'}});
+    if(!$target) {
+      $logger->fatal("[cvs] No target found for '$file', aborting'");
       die "No log id found for '$file'!";
     }
-    $id2 = sprintf('[cvs/%s]', $logdef);
+    $id2 = sprintf('[cvs/%s]', $target);
     
     #--- match the line
-    my $regex = $cfg->{'logfiles'}{$logdef}{'match'};
+    my $regex = $cfg->{'targets'}{$target}{'match'};
     $l =~ /$regex/ && do {
       $logger->debug("$id2 $l");
 
@@ -1004,7 +1004,7 @@ while (1) {
 
       # start processing
       process_match(
-        $logdef, 
+        $target,
         $+{'host'}, 
         $+{'msg'}, 
         $+{'user'} ? $+{'user'} : 'unknown'
