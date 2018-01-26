@@ -788,7 +788,7 @@ sub help
 #=============================================================================
 
 
-#--- get command-line options
+#--- get command-line options ------------------------------------------------
 
 my $cmd_trigger;
 my $cmd_host;
@@ -809,13 +809,13 @@ if(!GetOptions(
   exit(1);
 }
 
-#--- decide if we are development or production
+#--- decide if we are development or production ------------------------------
 
 $dev = 1 if abs_path($0) =~ /\/dev/;
 $prefix = sprintf($prefix, $dev ? 'dev' : 'prod');
 $replacements{'%d'} = ($dev ? '-dev' : '');
 
-#--- read configuration
+#--- read configuration ------------------------------------------------------
 
 {
   local $/;
@@ -826,7 +826,7 @@ $replacements{'%d'} = ($dev ? '-dev' : '');
   $cfg = $js->decode($cfg_json) or die;
 }
 
-#--- read keyring
+#--- read keyring ------------------------------------------------------------
 
 if(exists $cfg->{'config'}{'keyring'}) {
   local $/;
@@ -840,12 +840,12 @@ if(exists $cfg->{'config'}{'keyring'}) {
   }
 }
 
-#--- initialize Log4perl logging system
+#--- initialize Log4perl logging system --------------------------------------
 
 Log::Log4perl->init_and_watch("$prefix/cfg/logging.conf", 60);
 $logger = get_logger('CVS::Main');
 
-#--- initialize tftpdir variable
+#--- initialize tftpdir variable ---------------------------------------------
 
 $tftpdir = $cfg->{'config'}{'tftproot'};
 $tftpdir .= '/' . $cfg->{'config'}{'tftpdir'} if $cfg->{'config'}{'tftpdir'};
@@ -853,18 +853,18 @@ $tftpdir = repl($tftpdir);
 $replacements{'%T'} = $tftpdir;
 $replacements{'%t'} = repl($cfg->{'config'}{'tftpdir'});
 
-#--- source address
+#--- source address ----------------------------------------------------------
 
 $replacements{'%i'} = $cfg->{'config'}{'src-ip'};
 
-#--- title
+#--- title -------------------------------------------------------------------
 
 $logger->info(qq{$id --------------------------------});
 $logger->info(qq{$id NetIT CVS // Log Watcher started});
 $logger->info(qq{$id Mode is }, $dev ? 'development' : 'production');
 $logger->info(qq{$id Tftp dir is $tftpdir});
 
-#--- verify command-line parameters
+#--- verify command-line parameters ------------------------------------------
 
 if($cmd_trigger) {
   if(grep { $_ eq lc($cmd_trigger) } keys %{$cfg->{'targets'}}) {
@@ -885,7 +885,7 @@ if($cmd_trigger) {
   $logger->info(sprintf('%s Explicit message is "%s"', $id, $cmd_msg)) if $cmd_msg;
 }
 
-#--- manual check
+#--- manual check ------------------------------------------------------------
 
 # manual run can be executed from the command line by using the
 # --trigger=LOGID option. This might be used for creating the initial commit
@@ -921,7 +921,9 @@ if($cmd_trigger) {
   exit(0);
 }
 
-#--- initializing the logfiles
+#--- initializing the logfiles -----------------------------------------------
+
+# array of File::Tail filehandles
 
 my @logfiles;
 for my $lf (keys %{$cfg->{'targets'}}) {
