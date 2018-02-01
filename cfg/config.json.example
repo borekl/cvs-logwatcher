@@ -151,15 +151,40 @@
   ],
 
 #=============================================================================
+# LOGFILES section
+#
+# This defines logfiles that will be opened and watched. The match regex must
+# provide 'host' named capture group; 'user' and 'msg' are optional and will
+# be used when available.
+#=============================================================================
+
+  "logfiles" : {
+    "cisco" : {
+      "filename" : "/var/log/cisco_all.log",
+      "match" :    "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\\w+).*)\\s*$",
+    },
+    "alu" :   {
+      "filename" : "/var/log/cpn_change.log",
+      "match" :    "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*cli_user_logout.* (?<msg>\\[(?<user>[\\w\\d]+)\\]:\\s+.*)\\s*$",
+    },
+    "juniper" : {
+      "filename" : "/var/log/network/fw.log",
+      "match" :    "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*(?<msg>UI_COMMIT_PROGRESS: Commit operation in progress: commit complete)\\s*$",
+    },
+  },
+
+#=============================================================================
 # TARGETS section
 #
-# This is the most complex and most involved section. Each key under
-# "targets" defines one logfile and its handling. Note, that "cisco" key has
+# This is the most complex and most involved section. Each item under
+# "targets" defines one target and its handling. Note, that "cisco" target has
 # some special options and handling hardcoded for it (this should be
 # regularized). Apart from this, the keys can be named freely.
 #=============================================================================
 
-  "targets" : {
+  "targets" : [
+
+    {
 
     #--- "cisco" has some special hardcoded options and handling; the default
     #--- way of getting a config is to trigger the "writeNet" SNMP OID, which
@@ -168,7 +193,7 @@
     #--- and NX-OS switches, where the SNMP/tftp method doesn't work the way
     #--- we need
 
-    "cisco" : {
+      "id" : "cisco",
 
     #--- default group for this log, can be overriden by "groups" (see above)
 
@@ -176,13 +201,7 @@
 
     #--- logfile name
 
-      "logfile"    : "cisco_all.log",
-
-    #--- this regexp triggers the processing if a matching line appears in
-    #--- the logfile; it should provide "host", "user" and "msg" named capture
-    #--- groups if possible
-
-      "match"      : "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\\w+).*)\\s*$",
+      "logfile"    : "cisco",
 
     #--- following two options define regexp matched against sysDescr, these
     #--- allow special processing for IOS XR and NX-OS"
@@ -247,10 +266,10 @@
     #--- definition for Alcatel-Lucent 7750SR, this is completely regular
     #--- definition as opposed to the cisco def above
 
-    "alu" : {
+    {
+      "id"         : "alu",
       "defgrp"     : "nsu",
-      "logfile"    : "cpn_change.log",
-      "match"      : "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*cli_user_logout.* (?<msg>\\[(?<user>[\\w\\d]+)\\]:\\s+.*)\\s*$",
+      "logfile"    : "alu",
       "ignoreline" : "^#",
       "expect" : {
         "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h",
@@ -269,42 +288,24 @@
     #--- note the third field added to the expect/send pairs: it is a file
     #--- where the session is to be recorded
 
-    "juniper" : {
+    {
+      "id"         : "juniper",
       "defgrp"     : "secit",
-      "logfile"    : "network/fw.log",
-      "match"      : "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*(?<msg>UI_COMMIT_PROGRESS: Commit operation in progress: commit complete)\\s*$",
+      "logfile"    : "juniper",
       "ignoreline" : "^#",
       "expect" : {
-        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l tufin %h",
+        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l admin %h",
         "sleep" : 1,
         "chat" : [
           [ "[Pp]assword:", "%5\r" ],
-          [ "^tufin@.*> $", "show configuration | display set | no-more\r", "%T/%H" ],
-          [ "^tufin@.*> $", "exit\r" ]
+          [ "^admin@.*> $", "show configuration | display set | no-more\r", "%T/%H" ],
+          [ "^admin@.*> $", "exit\r" ]
         ]
       }
     },
 
-    #--- more of the same
+  ],
 
-    "extreme" : {
-      "defgrp"    : "ims",
-      "logfile"   : "network/ims.log",
-      "match"     : "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+(?<msg>.*\\s(?<user>[\\w\\d]+):\\ssave\\sconfiguration)\\s*$",
-      "ignoreline" : "^#",
-      "expect" : {
-        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h",
-        "sleep" : 1,
-        "chat" : [
-          [ "Enter password for cvs: ", "%4\r" ],
-          [ " #", "disable clipaging\r" ],
-          [ " #", "show configuration\r", "%T/%H" ],
-          [ " #", "exit\r" ]
-        ]
-      }
-    }
-
-  },
 
 #=============================================================================
 # DEVICE GROUPS section

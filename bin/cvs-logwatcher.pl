@@ -34,8 +34,6 @@ use Getopt::Long;
 my ($cfg, $logger);
 my $dev               = 0;
 my $prefix            = '/opt/cvs/%s';
-my $id                = '[cvs]';
-my $id2;
 my $tftpdir;
 my %replacements;
 my $js                = JSON->new()->relaxed(1);
@@ -117,8 +115,8 @@ sub get_admin_group
   
   #--- if no match, try to get the default group
   
-  if(exists $cfg->{'targets'}{$target}{'defgrp'}) {
-    return $cfg->{'targets'}{$target}{'defgrp'}
+  if(exists $target->{'defgrp'}) {
+    return $target->{'defgrp'}
   } else {
     return undef;
   }
@@ -137,7 +135,8 @@ sub snmp_get_value
   my (
     $host,         # 1. hostname
     $target,       # 2. target definition
-    $oid           # 3. oid (shortname)   
+    $oid,          # 3. oid (shortname)
+    $logpf,        # 4. log prefix
   ) = @_;
 
   #--- make <> read the whole input at once
@@ -149,24 +148,24 @@ sub snmp_get_value
   my $cmd = sprintf(
     '%s -Lf /dev/null -v %d %s -c %s %s',
     $cfg->{'snmp'}{'get'},
-    $cfg->{'targets'}{$target}{'snmp'}{'ver'},
+    $target->{'snmp'}{'ver'},
     $host,
-    repl($cfg->{'targets'}{$target}{'snmp'}{'ro'}),
+    repl($target->{'snmp'}{'ro'}),
     $cfg->{'mib'}{$oid}
   );
   
   #--- run the command
 
-  $logger->debug(qq{$id2 Cmd: $cmd});  
+  $logger->debug(qq{[$logpf] Cmd: $cmd});
   open(FH, "$cmd 2>/dev/null |") || do {
-    $logger->fatal(qq{$id2 Failed to execute SNMP get ($cmd), aborting});
+    $logger->fatal(qq{[$logpf] Failed to execute SNMP get ($cmd), aborting});
     die;
   };
   my $val = <FH>;
   close(FH);
   if($?) {
     $logger->debug(
-      sprintf("%s SNMP get returned %d", $id2, $?)
+      sprintf("[%s] SNMP get returned %d", $logpf, $?)
     );
     return undef;
   }
@@ -190,15 +189,18 @@ sub snmp_get_value
 
 sub snmp_get_cisco_name
 {
-  my $host = shift;
-  my $target = shift;
+  my (
+    $host,
+    $target,
+    $logpf,
+  ) = @_;
   
   #--- first use hostName
-  my $host_snmp = snmp_get_value($host, $target, 'hostName');
+  my $host_snmp = snmp_get_value($host, $target, 'hostName', $logpf);
   return $host_snmp if $host_snmp;
   
   #--- if that fails, try sysName
-  $host_snmp = snmp_get_value($host, $target, 'sysName');
+  $host_snmp = snmp_get_value($host, $target, 'sysName', $logpf);
   if($host_snmp) {
     $host_snmp =~ s/\..*$//;
     return $host_snmp;
@@ -221,9 +223,10 @@ sub run_expect_batch
   #--- arguments
   
   my (
-    $expect_def,   # 1. expect conversion definitions from the config.json
-    $host,         # 2. hostname
-    $host_nodomain # 3. hostname without domain 
+    $expect_def,    # 1. expect conversion definitions from the config.json
+    $host,          # 2. hostname
+    $host_nodomain, # 3. hostname without domain
+    $logpf,         # 4. logging message prefix
   ) = @_;
     
   #--- variables
@@ -234,9 +237,10 @@ sub run_expect_batch
 
   #--- spawn command
 
-  $logger->debug("$id2 Spawning Expect instance ($spawn)");
+  $logger->debug("[$logpf] Spawning Expect instance ($spawn)");
+  $logger->debug("[$logpf] Chat definition has " . @$chat . ' lines');
   my $exh = Expect->spawn($spawn) or do {
-    $logger->fatal("$id2 Failed to spawn Expect instance ($spawn)");
+    $logger->fatal("[$logpf] Failed to spawn Expect instance ($spawn)");
     die;
   };
   $exh->log_stdout(0);
@@ -261,26 +265,29 @@ sub run_expect_batch
       #--- open log
       if($open_log) {
         $exh->log_file($open_log, 'w') or die;
-        $logger->info("$id2 Logfile opened: ", $open_log);
+        $logger->info("[$logpf] Logfile opened: ", $open_log);
       }
 
       #--- perform the handshake
       $logger->debug(
-        sprintf('%s Expect string(%d): %s', $id2, $i, $row->[0])
+        sprintf('[%s] Expect string(%d): %s', $logpf, $i, $row->[0])
       );
       $exh->expect($cfg->{'config'}{'expmax'} // 300, '-re', $row->[0]) or die;
       my @g = $exh->matchlist();
       $logger->debug(
-        sprintf('%s Expect receive(%d): %s', $id2, $i, $exh->match())
+        sprintf('[%s] Expect receive(%d): %s', $logpf, $i, $exh->match())
       );
       if(@g) {
         $logger->debug(
-          sprintf('%s Expect groups(%d): %s', $id2, $i, join(',', @g))
+          sprintf('[%s] Expect groups(%d): %s', $logpf, $i, join(',', @g))
         );
       }
       repl_capture_groups(@g);
       $logger->debug(
-        sprintf('%s Expect send(%d): ', $id2, $i, repl($chat_send_disp))
+        sprintf('[%s] Expect send(%d): %s', $logpf, $i, repl($chat_send_disp))
+      );
+      $logger->debug(
+        sprintf('[%s] Expect send raw(%d): %s', $logpf, $i, $chat_send)
       );
       $exh->print(repl($row->[1]));
       sleep($sleep) if $sleep;
@@ -293,7 +300,7 @@ sub run_expect_batch
 
   sleep($sleep) if $sleep;  
   if($@) {
-    $logger->error(qq{$id2 Expect failed});
+    $logger->error(qq{[$logpf] Expect failed});
     $exh->soft_close();
     die;
   } else {
@@ -335,7 +342,7 @@ sub compare_to_prev
 {
   #--- arguments
 
-  my $target = shift;   # target id
+  my $target = shift;   # target
   my $host = shift;     # host
   my $file = shift;     # file to compare
   my $repo = shift;     # repository file
@@ -343,14 +350,15 @@ sub compare_to_prev
   #--- other variables
   
   my ($re_src, $re_com);
+  my $logpf = '[cvs/' . $target->{'id'}  . ']';
   
   #--- compile regex (if any)
         
-  if(exists $cfg->{'targets'}{$target}{'ignoreline'}) {
-    $re_src = $cfg->{'targets'}{$target}{'ignoreline'};
+  if(exists $target->{'ignoreline'}) {
+    $re_src = $target->{'ignoreline'};
     $re_com = qr/$re_src/;
   }
-  $logger->debug("$id2 ", "Ignoreline regexp: $re_src");
+  $logger->debug("$logpf Ignoreline regexp: ", $re_src);
   
   #--- read the new file
   
@@ -365,13 +373,13 @@ sub compare_to_prev
     $repo,
     $host
   );
-  $logger->debug("$id2 Cmd: $exec");
+  $logger->debug("$logpf Cmd: $exec");
   my $f_repo = read_file("$exec 2>/dev/null |", $re_com);
   return 0 if !ref($f_repo);
 
   #--- compare line counts
 
-  $logger->debug("$id2 ", sprintf("Linecounts: new = %d, repo = %d", scalar(@$f_new), scalar(@$f_repo)));  
+  $logger->debug("$logpf ", sprintf("Linecounts: new = %d, repo = %d", scalar(@$f_new), scalar(@$f_repo)));
   if(scalar(@$f_new) != scalar(@$f_repo)) {
     return 1;
   }
@@ -401,7 +409,7 @@ sub process_match
   #--- arguments
   
   my (
-    $target,            # 1. target id
+    $tid,               # 1. target id
     $host,              # 2. host
     $msg,               # 3. message
     $chgwho,            # 3. username
@@ -415,11 +423,21 @@ sub process_match
   my $group;            # administrative group
   my $sysdescr;         # system description from SNMP
   
+  #--- find the target index
+  # the $target argument refers to target identification, but targets are
+  # actually stored in an array, so we need to find the actual item
+
+  my ($target) = grep { $_->{'id'} eq $tid } @{$cfg->{'targets'}};
+  if(!$target || !ref($target)) {
+    $logger->error("Target '$tid' not found, no action taken");
+    return;
+  }
+
   #--- log some information
       
-  $logger->info(qq{$id2 Source host: $host (from syslog)});
-  $logger->info(qq{$id2 Message:     }, $msg);
-  $logger->info(qq{$id2 User:        }, $chgwho) if $chgwho;
+  $logger->info(qq{[cvs/$tid] Source host: $host (from syslog)});
+  $logger->info(qq{[cvs/$tid] Message:     }, $msg);
+  $logger->info(qq{[cvs/$tid] User:        }, $chgwho) if $chgwho;
 
   #--- skip if ignored user
        
@@ -432,7 +450,7 @@ sub process_match
     && exists $cfg->{'ignoreusers'}
     && $chgwho ~~ @{$cfg->{'ignoreusers'}}
   ) {
-    $logger->info(qq{$id2 Ignored user, skipping processing});
+    $logger->info(qq{[cvs/$tid] Ignored user, skipping processing});
     return;
   }
   
@@ -447,16 +465,16 @@ sub process_match
       
   $group = get_admin_group($host_nodomain, $target);
   if($group) {
-    $logger->info(qq{$id2 Admin group: $group});
+    $logger->info(qq{[cvs/$tid] Admin group: $group});
   } else {
-    $logger->error(qq{$id2 No admin group for $host_nodomain, skipping});
+    $logger->error(qq{[cvs/$tid] No admin group for $host_nodomain, skipping});
     return;
   }
 
   #--- ensure reachability
 
   if($cfg->{'ping'} && system(repl($cfg->{'ping'})) >> 8) {
-    $logger->error(qq{$id2 Host $host_nodomain unreachable, skipping});
+    $logger->error(qq{[cvs/$tid Host $host_nodomain unreachable, skipping});
     return;
   }
 
@@ -464,7 +482,7 @@ sub process_match
   #--- Cisco ----------------------------------------------------------------
   #--------------------------------------------------------------------------
 
-  if($target eq 'cisco') {
+  if($tid eq 'cisco') {
   
   #--- default platform
   
@@ -477,9 +495,9 @@ sub process_match
   # we use device's own hostname, retrieved with SNMP, not the name
   # from syslog entry.
 
-    $logger->debug(qq{$id2 Getting hostname from SNMP});
-    $host_snmp = snmp_get_cisco_name($host, $target);
-    $logger->info(qq{$id2 Source host: $host_snmp (from SNMP)});
+    $logger->debug(qq{[cvs/cisco] Getting hostname from SNMP});
+    $host_snmp = snmp_get_cisco_name($host, $target, 'cvs/cisco');
+    $logger->info(qq{[cvs/cisco] Source host: $host_snmp (from SNMP)});
     if($host_snmp) {
       $host_nodomain = $host_snmp;
       $replacements{'%H'} = $host_snmp;
@@ -487,16 +505,16 @@ sub process_match
   
   #--- get sysDescr (to detect OS platform)
               
-    $logger->debug(qq{$id2 Checking IOS version});
-    $sysdescr = snmp_get_value($host, 'cisco', 'sysDescr');
+    $logger->debug(qq{[cvs/cisco] Checking IOS version});
+    $sysdescr = snmp_get_value($host, $target, 'sysDescr', 'cvs/cisco');
     
   #--- detect platform (IOS XR or NX-OS)
   
-    my $m = $cfg->{'targets'}{$target}{'matchxr'};
+    my $m = $target->{'matchxr'};
     if($sysdescr =~ /$m/) { $platform = 'ios-xr'; }
-    $m = $cfg->{'targets'}{$target}{'matchnxos'};
+    $m = $target->{'matchnxos'};
     if($sysdescr =~ /$m/) { $platform = 'nx-os'; }
-    $logger->info(sprintf("%s Platform:    %s", $id2, uc($platform)));
+    $logger->info(sprintf("[cvs/cisco] Platform:    %s", uc($platform)));
   
   #--- IOS XR / NX-OS devices
 
@@ -507,8 +525,9 @@ sub process_match
 
     if($platform eq 'ios-xr' || $platform eq 'nx-os') {
       run_expect_batch(
-        $cfg->{'targets'}{$target}{'expect'}{$platform},
-        $host, $host_nodomain
+        $target->{'expect'}{$platform},
+        $host, $host_nodomain,
+        'cvs/cisco'
       );
     } 
     
@@ -523,22 +542,22 @@ sub process_match
   #--- request config upload: assemble the command
           
       my $exec = sprintf(
-        '%s -v%s -t60 -r1 -c%s %s %s.%s s %s/%s',
+        '%s -Lf /dev/null -v%s -t60 -r1 -c%s %s %s.%s s %s/%s',
         $cfg->{'snmp'}{'set'},                           # snmpset binary
-        $cfg->{'targets'}{$target}{'snmp'}{'ver'},       # SNMP version
-        repl($cfg->{'targets'}{$target}{'snmp'}{'rw'}),  # RW community
+        $target->{'snmp'}{'ver'},                        # SNMP version
+        repl($target->{'snmp'}{'rw'}),                   # RW community
         $host,                                           # hostname
         $cfg->{'mib'}{'writeNet'},                       # writeNet OID
         $cfg->{'config'}{'src-ip'},                      # source IP addr
         repl($cfg->{'config'}{'tftpdir'}),               # TFTP subdir
         $host_nodomain                                   # TFTP filename
       );
-      $logger->debug(qq{$id2 Cmd: }, $exec);
+      $logger->debug(qq{[cvs/cisco] Cmd: }, $exec);
 
   #--- request config upload: perform the command
           
       open(my $fh, '-|', $exec) || do {
-        $logger->fatal(qq{$id2 Failed to request config ($exec)});
+        $logger->fatal(qq{[cvs/cisco] Failed to request config ($exec)});
         next;
       };
       <$fh>;
@@ -552,8 +571,9 @@ sub process_match
 
   else {
     run_expect_batch(
-      $cfg->{'targets'}{$target}{'expect'},
-      $host, $host_nodomain
+      $target->{'expect'},
+      $host, $host_nodomain,
+      "cvs/$tid"
     );
   }
 
@@ -575,12 +595,12 @@ sub process_match
       
     if(! -f $file) {
       $logger->fatal(
-        "$id2 File $file does not exist, skipping further processing"
+        "[cvs/$tid] File $file does not exist, skipping further processing"
       );
       die;
     } else {
       $logger->info(
-        sprintf('%s File %s received, %d bytes', $id2, $file, -s $file )
+        sprintf('[cvs/%s] File %s received, %d bytes', $tid, $file, -s $file )
       );
     }
 
@@ -598,9 +618,9 @@ sub process_match
       
     if(!compare_to_prev($target, $host_nodomain, $file, $repo)) {
       if($force) {
-        $logger->info("$id2 No change to current revision, but --force in effect");
+        $logger->info("[cvs/$tid] No change to current revision, but --force in effect");
       } else {
-        $logger->info("$id2 No change to current revision, skipping check-in");
+        $logger->info("[cvs/$tid] No change to current revision, skipping check-in");
         die;
       }
     }
@@ -614,10 +634,10 @@ sub process_match
         $cfg->{'rcs'}{'rcsctl'},                     # rcs binary
         $repo, $host_nodomain                        # config in repo
       );
-      $logger->debug("$id2 Cmd: $exec");
+      $logger->debug("[cvs/$tid] Cmd: $exec");
       $rv = system($exec);
       if($rv) {
-        $logger->error("$id2 Cmd failed with: ", $rv);
+        $logger->error("[cvs/$tid] Cmd failed with: ", $rv);
         die;
       }
     }
@@ -632,14 +652,14 @@ sub process_match
       $host_nodomain,                              # config from device
       $repo, $host_nodomain                        # config in repo
     );
-    $logger->debug("$id2 Cmd: $exec");
+    $logger->debug("[cvs/$tid] Cmd: $exec");
     $rv = system($exec);
     if($rv) {
-      $logger->error("$id2 Cmd failed with: ", $rv);
+      $logger->error("[cvs/$tid] Cmd failed with: ", $rv);
       die;
     }
 
-    $logger->info(qq{$id2 CVS check-in completed successfully});
+    $logger->info(qq{[cvs/$tid] CVS check-in completed successfully});
 
   #--- end of eval ----------------------------------------------------------
 
@@ -648,7 +668,7 @@ sub process_match
   #--- remove the file
 
   if(-f "$tftpdir/$host_nodomain" ) {
-    $logger->debug(qq{$id2 Removing file $tftpdir/$host_nodomain});
+    $logger->debug(qq{[cvs/$tid] Removing file $tftpdir/$host_nodomain});
     unlink("$tftpdir/$host_nodomain");
   }
 }
@@ -859,30 +879,30 @@ $replacements{'%i'} = $cfg->{'config'}{'src-ip'};
 
 #--- title -------------------------------------------------------------------
 
-$logger->info(qq{$id --------------------------------});
-$logger->info(qq{$id NetIT CVS // Log Watcher started});
-$logger->info(qq{$id Mode is }, $dev ? 'development' : 'production');
-$logger->info(qq{$id Tftp dir is $tftpdir});
+$logger->info(qq{[cvs] --------------------------------});
+$logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
+$logger->info(qq{[cvs] Mode is }, $dev ? 'development' : 'production');
+$logger->info(qq{[cvs] Tftp dir is $tftpdir});
 
 #--- verify command-line parameters ------------------------------------------
 
 if($cmd_trigger) {
-  if(grep { $_ eq lc($cmd_trigger) } keys %{$cfg->{'targets'}}) {
+  if(grep { $_->{'id'} eq lc($cmd_trigger) } @{$cfg->{'targets'}}) {
     if(!$cmd_host) {
-      $logger->fatal(qq{$id No target host defined, aborting});
+      $logger->fatal(qq{[cvs] No target host defined, aborting});
       exit(1);
     }
   } else {
-    $logger->fatal(qq{$id --trigger refers to non-existent log id, aborting});
+    $logger->fatal(qq{[cvs] --trigger refers to non-existent target id, aborting});
     exit(1);
   }
 }
 if($cmd_trigger) {
   $cmd_trigger = lc($cmd_trigger);
-  $logger->info(sprintf('%s Explicit target %s triggered', $id, $cmd_trigger));
-  $logger->info(sprintf('%s Explicit host is %s', $id, $cmd_host));
-  $logger->info(sprintf('%s Explicit user is %s', $id, $cmd_user)) if $cmd_user;
-  $logger->info(sprintf('%s Explicit message is "%s"', $id, $cmd_msg)) if $cmd_msg;
+  $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd_trigger));
+  $logger->info(sprintf('[cvs] Explicit host is %s', $cmd_host));
+  $logger->info(sprintf('[cvs] Explicit user is %s', $cmd_user)) if $cmd_user;
+  $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd_msg)) if $cmd_msg;
 }
 
 #--- manual check ------------------------------------------------------------
@@ -894,7 +914,6 @@ if($cmd_trigger) {
 # should be used to specify commit author and message.
 
 if($cmd_trigger) {
-  $id2 = sprintf('[cvs/%s]', $cmd_trigger);
 
   # get list of hosts to process
   my @hosts;
@@ -917,7 +936,7 @@ if($cmd_trigger) {
   }
 
   # exit
-  $logger->info("$id2 Finishing");
+  $logger->info('[cvs] Finishing');
   exit(0);
 }
 
@@ -926,28 +945,43 @@ if($cmd_trigger) {
 # array of File::Tail filehandles
 
 my @logfiles;
-for my $lf (keys %{$cfg->{'targets'}}) {
-  my $lfpath = sprintf(
-    '%s/%s',
-    $cfg->{'config'}{'logprefix'},
-    $cfg->{'targets'}{$lf}{'logfile'}
+
+# loop over all configured logfiles
+
+for my $log (keys %{$cfg->{'logfiles'}}) {
+
+  # get log's filename; log filename can be specified both absolute (starting
+  # with a slash) or relative to config.logprefix
+
+  my $logfile = $cfg->{'logfiles'}{$log}{'filename'} // '';
+  if(substr($logfile,0,1) ne '/') {
+    $logfile = $cfg->{'config'}{'logprefix'} . $logfile;
+  }
+
+  # check if it is actually accessible, ignore if it is not
+
+  next if !-r $logfile;
+
+  # start watching the logfile
+
+  my $h = File::Tail->new(
+    name=>$logfile,
+    maxinterval=>$cfg->{'config'}{'tailint'}
   );
-  push(
-    @logfiles, 
-    File::Tail->new(
-      name=>$lfpath,
-      maxinterval=>$cfg->{'config'}{'tailint'}
-    )
-  );
+  $h->{'cvslogwatch.logid'} = $log;
+  push(@logfiles, $h);
+
+  $logger->debug("[cvs] Started observing $logfile ($log)");
 }
+
 if(scalar(@logfiles) == 0) { 
-  $logger->fatal(qq{$id No logfiles defined, aborting});
+  $logger->fatal(qq{[cvs] No valid logfiles defined, aborting});
   die; 
 }
 
 #--- main loop
 
-$logger->debug($id, ' Entering main loop');
+$logger->debug('[cvs] Entering main loop');
 while (1) {
 
 #--- wait for new data becoming available in any of the watched logs
@@ -970,49 +1004,44 @@ while (1) {
 
   foreach(@pending) {
     my $lprefix = $cfg->{'config'}{'logprefix'};
-    
+    my $tid;
+
     #--- get next available line
     my $l = $_->read();
     chomp($l);
     
     #--- get filename of the file the line is from
-    my $file = $_->{'input'};
-    $file =~ s/^$lprefix\///g;
-    
-    #--- get the log id
-    my ($target) = grep {
-      $file eq $cfg->{'targets'}{$_}{'logfile'}
-    } (keys %{$cfg->{'targets'}});
-    if(!$target) {
-      $logger->fatal("[cvs] No target found for '$file', aborting'");
-      die "No log id found for '$file'!";
-    }
-    $id2 = sprintf('[cvs/%s]', $target);
-    
+    my $logid = $_->{'cvslogwatch.logid'};
+    die 'Assertion failed, logid missing in File::Tail handle' if !$logid;
+    my $file = $cfg->{'logfiles'}{$logid}{'filename'};
+
     #--- match the line
-    my $regex = $cfg->{'targets'}{$target}{'match'};
-    $l =~ /$regex/ && do {
-      $logger->debug("$id2 $l");
+    my $regex = $cfg->{'logfiles'}{$logid}{'match'};
+    next if $l !~ /$regex/;
 
-      # ignore hosts if --host is specified
-      if(!$cmd_trigger && $cmd_host) {
-        if($+{'host'} !~ /^$cmd_host\./i) {
-          $logger->info(
-            sprintf("%s Ignoring host %s (--host)", $id2, $+{'host'})
-          );
-          next;
-        }
-      }
+    #--- find matching target, the matching criteria are 'logfile', ...
+    foreach my $target (@{$cfg->{'targets'}}) {
+      # "logfile" condition
+      next if $target->{'logfile'} ne $logid;
+      # no mismatch, so target found
+      $tid = $target->{'id'};
+      last;
+    }
 
-      # start processing
-      process_match(
-        $target,
-        $+{'host'}, 
-        $+{'msg'}, 
-        $+{'user'} ? $+{'user'} : 'unknown'
-      );
-    };
+    #--- no target found
+    if(!$tid) {
+      $logger->warn("No target found for $logid");
+      next;
+    }
+
+    #--- start processing
+    process_match(
+      $tid,
+      $+{'host'},
+      $+{'msg'},
+      $+{'user'} ? $+{'user'} : 'unknown'
+    );
+
   }
-
 }
     
