@@ -604,6 +604,44 @@ sub process_match
       );
     }
 
+  #--- filter out junk at the start and at the end ("validrange")
+
+  # If "validrange" is specified for a target, then the first item in it
+  # specifies regex for the first valid line of the config and the second
+  # item specifies regex for the last valid line.  Either regex can be
+  # undefined which means the config range starts on the first line/ends on
+  # the last line.  This allows filtering junk that is saved with the config
+  # (echo of the chat commands, disconnection message etc.)
+
+    if(
+      exists $target->{'validrange'}
+      && ref $target->{'validrange'}
+      && @{$target->{'validrange'}} == 2
+    ) {
+      if(open(FOUT, '>', "$file.$$")) {
+        if(open(FIN, '<', "$file")) {
+          my $in_range = defined $target->{'validrange'}[0] ? 0 : 1;
+          while(my $l = <FIN>) {
+            $in_range = 1
+              if $l =~ $target->{'validrange'}[0];
+            print FOUT $l if $in_range;
+            $in_range = 0
+              if defined $target->{'validrange'}[1]
+              && $l =~ $target->{'validrange'}[1];
+          }
+          close(FIN);
+          $logger->debug(
+            sprintf(
+              "[cvs/$tid] Config reduced from %s to %s bytes (validrange)",
+              -s $file, -s "$file.$$"
+            )
+          );
+          rename("$file.$$", $file);
+        }
+        close(FOUT);
+      }
+    }
+
   #--- compare current version with the most recent CVS version
 
   # This is done to avoid storing configs that are not significantly
