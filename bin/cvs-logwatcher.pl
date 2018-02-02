@@ -712,6 +712,8 @@ sub rule_hostname_match
     croak q{'hostname' argument missing};
   }
 
+  return '' if !@$group;
+
   #--- iterate over the ruleset
 
   for my $rule (@$group) {
@@ -1019,10 +1021,18 @@ while (1) {
     my $regex = $cfg->{'logfiles'}{$logid}{'match'};
     next if $l !~ /$regex/;
 
-    #--- find matching target, the matching criteria are 'logfile', ...
+    #--- find matching target
     foreach my $target (@{$cfg->{'targets'}}) {
       # "logfile" condition
-      next if $target->{'logfile'} ne $logid;
+      next if
+        exists $target->{'logfile'}
+        && $target->{'logfile'} ne $logid;
+      # "hostmatch" condition
+      next if
+        exists $target->{'hostmatch'}
+        && ref($target->{'hostmatch'})
+        && $+{'host'}
+        && !rule_hostname_match($target->{'hostmatch'}, $+{'host'});
       # no mismatch, so target found
       $tid = $target->{'id'};
       last;
@@ -1030,7 +1040,7 @@ while (1) {
 
     #--- no target found
     if(!$tid) {
-      $logger->warn("No target found for $logid");
+      $logger->warn("[cvs] No target found for match from '$+{host}' in source '$logid'");
       next;
     }
 
