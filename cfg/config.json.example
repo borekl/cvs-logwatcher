@@ -276,8 +276,8 @@
         "sleep" : 1,
         "chat" : [
           [ "password:", "%4\r" ],
-          [ "#", "admin save tftp://%i/%t/%H\r" ],
-          [ "#", "admin save\r" ],
+          [ "#", "environment no more\r" ],
+          [ "#", "admin display-config\r", "%T/%H" ],
           [ "#", "logout\r" ]
         ]
       }
