@@ -175,7 +175,9 @@ sub snmp_get_value
   $val =~ s/\R/ /mg;
   $val =~ s/^.*= STRING:\s+(.*?)\s*$/$1/;
   $val =~ s/^\"(.*)\"$/$1/;  # hostName is returned with quotes
-  
+
+  $val = undef if $val =~ /= No Such Object/;
+
   #--- finish
   
   return $val;
@@ -184,10 +186,11 @@ sub snmp_get_value
 
 
 #=============================================================================
-# Get system name for Cisco device.
+# Get system name for a device. This is done by first trying 'hostName' and if
+# that fails then tries 'sysName'.
 #=============================================================================
 
-sub snmp_get_cisco_name
+sub snmp_get_system_name
 {
   my (
     $host,
@@ -493,7 +496,7 @@ sub process_match
   # from syslog entry.
 
     $logger->debug(qq{[cvs/cisco] Getting hostname from SNMP});
-    $host_snmp = snmp_get_cisco_name($host, $target, 'cvs/cisco');
+    $host_snmp = snmp_get_system_name($host, $target, 'cvs/cisco');
     $logger->info(qq{[cvs/cisco] Source host: $host_snmp (from SNMP)});
     if($host_snmp) {
       $host_nodomain = $host_snmp;
@@ -579,9 +582,7 @@ sub process_match
       && ref $target->{'options'}
       && (grep { $_ eq 'snmphost' } @{$target->{'options'}})
     ) {
-      my $snmp_host = snmp_get_value(
-        $host, $target, 'hostName', "cvs/$tid"
-      );
+      my $snmp_host = snmp_get_system_name($host, $target, "cvs/$tid");
       if($snmp_host) {
         $host_nodomain = $snmp_host;
         $replacements{'%H'} = $snmp_host;
@@ -1014,7 +1015,7 @@ if($cmd_snmp_name) {
     if(!$target) {
       $logger->fatal("[cvs] No target found for host $cmd_host and log $cmd_trigger");
     } else {
-      my $snmp_host = snmp_get_value($cmd_host, $target, 'hostName', 'cvs');
+      my $snmp_host = snmp_get_system_name($cmd_host, $target, 'cvs');
       if(!$snmp_host) {
         $logger->fatal("[cvs/$tid] No response for SNMP hostName query");
       } else {
