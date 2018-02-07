@@ -146,11 +146,11 @@ sub snmp_get_value
   #--- SNMP command to run
   
   my $cmd = sprintf(
-    '%s -Lf /dev/null -v %s %s -c %s %s',
+    '%s -Lf /dev/null -v %s %s %s %s',
     $cfg->{'snmp'}{'get'},
-    $target->{'snmp'}{'ver'},
+    ($target->{'snmp'}{'ver'} // '1'),
     $host,
-    repl($target->{'snmp'}{'ro'}),
+    $target->{'snmp'}{'ro'} ? '-c ' . repl($target->{'snmp'}{'ro'}) : '',
     $cfg->{'mib'}{$oid}
   );
   
