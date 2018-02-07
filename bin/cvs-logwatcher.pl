@@ -884,6 +884,7 @@ sub help
   print "  --user=USER       define user for --trigger\n";
   print "  --msg=MSG         define message for --trigger\n";
   print "  --force           force check-in when using --trigger\n";
+  print "  --snmp-name       request SNMP hostName for given host/trigger and exit\n";
   print "\n";
 }
 
@@ -908,6 +909,7 @@ my $cmd_user;
 my $cmd_msg;
 my $cmd_force;
 my $cmd_help;
+my $cmd_snmp_name;
 
 if(!GetOptions(
   'trigger=s' => \$cmd_trigger,
@@ -915,7 +917,8 @@ if(!GetOptions(
   'user=s'    => \$cmd_user,
   'msg=s'     => \$cmd_msg,
   'force'     => \$cmd_force,
-  'help'      => \$cmd_help
+  'help'      => \$cmd_help,
+  'snmp-name' => \$cmd_snmp_name,
 ) || $cmd_help) {
   help();
   exit(1);
@@ -995,6 +998,33 @@ if($cmd_trigger) {
   $logger->info(sprintf('[cvs] Explicit host is %s', $cmd_host));
   $logger->info(sprintf('[cvs] Explicit user is %s', $cmd_user)) if $cmd_user;
   $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd_msg)) if $cmd_msg;
+}
+
+#-----------------------------------------------------------------------------
+#--- SNMP name check ---------------------------------------------------------
+#-----------------------------------------------------------------------------
+
+# The --snmp-name allows to check what name given --host/--trigger reports
+# back, primarily for troubleshooting purposes.
+
+if($cmd_snmp_name) {
+  if($cmd_host && $cmd_trigger) {
+    my $tid = find_target(host => $cmd_host, logid => $cmd_trigger);
+    my ($target) = grep { $_->{'id'} eq $tid } @{$cfg->{'targets'}};
+    if(!$target) {
+      $logger->fatal("[cvs] No target found for host $cmd_host and log $cmd_trigger");
+    } else {
+      my $snmp_host = snmp_get_value($cmd_host, $target, 'hostName', 'cvs');
+      if(!$snmp_host) {
+        $logger->fatal("[cvs/$tid] No response for SNMP hostName query");
+      } else {
+        $logger->info("[cvs/$tid] SNMP hostName query returned '$snmp_host'");
+      }
+    }
+  } else {
+    $logger->fatal('[cvs] --host and --trigger must be given with --snmp-host');
+  }
+  exit(0);
 }
 
 #-----------------------------------------------------------------------------
