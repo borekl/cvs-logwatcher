@@ -971,12 +971,14 @@ if($cmd_trigger) {
   $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd_msg)) if $cmd_msg;
 }
 
+#-----------------------------------------------------------------------------
 #--- manual check ------------------------------------------------------------
+#-----------------------------------------------------------------------------
 
 # manual run can be executed from the command line by using the
 # --trigger=LOGID option. This might be used for creating the initial commit
 # or for devices that cannot be triggered using logfiles. When using this mode
-# --host=HOST must be used to tell which device to check; --user and --msg
+# --host=HOST must be used to tell which device(s) to check; --user and --msg
 # should be used to specify commit author and message.
 
 if($cmd_trigger) {
@@ -1013,6 +1015,10 @@ if($cmd_trigger) {
   $logger->info('[cvs] Finishing');
   exit(0);
 }
+
+#-----------------------------------------------------------------------------
+#--- logfiles handling -------------------------------------------------------
+#-----------------------------------------------------------------------------
 
 #--- initializing the logfiles -----------------------------------------------
 
