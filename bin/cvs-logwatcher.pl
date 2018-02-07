@@ -567,6 +567,32 @@ sub process_match
   #--------------------------------------------------------------------------
 
   else {
+
+  #--- "snmphost" option ----------------------------------------------------
+
+  # This option triggers retrieval of SNMP hostName value from the device
+  # which is then used as a filename to check the config as. Intended as a
+  # way to use proper capitalization of hostname.
+
+    if(
+      exists $target->{'options'}
+      && ref $target->{'options'}
+      && (grep { $_ eq 'snmphost' } @{$target->{'options'}})
+    ) {
+      my $snmp_host = snmp_get_value(
+        $host, $target, 'hostName', "cvs/$tid"
+      );
+      if($snmp_host) {
+        $host_nodomain = $snmp_host;
+        $replacements{'%H'} = $snmp_host;
+        $logger->info(qq{[cvs/$tid] Source host: $snmp_host (from SNMP)});
+      } else {
+        $logger->warn(qq{[cvs/$tid] Failed to get hostname via SNMP});
+      }
+    }
+
+  #--- run expect script ----------------------------------------------------
+
     run_expect_batch(
       $target->{'expect'},
       $host, $host_nodomain,
