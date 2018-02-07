@@ -817,6 +817,35 @@ sub rule_hostname_match
 
 
 #=============================================================================
+# Find target based on configured conditions.
+#=============================================================================
+
+sub find_target
+{
+  my %arg = @_;
+  my $tid;
+
+  foreach my $target (@{$cfg->{'targets'}}) {
+    # "logfile" condition
+    next if
+      exists $target->{'logfile'}
+      && $target->{'logfile'} ne $arg{'logid'};
+    # "hostmatch" condition
+    next if
+      exists $target->{'hostmatch'}
+      && ref($target->{'hostmatch'})
+      && $arg{'host'}
+      && !rule_hostname_match($target->{'hostmatch'}, $arg{'host'});
+    # no mismatch, so target found
+    $tid = $target->{'id'};
+    last;
+  }
+
+  return $tid;
+}
+
+
+#=============================================================================
 # Display usage help
 #=============================================================================
 
@@ -963,8 +992,16 @@ if($cmd_trigger) {
 
   # process each host
   for my $host (@hosts) {
+    my $tid = find_target(
+      logid => $cmd_trigger,
+      host => lc($host)
+    );
+    if(!$tid) {
+      $logger->warn("[cvs] No target found for match from '$host' in source '$cmd_trigger'");
+      next;
+    }
     process_match(
-      $cmd_trigger,
+      $tid,
       $host,
       $cmd_msg // 'Manual check-in',
       $cmd_user // 'cvs',
@@ -1056,24 +1093,12 @@ while (1) {
     my $regex = $cfg->{'logfiles'}{$logid}{'match'};
     next if $l !~ /$regex/;
 
-    #--- find matching target
-    foreach my $target (@{$cfg->{'targets'}}) {
-      # "logfile" condition
-      next if
-        exists $target->{'logfile'}
-        && $target->{'logfile'} ne $logid;
-      # "hostmatch" condition
-      next if
-        exists $target->{'hostmatch'}
-        && ref($target->{'hostmatch'})
-        && $+{'host'}
-        && !rule_hostname_match($target->{'hostmatch'}, $+{'host'});
-      # no mismatch, so target found
-      $tid = $target->{'id'};
-      last;
-    }
+    #--- find target
+    $tid = find_target(
+      logid => $logid,
+      host => $+{'host'}
+    );
 
-    #--- no target found
     if(!$tid) {
       $logger->warn("[cvs] No target found for match from '$+{host}' in source '$logid'");
       next;
