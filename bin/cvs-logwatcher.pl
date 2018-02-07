@@ -286,9 +286,6 @@ sub run_expect_batch
       $logger->debug(
         sprintf('[%s] Expect send(%d): %s', $logpf, $i, repl($chat_send_disp))
       );
-      $logger->debug(
-        sprintf('[%s] Expect send raw(%d): %s', $logpf, $i, $chat_send)
-      );
       $exh->print(repl($row->[1]));
       sleep($sleep) if $sleep;
 
