@@ -629,6 +629,38 @@ sub process_match
       );
     }
 
+  #--- convert line endings to local style
+
+    if(
+      exists $target->{'options'}
+      && ref $target->{'options'}
+      && (grep { $_ eq 'normeol' } @{$target->{'options'}})
+    ) {
+      my $done;
+      if(open(FOUT, '>', "$file.eolconv.$$")) {
+        if(open(FIN, '<', $file)) {
+          while(my $l = <FIN>) {
+            $l =~ s/\R//;
+            print FOUT $l, "\n";
+          }
+          close(FIN);
+          $done = 1;
+        }
+        close(FOUT);
+        if($done) {
+          $logger->debug(
+            sprintf(
+              '[cvs/%s] Config reduced from %d to %d bytes (normeol)',
+              $tid, -s $file, -s "$file.eolconv.$$"
+            )
+          );
+          rename("$file.eolconv.$$", $file);
+        } else {
+          remove("$file.eolconv.$$");
+        }
+      }
+    }
+
   #--- filter out junk at the start and at the end ("validrange")
 
   # If "validrange" is specified for a target, then the first item in it
