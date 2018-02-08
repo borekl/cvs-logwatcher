@@ -159,7 +159,7 @@ sub snmp_get_value
   $logger->debug(qq{[$logpf] Cmd: $cmd});
   open(FH, "$cmd 2>/dev/null |") || do {
     $logger->fatal(qq{[$logpf] Failed to execute SNMP get ($cmd), aborting});
-    die;
+    return undef;
   };
   my $val = <FH>;
   close(FH);
@@ -244,7 +244,7 @@ sub run_expect_batch
   $logger->debug("[$logpf] Chat definition has " . @$chat . ' lines');
   my $exh = Expect->spawn($spawn) or do {
     $logger->fatal("[$logpf] Failed to spawn Expect instance ($spawn)");
-    die;
+    return;
   };
   $exh->log_stdout(0);
 
@@ -300,12 +300,9 @@ sub run_expect_batch
 
   sleep($sleep) if $sleep;  
   if($@) {
-    $logger->error(qq{[$logpf] Expect failed});
-    $exh->soft_close();
-    die;
-  } else {
-    $exh->soft_close();
+    $logger->error(qq{[$logpf] Expect failed for host $host});
   }
+  $exh->soft_close();
 }
 
 
