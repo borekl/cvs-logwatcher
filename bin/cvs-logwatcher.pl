@@ -412,6 +412,7 @@ sub process_match
     $chgwho,            # 3. username
     $force,             # 4. --force option
     $no_checkin,        # 5. --nocheckin option
+    $mangle,            # 6. --[no]mangle option
   ) = @_;
   
   #--- other variables
@@ -629,7 +630,8 @@ sub process_match
   #--- convert line endings to local style
 
     if(
-      exists $target->{'options'}
+      $mangle
+      && exists $target->{'options'}
       && ref $target->{'options'}
       && (grep { $_ eq 'normeol' } @{$target->{'options'}})
     ) {
@@ -668,7 +670,8 @@ sub process_match
   # (echo of the chat commands, disconnection message etc.)
 
     if(
-      exists $target->{'validrange'}
+      $mangle
+      && exists $target->{'validrange'}
       && ref $target->{'validrange'}
       && @{$target->{'validrange'}} == 2
     ) {
@@ -702,7 +705,8 @@ sub process_match
   # Any line matching any of the regexes in array "filter" is thrown away.
 
     if(
-      exists $target->{'filter'}
+      $mangle
+      && exists $target->{'filter'}
       && ref $target->{'filter'}
       && @{$target->{'filter'}}
     ) {
@@ -973,6 +977,7 @@ sub help
   print "  --force            force check-in when using --trigger\n";
   print "  --snmp-name        request SNMP hostName for given host/trigger and exit\n";
   print "  --nocheckin[=FILE] do not perform RCS repository check in with --trigger\n";
+  print "  --nomangle         do not perform config text transformations\n";
   print "\n";
 }
 
@@ -999,6 +1004,7 @@ my $cmd_force;
 my $cmd_help;
 my $cmd_snmp_name;
 my $cmd_no_checkin;
+my $cmd_mangle = 1;
 
 if(!GetOptions(
   'trigger=s'   => \$cmd_trigger,
@@ -1009,6 +1015,7 @@ if(!GetOptions(
   'help'        => \$cmd_help,
   'snmp-name'   => \$cmd_snmp_name,
   'nocheckin:s' => \$cmd_no_checkin,
+  'mangle!'     => \$cmd_mangle,
 ) || $cmd_help) {
   help();
   exit(1);
@@ -1155,6 +1162,7 @@ if($cmd_trigger) {
       $cmd_user // 'cvs',
       $cmd_force,
       $cmd_no_checkin,
+      $cmd_mangle,
     );
   }
 
@@ -1262,7 +1270,10 @@ while (1) {
       $tid,
       $+{'host'},
       $+{'msg'},
-      $+{'user'} ? $+{'user'} : 'unknown'
+      $+{'user'} ? $+{'user'} : 'unknown',
+      undef,
+      undef,
+      $cmd_mangle,
     );
 
   }
