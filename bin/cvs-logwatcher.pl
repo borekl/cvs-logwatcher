@@ -413,7 +413,8 @@ sub process_match
     $host,              # 2. host
     $msg,               # 3. message
     $chgwho,            # 3. username
-    $force              # 4. --force option
+    $force,             # 4. --force option
+    $no_checkin,        # 5. --nocheckin option
   ) = @_;
   
   #--- other variables
@@ -694,6 +695,34 @@ sub process_match
       }
     }
 
+  #--- --nocheckin option
+
+  # This blocks actually checking the file into the repository, instead the
+  # file is either left where it was received (when --nocheckin has no
+  # pathname specification) or it is saved into different location and
+  # filename (when --nocheckin specifies path/filename).
+
+    if(defined $no_checkin) {
+      if($no_checkin ne '') {
+        my $dst_file = $no_checkin;
+
+        # check whether --nocheckin value specifies existing directory, if
+        # it is, move the current file with its "received" filename to the
+        # directory; otherwise, move the current file into specified target
+        # file
+
+        if(-d $no_checkin) {
+          $no_checkin =~ s/\/+$//;
+          $dst_file = $no_checkin . '/' . $host_nodomain;
+        }
+        $logger->info("[cvs/$tid] No check in requested, moving config to $dst_file instead");
+        rename($file, $dst_file);
+      } else {
+        $logger->info("[cvs/$tid] No check in requested, leaving the file in $tftpdir");
+      }
+      die "NOREMOVE\n";
+    }
+
   #--- compare current version with the most recent CVS version
 
   # This is done to avoid storing configs that are not significantly
@@ -757,7 +786,7 @@ sub process_match
 
   #--- remove the file
 
-  if(-f "$tftpdir/$host_nodomain" ) {
+  if(-f "$tftpdir/$host_nodomain" && $@ ne "NOREMOVE\n" ) {
     $logger->debug(qq{[cvs/$tid] Removing file $tftpdir/$host_nodomain});
     unlink("$tftpdir/$host_nodomain");
   }
@@ -907,13 +936,14 @@ sub find_target
 sub help
 {
   print "Usage: cvs-logwatcher.pl [options]\n\n";
-  print "  --help            get this information text\n";
-  print "  --trigger=LOGID   trigger processing as if LOGID matched\n";
-  print "  --host=HOST       define host for --trigger or limit processing to it\n";
-  print "  --user=USER       define user for --trigger\n";
-  print "  --msg=MSG         define message for --trigger\n";
-  print "  --force           force check-in when using --trigger\n";
-  print "  --snmp-name       request SNMP hostName for given host/trigger and exit\n";
+  print "  --help             get this information text\n";
+  print "  --trigger=LOGID    trigger processing as if LOGID matched\n";
+  print "  --host=HOST        define host for --trigger or limit processing to it\n";
+  print "  --user=USER        define user for --trigger\n";
+  print "  --msg=MSG          define message for --trigger\n";
+  print "  --force            force check-in when using --trigger\n";
+  print "  --snmp-name        request SNMP hostName for given host/trigger and exit\n";
+  print "  --nocheckin[=FILE] do not perform RCS repository check in with --trigger\n";
   print "\n";
 }
 
@@ -939,15 +969,17 @@ my $cmd_msg;
 my $cmd_force;
 my $cmd_help;
 my $cmd_snmp_name;
+my $cmd_no_checkin;
 
 if(!GetOptions(
-  'trigger=s' => \$cmd_trigger,
-  'host=s'    => \$cmd_host,
-  'user=s'    => \$cmd_user,
-  'msg=s'     => \$cmd_msg,
-  'force'     => \$cmd_force,
-  'help'      => \$cmd_help,
-  'snmp-name' => \$cmd_snmp_name,
+  'trigger=s'   => \$cmd_trigger,
+  'host=s'      => \$cmd_host,
+  'user=s'      => \$cmd_user,
+  'msg=s'       => \$cmd_msg,
+  'force'       => \$cmd_force,
+  'help'        => \$cmd_help,
+  'snmp-name'   => \$cmd_snmp_name,
+  'nocheckin:s' => \$cmd_no_checkin,
 ) || $cmd_help) {
   help();
   exit(1);
@@ -1092,7 +1124,8 @@ if($cmd_trigger) {
       $host,
       $cmd_msg // 'Manual check-in',
       $cmd_user // 'cvs',
-      $cmd_force
+      $cmd_force,
+      $cmd_no_checkin,
     );
   }
 
