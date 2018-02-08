@@ -642,7 +642,7 @@ sub process_match
       && ref $target->{'validrange'}
       && @{$target->{'validrange'}} == 2
     ) {
-      if(open(FOUT, '>', "$file.$$")) {
+      if(open(FOUT, '>', "$file.validrange.$$")) {
         if(open(FIN, '<', "$file")) {
           my $in_range = defined $target->{'validrange'}[0] ? 0 : 1;
           while(my $l = <FIN>) {
@@ -656,11 +656,39 @@ sub process_match
           close(FIN);
           $logger->debug(
             sprintf(
-              "[cvs/$tid] Config reduced from %s to %s bytes (validrange)",
-              -s $file, -s "$file.$$"
+              '[cvs/%s] Config reduced from %d to %d bytes (validrange)',
+              $tid, -s $file, -s "$file.validrange.$$"
             )
           );
-          rename("$file.$$", $file);
+          rename("$file.validrange.$$", $file);
+        }
+        close(FOUT);
+      }
+    }
+
+  #--- filter out selected lines anywhere in the configuration
+
+  # This complements above "validrange" feature by filtering by set of regexes.
+  # Any line matching any of the regexes in array "filter" is thrown away.
+
+    if(
+      exists $target->{'filter'}
+      && ref $target->{'filter'}
+      && @{$target->{'filter'}}
+    ) {
+      if(open(FOUT, '>', "$file.filter.$$")) {
+        if(open(FIN, '<', "$file")) {
+          while(my $l = <FIN>) {
+            print FOUT $l if(!(grep { $l =~ /$_/ } @{$target->{'filter'}}));
+          }
+          close(FIN);
+          $logger->debug(
+            sprintf(
+              '[cvs/%s] Config reduced from %d to %d bytes (filter)',
+              $tid, -s $file, -s "$file.filter.$$"
+            )
+          );
+          rename("$file.filter.$$", $file);
         }
         close(FOUT);
       }
