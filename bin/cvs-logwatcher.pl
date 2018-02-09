@@ -1206,7 +1206,7 @@ for my $log (keys %{$cfg->{'logfiles'}}) {
   $h->{'cvslogwatch.logid'} = $log;
   push(@logfiles, $h);
 
-  $logger->debug("[cvs] Started observing $logfile ($log)");
+  $logger->info("[cvs] Started observing $logfile ($log)");
 }
 
 if(scalar(@logfiles) == 0) { 
