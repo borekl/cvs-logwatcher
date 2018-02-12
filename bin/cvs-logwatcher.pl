@@ -219,6 +219,27 @@ sub snmp_get_system_name
 # Execute batch of expect-response pairs. If there's third value in the 
 # arrayref containing the exp-resp pair, it will be taken as a file to
 # begin logging into.
+#
+# The expect chat definition has this form:
+#
+# {
+#   spawn => "command to run",
+#   sleep => N,
+#   chat => [
+#     [ "expect string", "response string", "logfile", "prompt" ],
+#     ...
+#   ]
+# }
+#
+# All of the string values can use replacement tokens (using the repl()
+# function. The expect string can use capture groups, that are available to
+# response strings as %+0, %+1, etc.
+#
+# The "logfile" element is optional; when present, the output is recorded
+# into specified file.
+#
+# The "prompt" element is optional; when preset it sets the value of the %P
+# replacement -- this is intended for setting up system prompt string.
 #=============================================================================
 
 sub run_expect_batch
@@ -226,7 +247,7 @@ sub run_expect_batch
   #--- arguments
   
   my (
-    $expect_def,    # 1. expect conversion definitions from the config.json
+    $expect_def,    # 1. expect conversation definitions from the config.json
     $host,          # 2. hostname
     $host_nodomain, # 3. hostname without domain
     $logpf,         # 4. logging message prefix
@@ -247,6 +268,8 @@ sub run_expect_batch
     return;
   };
   $exh->log_stdout(0);
+  $exh->restart_timeout_upon_receive(1);
+  $exh->match_max(8192);
 
   eval {  #<--- eval begins here ---------------------------------------------
 
@@ -273,9 +296,9 @@ sub run_expect_batch
 
       #--- perform the handshake
       $logger->debug(
-        sprintf('[%s] Expect string(%d): %s', $logpf, $i, $row->[0])
+        sprintf('[%s] Expect string(%d): %s', $logpf, $i, repl($row->[0]))
       );
-      $exh->expect($cfg->{'config'}{'expmax'} // 300, '-re', $row->[0]) or die;
+      $exh->expect($cfg->{'config'}{'expmax'} // 300, '-re', repl($row->[0])) or die;
       my @g = $exh->matchlist();
       $logger->debug(
         sprintf('[%s] Expect receive(%d): %s', $logpf, $i, $exh->match())
@@ -286,6 +309,7 @@ sub run_expect_batch
         );
       }
       repl_capture_groups(@g);
+      if($row->[3]) { $replacements{'%P'} = quotemeta(repl($row->[3])) };
       $logger->debug(
         sprintf('[%s] Expect send(%d): %s', $logpf, $i, repl($chat_send_disp))
       );
