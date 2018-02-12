@@ -728,6 +728,41 @@ sub process_match
       }
     }
 
+  #--- "validate" option
+
+  # This option is an array of regexes that each must be matched at least
+  # once per config.  When this condition is not met, the configuration is
+  # rejected as incomplete.  This is to protect against interrupted
+  # transfers that would drop valid data from repository.
+
+    if(
+      exists $target->{'validate'}
+      && ref $target->{'validate'}
+      && @{$target->{'validate'}}
+    ) {
+      if(open(FIN, '<', $file)) {
+        my @validate = @{$target->{'validate'}};
+        while(my $l = <FIN>) {
+          chomp($l);
+          for(my $i = 0; $i < @validate; $i++) {
+            my $re = $validate[$i];
+            if($l =~ /$re/) {
+              splice(@validate, $i, 1);
+            }
+          }
+        }
+        if(@validate) {
+          $logger->warn("[cvs/$tid] Validation required but failed, aborting check in");
+          $logger->debug(
+            "[cvs/$tid] Failed validation expressions: ",
+            join(', ', map { "'$_'" } @validate)
+          );
+          die;
+        }
+        close(FIN);
+      }
+    }
+
   #--- --nocheckin option
 
   # This blocks actually checking the file into the repository, instead the
