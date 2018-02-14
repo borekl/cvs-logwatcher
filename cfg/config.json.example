@@ -6,7 +6,8 @@
 #
 # This file configures the configuration of the cvs-logwatcher.pl script. The
 # configuration is deep and involved. Please read carefully the information
-# in the comments before making changes.
+# in the comments before making changes, also see README for detailed
+# description.
 #
 # In certain strings, following tokens can be used:
 #
@@ -16,6 +17,8 @@
 # %i - source IP address
 # %h - device hostname as gleaned given in the monitored logfile
 # %H - same as %h but without domain
+# %P - prompt, this can be set within a chat script and used to match system
+#      prompt
 #=============================================================================
 
 {
@@ -33,7 +36,7 @@
     #--- the IP address that will be used to make all requests; this should
     #--- be preferred outgoing interface of the server
 
-    "src-ip"    : "172.16.1.10",
+    "src-ip"    : "172.16.20.30",
 
     #--- the tftp server's root directory; this should not be a subdirectory
     #--- thereof, use "tftpdir" for this
@@ -64,7 +67,7 @@
     #--- expect timeout; this defines how long will the expect scripts wait
     #--- for input
 
-    "expmax"    : 240
+    "expmax"    : 60
   },
 
 #=============================================================================
@@ -127,11 +130,11 @@
 #=============================================================================
 
   "groups" : {
-    "corenet" : [
+    "nsu" : [
       "^(bsc|rnc|bud|sitR|sitS|gtsR|bce|sitnb|strnb).+$",
       "^rcnR0[45]m$"
     ],
-    "lanserv" : [
+    "infserv" : [
       "^(vinPE02|sitPE0[23].*|A[123456]|CA|DCN|.*INFSERV.*)$"
     ]
   },
@@ -179,12 +182,81 @@
 # This is the most complex and most involved section. Each item under
 # "targets" defines one target and its handling. Note, that "cisco" target has
 # some special options and handling hardcoded for it (this should be
-# regularized). Apart from this, the keys can be named freely.
+# regularized). Apart from this, the keys can be named freely. Please see
+# README for detailed description.
 #=============================================================================
 
   "targets" : [
 
+    #--- Cisco IOS over telnet
+
     {
+      "id"         : "cisco-telnet",
+      "defgrp"     : "netit",
+      "logfile"    : "cisco",
+      "hostmatch"  : [
+        { "includelist" : [
+          "bsc022s0c", "bsc035s0c", "bsc039s0c", "bsc039s1c", "chrs12c",
+          "chrs14c", "chrs15c", "strs04", "strs05", "strs06", "strs07",
+          "strs08", "strs09", "strs10", "strs11", "strs12", "strs13",
+          "strs14", "strs15", "strs16", "strs17", "strs18", "strs19",
+          "strs20", "strs21", "strs22", "strs23", "strs28", "strs29",
+          "strs32", "strs33", "strs34", "strs35", "strs26", "strs27",
+          "rcns08", "rcns10", "phcs01c",
+        ] },
+      ],
+      "validrange" : [ "^(!|version )", "^end\\s*$" ],
+      "validate"   : [ "^end\\s*$" ],
+      "ignoreline" : "^(!|ntp clock-period)",
+      "snmp"       : {
+        "ro" : "%1",
+        "ver" : "2c",
+      },
+      "options"    : [ "snmphost", "normeol" ],
+      "expect"     : {
+        "spawn" : "/usr/bin/telnet %h",
+        "sleep" : 1,
+        "chat" : [
+          [ "(Username|USERNAME|username):", "cvs1\r" ],
+          [ "(Password|PASSWORD|password):", "%3\r" ],
+          [ "^(\\S*)#", "term len 0\r", null, "%+0" ],
+          [ "^%P#", "sh run\r", "%T/%H" ],
+          [ "^%P#", "exit\r" ],
+        ],
+      }
+    },
+
+    #--- definition for Cisco IOS/NX-OS/IOS XR over SSH; some Nexus switches
+    #--- seem to print additional CR before the prompt, so we match that by
+    #--- '\s?' regex.
+
+    {
+      "id"         : "cisco-ssh",
+      "defgrp"     : "netit",
+      "logfile"    : "cisco",
+      #"hostmatch"  : [
+      #  { "excludelist" : [ "strnb00", "sitnb00" ] },
+      #],
+      "validrange" : [ "^(!|version )", "^end\\s*$" ],
+      "validate"   : [ "^line vty" ],
+      "filter"     : [ "^Connection to \\S+ closed", "# exit\\s*$" ],
+      "ignoreline" : "^(!|ntp clock-period)",
+      "snmp"       : {
+        "ro" : "%1",
+        "ver" : "2c",
+      },
+      "options"    : [ "snmphost", "normeol" ],
+      "expect"     : {
+        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",
+        "sleep" : 1,
+        "chat" : [
+          [ "(Password|PASSWORD|password):", "%3\r" ],
+          [ "^\\s?(\\S*)#", "term len 0\r", null, "%+0" ],
+          [ "^\\s?%P#", "sh run\r", "%T/%H" ],
+          [ "^\\s?%P#", "exit\r" ],
+        ],
+      }
+    },
 
     #--- "cisco" has some special hardcoded options and handling; the default
     #--- way of getting a config is to trigger the "writeNet" SNMP OID, which
@@ -192,56 +264,27 @@
     #--- running tftp server, of course; the other two options are for IOS XR
     #--- and NX-OS switches, where the SNMP/tftp method doesn't work the way
     #--- we need
+    #---
+    #--- NOTE: This is the original way of doing things and it will be
+    #--- eventually removed; the NX-OS/IOS XR matching is unnecessary, use the
+    #--- config targets "cisco-ssh" or "cisco-telnet" instead!!!
 
+    {
       "id" : "cisco",
-
-    #--- default group for this log, can be overriden by "groups" (see above)
-
       "defgrp"     : "netit",
-
-    #--- logfile name
-
       "logfile"    : "cisco",
-
-    #--- following two options define regexp matched against sysDescr, these
-    #--- allow special processing for IOS XR and NX-OS"
-
       "matchxr"    : "Cisco IOS XR",
       "matchnxos"  : "Cisco NX-OS",
-
-    #--- device config lines matching this regexp are not considered for the
-    #--- purposes of checking whether the configuration changed
-
       "ignoreline" : "^(!|ntp clock-period)",
-
-    #--- this defines RO and RW SNMP communities; the %N tokens defined in
-    #--- file referenced in config->keyring (see above) can and should be
-    #--- used
-    
       "snmp" : {
         "ro" : "%1",
         "rw" : "%2",
         "ver" : 1
       },
-
-    #--- two expect definitions have special meaning in the "cisco" log: "ios-xr"
-    #--- and "nx-os", triggered by the "matchxr" or "matchnxos" regexps
-    #--- respectively; % tokens can be used in expect scripts, see the top of
-    #--- this file
-
       "expect" : {
         "ios-xr" : {
-
-    #--- command to spawn a session with the device
-
           "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",
-
-    #--- wait this long (in seconds) between each line
-
           "sleep" : 1,
-
-    #--- expect chat; list of expect/send pair; expect value is a regexp
-
           "chat" : [
             [ "password:",                   "%3\r"    ],
             [ "^RP/.*/RSP.*/CPU.*:.*NB00#$", "copy running-config tftp://%i/%t/%H vrf MGMT\r" ],
@@ -263,23 +306,25 @@
       }
     },
 
-    #--- definition for Alcatel-Lucent 7750SR, this is completely regular
-    #--- definition as opposed to the cisco def above
+    #--- Alcatel-Lucent 7750SR, uses static user 'cvs' that needs privilege
+    #--- to issue the commands used in the chat script ("environment more",
+    #--- "admin display-config")
 
     {
       "id"         : "alu",
       "defgrp"     : "nsu",
       "logfile"    : "alu",
       "validrange" : [ "^# TiMOS", "^# Finished" ],
+      "validate"   : [ "^# Finished" ],
       "ignoreline" : "^#",
       "expect" : {
         "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h",
         "sleep" : 1,
         "chat" : [
           [ "password:", "%4\r" ],
-          [ "#", "environment no more\r" ],
-          [ "#", "admin display-config\r", "%T/%H" ],
-          [ "#", "logout\r" ]
+          [ "^(\\S*)#", "environment no more\r", null, "%+0" ],
+          [ "%P#", "admin display-config\r", "%T/%H" ],
+          [ "%P#", "logout\r" ]
         ]
       }
     },
@@ -295,19 +340,19 @@
       "logfile"    : "juniper",
       "validrange" : [ "^set version", null ],
       "ignoreline" : "^#",
+      "options"    : [ "normeol" ],
       "expect" : {
-        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l admin %h",
+        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l tufin %h",
         "sleep" : 1,
         "chat" : [
           [ "[Pp]assword:", "%5\r" ],
-          [ "^admin@.*> $", "show configuration | display set | no-more\r", "%T/%H" ],
-          [ "^admin@.*> $", "exit\r" ]
+          [ "^tufin@.*> $", "show configuration | display set | no-more\r", "%T/%H" ],
+          [ "^tufin@.*> $", "exit\r" ]
         ]
       }
     },
 
   ],
-
 
 #=============================================================================
 # DEVICE GROUPS section
