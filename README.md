@@ -94,7 +94,7 @@ In many parts of the configuration, following placeholders can be used:
 `%d` becomes '-dev' if running in development mode, otherwise ''  
 `%T` full tftp target directory  
 `%t` tftp subdirectory relative to tftp root  
-`%i` source IP address  
+`%i` IP address local TFTP server is reachable on
 `%h` device hostname as gleaned given in the monitored logfile  
 `%H` same as %h but without domain  
 `%P` prompt, this can be set within a chat script and used to match system prompt  
@@ -112,7 +112,7 @@ filenames will prepend this value to them.
 
 **`src-ip`**  
 defines the IP address that is to be used for sending configuration
-to, so it should be the primary interface for the server the program runs on.
+to a TFTP server, so it should be the primary interface for the server the program runs on.
 
 **`tftproot`**  
 defines TFTP server root directory
@@ -279,6 +279,7 @@ Define list of options that should be used for the target. Following options are
 
 * `snmphost` this will cause the program to perform SNMP query for system name; if such query succeeds, the obtained name is used for the device instead of that from logfile; this makes it possible to have properly capitalized device names
 * `normeol` this option will make the program to convert retrieved configurations to local end-of-line characters; this is recommended
+* `cisco-writenet` this option will make the program retrieve configuration from the device by issuing a SNMP set to `mib.writeNet` OID; this compels the device to initiate a TFTP upload
 
 **`validate`**  
 This specifies list of regular expressions that each must match at least once per configuration file. This can be used to defend against failed downloads. Try to use something that is guaranteed to appear at the end of the configuration. For example Cisco IOS configuration always has `end` as the last line, Nokia 7750SR has final line that starts with `# Finished`, etc. This is highly recommended.
@@ -367,6 +368,5 @@ Do not perform configuration file transformations prescribed in the target confi
 
 ## To Do
 
-* Regularize the "cisco" target and move the hardcoded special functions into options.
 * Fork the processing part. At this moment the processing blocks the entire program, which means that it's quite unsuitable for high traffic uses.
 * Implement "automatic refresh" -- this feature would on regular basis try to refresh devices with too old configs in repository. This would probably necessitate some kind of hostname storage so that the program know where to go to for the refresh.

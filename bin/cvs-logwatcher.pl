@@ -502,97 +502,10 @@ sub process_match
   }
 
   #--------------------------------------------------------------------------
-  #--- Cisco ----------------------------------------------------------------
+  #--- retrieve configuration from a device ---------------------------------
   #--------------------------------------------------------------------------
 
-  if($tid eq 'cisco') {
-  
-  #--- default platform
-  
-    my $platform = 'ios';
-
-  #--- get hostname via SNMP
-    
-  # This is somewhat redundant and unnecessary, but for historical
-  # reasons, we keep this here. The thing is that in the RCS repository
-  # we use device's own hostname, retrieved with SNMP, not the name
-  # from syslog entry.
-
-    $logger->debug(qq{[cvs/cisco] Getting hostname from SNMP});
-    $host_snmp = snmp_get_system_name($host, $target, 'cvs/cisco');
-    $logger->info(qq{[cvs/cisco] Source host: $host_snmp (from SNMP)});
-    if($host_snmp) {
-      $host_nodomain = $host_snmp;
-      $replacements{'%H'} = $host_snmp;
-    }
-  
-  #--- get sysDescr (to detect OS platform)
-              
-    $logger->debug(qq{[cvs/cisco] Checking IOS version});
-    $sysdescr = snmp_get_value($host, $target, 'sysDescr', 'cvs/cisco');
-    
-  #--- detect platform (IOS XR or NX-OS)
-  
-    my $m = $target->{'matchxr'};
-    if($sysdescr =~ /$m/) { $platform = 'ios-xr'; }
-    $m = $target->{'matchnxos'};
-    if($sysdescr =~ /$m/) { $platform = 'nx-os'; }
-    $logger->info(sprintf("[cvs/cisco] Platform:    %s", uc($platform)));
-  
-  #--- IOS XR / NX-OS devices
-
-  # bacause getting the config upon setting writeNet SNMP variable
-  # doesn't work properly in IOS XR and NX-OS, we use alternate way
-  # of doing things, that is loggin in over SSH and issuing a copy
-  # command              
-
-    if($platform eq 'ios-xr' || $platform eq 'nx-os') {
-      run_expect_batch(
-        $target->{'expect'}{$platform},
-        $host, $host_nodomain,
-        'cvs/cisco'
-      );
-    } 
-    
-  #--- IOS devices
-
-  # IOS Cisco devices provide their configurations upon triggering
-  # writeNet SNMP variable, which causes them to initiate TFTP upload
-        
-    else {
-      local $/;
-
-  #--- request config upload: assemble the command
-          
-      my $exec = sprintf(
-        '%s -Lf /dev/null -v%s -t60 -r1 -c%s %s %s.%s s %s/%s',
-        $cfg->{'snmp'}{'set'},                           # snmpset binary
-        $target->{'snmp'}{'ver'},                        # SNMP version
-        repl($target->{'snmp'}{'rw'}),                   # RW community
-        $host,                                           # hostname
-        $cfg->{'mib'}{'writeNet'},                       # writeNet OID
-        $cfg->{'config'}{'src-ip'},                      # source IP addr
-        repl($cfg->{'config'}{'tftpdir'}),               # TFTP subdir
-        $host_nodomain                                   # TFTP filename
-      );
-      $logger->debug(qq{[cvs/cisco] Cmd: }, $exec);
-
-  #--- request config upload: perform the command
-          
-      open(my $fh, '-|', $exec) || do {
-        $logger->fatal(qq{[cvs/cisco] Failed to request config ($exec)});
-        next;
-      };
-      <$fh>;
-      close($fh);
-    }
-  }
-
-  #--------------------------------------------------------------------------
-  #--- non-Cisco devices ----------------------------------------------------
-  #--------------------------------------------------------------------------
-
-  else {
+  {
 
   #--- "snmphost" option ----------------------------------------------------
 
@@ -615,13 +528,68 @@ sub process_match
       }
     }
 
+  #--- "cisco-writenet" option ----------------------------------------------
+
+  # This uses feature of Cisco IOS that causes the device to upload their
+  # configuration when triggered by SNMP write to writeNet OID.
+
+    if(
+      exists $target->{'options'}
+      && ref $target->{'options'}
+      && (grep { $_ eq 'cisco-writenet' } @{$target->{'options'}})
+    ) {
+
+  #--- ensure all prerequisites are met
+
+      if(
+        $target->{'snmp'}{'rw'}
+        && $cfg->{'mib'}{'writeNet'}
+      ) {
+
+  #--- request config upload: assemble the command
+
+        my $exec = sprintf(
+          '%s -Lf /dev/null -v%s -t60 -r1 -c%s %s %s.%s s %s/%s',
+          $cfg->{'snmp'}{'set'},                           # snmpset binary
+          $target->{'snmp'}{'ver'},                        # SNMP version
+          repl($target->{'snmp'}{'rw'}),                   # RW community
+          $host,                                           # hostname
+          $cfg->{'mib'}{'writeNet'},                       # writeNet OID
+          $cfg->{'config'}{'src-ip'},                      # source IP addr
+          repl($cfg->{'config'}{'tftpdir'}),               # TFTP subdir
+          $host_nodomain                                   # TFTP filename
+        );
+        $logger->debug(qq{[cvs/cisco] Cmd: }, $exec);
+
+  #--- request config upload: perform the command
+
+        open(my $fh, '-|', $exec) || do {
+          $logger->fatal(qq{[cvs/cisco] Failed to request config ($exec)});
+          next;
+        };
+        <$fh>;
+        close($fh);
+
+  #--- failure when something is missing
+
+      } else {
+        $logger->error(
+          qq{[cvs/$tid] Write SNMP community and writeNet MIB OID } .
+          qq{must be defined for "cisco-writenet" feature}
+        );
+        die;
+      }
+    }
+
   #--- run expect script ----------------------------------------------------
 
-    run_expect_batch(
-      $target->{'expect'},
-      $host, $host_nodomain,
-      "cvs/$tid"
-    );
+    if($target->{'expect'}) {
+      run_expect_batch(
+        $target->{'expect'},
+        $host, $host_nodomain,
+        "cvs/$tid"
+      );
+    }
   }
 
   #--------------------------------------------------------------------------
