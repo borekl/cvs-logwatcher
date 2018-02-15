@@ -238,7 +238,6 @@
       #  { "excludelist" : [ "strnb00", "sitnb00" ] },
       #],
       "validrange" : [ "^(!|version )", "^end\\s*$" ],
-      "validate"   : [ "^line vty" ],
       "filter"     : [ "^Connection to \\S+ closed", "# exit\\s*$" ],
       "ignoreline" : "^(!|ntp clock-period)",
       "snmp"       : {
