@@ -33,8 +33,7 @@
 
     "logprefix" : "/var/log",
 
-    #--- the IP address that will be used to make all requests; this should
-    #--- be preferred outgoing interface of the server
+    #--- the IP address where local TFTP server is reachable
 
     "src-ip"    : "172.16.20.30",
 
@@ -194,17 +193,6 @@
       "id"         : "cisco-telnet",
       "defgrp"     : "netit",
       "logfile"    : "cisco",
-      "hostmatch"  : [
-        { "includelist" : [
-          "bsc022s0c", "bsc035s0c", "bsc039s0c", "bsc039s1c", "chrs12c",
-          "chrs14c", "chrs15c", "strs04", "strs05", "strs06", "strs07",
-          "strs08", "strs09", "strs10", "strs11", "strs12", "strs13",
-          "strs14", "strs15", "strs16", "strs17", "strs18", "strs19",
-          "strs20", "strs21", "strs22", "strs23", "strs28", "strs29",
-          "strs32", "strs33", "strs34", "strs35", "strs26", "strs27",
-          "rcns08", "rcns10", "phcs01c",
-        ] },
-      ],
       "validrange" : [ "^(!|version )", "^end\\s*$" ],
       "validate"   : [ "^end\\s*$" ],
       "ignoreline" : "^(!|ntp clock-period)",
@@ -234,11 +222,7 @@
       "id"         : "cisco-ssh",
       "defgrp"     : "netit",
       "logfile"    : "cisco",
-      #"hostmatch"  : [
-      #  { "excludelist" : [ "strnb00", "sitnb00" ] },
-      #],
       "validrange" : [ "^(!|version )", "^end\\s*$" ],
-      "validate"   : [ "^line vty" ],
       "filter"     : [ "^Connection to \\S+ closed", "# exit\\s*$" ],
       "ignoreline" : "^(!|ntp clock-period)",
       "snmp"       : {
@@ -258,52 +242,21 @@
       }
     },
 
-    #--- "cisco" has some special hardcoded options and handling; the default
-    #--- way of getting a config is to trigger the "writeNet" SNMP OID, which
-    #--- causes the device to upload its configuration via tftp; this requires
-    #--- running tftp server, of course; the other two options are for IOS XR
-    #--- and NX-OS switches, where the SNMP/tftp method doesn't work the way
-    #--- we need
-    #---
-    #--- NOTE: This is the original way of doing things and it will be
-    #--- eventually removed; the NX-OS/IOS XR matching is unnecessary, use the
-    #--- config targets "cisco-ssh" or "cisco-telnet" instead!!!
+    #--- definition for Cisco IOS using TFTP transfer triggered with SNMP set
+    #--- to the writeNet OID; this mode is triggered by the "cisco-writenet"
+    #--- option
 
     {
-      "id" : "cisco",
+      "id"         : "cisco-tftp",
       "defgrp"     : "netit",
       "logfile"    : "cisco",
-      "matchxr"    : "Cisco IOS XR",
-      "matchnxos"  : "Cisco NX-OS",
       "ignoreline" : "^(!|ntp clock-period)",
-      "snmp" : {
+      "snmp"       : {
         "ro" : "%1",
         "rw" : "%2",
-        "ver" : 1
+        "ver" : "2c",
       },
-      "expect" : {
-        "ios-xr" : {
-          "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",
-          "sleep" : 1,
-          "chat" : [
-            [ "password:",                   "%3\r"    ],
-            [ "^RP/.*/RSP.*/CPU.*:.*NB00#$", "copy running-config tftp://%i/%t/%H vrf MGMT\r" ],
-            [ "control-c to abort",          "\r"              ],
-            [ "control-c to abort",          "\r"              ],
-            [ "^RP/.*/RSP.*/CPU.*:.*NB00#$", "exit\r"          ]
-          ]
-        },
-        "nx-os" : {
-          "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",
-          "sleep" : 1,
-          "chat" : [
-            [ "Password:", "%3\r" ],
-            [ "#", "echo $(SRCVRF)\r" ],
-            [ "^([a-z]+)\\r?$", "copy running-config tftp://%i/%t/%H vrf %+0\r" ],
-            [ "#", "exit\r" ]
-          ]
-        }
-      }
+      "options"    : [ "cisco-writenet", "normeol", "snmphost" ],
     },
 
     #--- Alcatel-Lucent 7750SR, uses static user 'cvs' that needs privilege
