@@ -20,7 +20,6 @@ use strict;
 use warnings;
 use Carp;
 use Expect;
-use Cwd qw(abs_path);
 use Log::Log4perl qw(get_logger);
 use JSON;
 use File::Tail;
@@ -32,8 +31,6 @@ use Getopt::Long;
 #=============================================================================
 
 my ($cfg, $logger);
-my $dev               = 0;
-my $prefix            = '/opt/cvs/%s';
 my $tftpdir;
 my %replacements;
 my $js                = JSON->new()->relaxed(1);
@@ -603,7 +600,7 @@ sub process_match
     my ($exec, $rv);
     my $file = "$tftpdir/$host_nodomain";
     my $repo = sprintf(
-      '%s/%s/%s', $prefix, $cfg->{'rcs'}{'rcsrepo'}, $group
+      '%s/%s', $cfg->{'rcs'}{'rcsrepo'}, $group
     );
 
   #--- check if we really have the input file
@@ -1005,6 +1002,8 @@ sub help
   print "  --snmp-name        request SNMP hostName for given host/trigger and exit\n";
   print "  --nocheckin[=FILE] do not perform RCS repository check in with --trigger\n";
   print "  --nomangle         do not perform config text transformations\n";
+  print "  --debug            set loglevel to debug\n";
+  print "  --devel            set loglevel to debug, log to STDOUT, don't detach\n";
   print "\n";
 }
 
@@ -1032,6 +1031,8 @@ my $cmd_help;
 my $cmd_snmp_name;
 my $cmd_no_checkin;
 my $cmd_mangle = 1;
+my $cmd_debug;
+my $cmd_devel;
 
 if(!GetOptions(
   'trigger=s'   => \$cmd_trigger,
@@ -1043,26 +1044,37 @@ if(!GetOptions(
   'snmp-name'   => \$cmd_snmp_name,
   'nocheckin:s' => \$cmd_no_checkin,
   'mangle!'     => \$cmd_mangle,
+  'debug'       => \$cmd_debug,
+  'devel'       => \$cmd_devel,
 ) || $cmd_help) {
   help();
   exit(1);
 }
 
-#--- decide if we are development or production ------------------------------
+#--- --devel implies debug loglevel
 
-$dev = 1 if abs_path($0) =~ /\/dev/;
-$prefix = sprintf($prefix, $dev ? 'dev' : 'prod');
-$replacements{'%d'} = ($dev ? '-dev' : '');
+if($cmd_devel) {
+  $cmd_debug = 1;
+  $replacements{'%d'} = '-dev';
+} else {
+  $replacements{'%d'} = '';
+}
+
+#--- directory 'cfg' must exist
+
+if(! -d 'cfg') {
+  die "Configuration directory 'cfg' does not exist\n";
+}
 
 #--- read configuration ------------------------------------------------------
 
 {
   local $/;
   my $fh;
-  open($fh, '<', "$prefix/cfg/config.json") or die;
+  open($fh, '<', "cfg/config.json") or die "Configuration file not found\n";
   my $cfg_json = <$fh>;
   close($fh);
-  $cfg = $js->decode($cfg_json) or die;
+  $cfg = $js->decode($cfg_json) or die "Failed to parse configuration file\n";
 }
 
 #--- read keyring ------------------------------------------------------------
@@ -1070,10 +1082,12 @@ $replacements{'%d'} = ($dev ? '-dev' : '');
 if(exists $cfg->{'config'}{'keyring'}) {
   local $/;
   my ($fh, $krg);
-  open($fh, '<', "$prefix/cfg/" . $cfg->{'config'}{'keyring'}) or die;
+  open($fh, '<', "cfg/" . $cfg->{'config'}{'keyring'})
+    or die "Failed to read keyring file " . $cfg->{'config'}{'keyring'} . "\n";
   my $krg_json = <$fh>;
   close($fh);
-  $krg = $js->decode($krg_json) or die;
+  $krg = $js->decode($krg_json)
+    or die "Failed to parse keyring file " . $cfg->{'config'}{'keyring'} . "\n";
   for my $k (keys %$krg) {
     $replacements{$k} = $krg->{$k};
   }
@@ -1081,8 +1095,24 @@ if(exists $cfg->{'config'}{'keyring'}) {
 
 #--- initialize Log4perl logging system --------------------------------------
 
-Log::Log4perl->init_and_watch("$prefix/cfg/logging.conf", 60);
+if(! -r 'cfg/logging.conf') {
+  die "Logging configurartion 'cfg/logging.conf' not found or not readable\n";
+}
+
+Log::Log4perl->init_and_watch("cfg/logging.conf", 60);
 $logger = get_logger('CVS::Main');
+
+if($cmd_devel) {
+  $logger->remove_appender('AFile');
+} else {
+  $logger->remove_appender('AScrn');
+}
+
+if($cmd_debug) {
+  $logger->level('DEBUG');
+} else {
+  $logger->level('INFO');
+}
 
 #--- initialize tftpdir variable ---------------------------------------------
 
@@ -1100,7 +1130,7 @@ $replacements{'%i'} = $cfg->{'config'}{'src-ip'};
 
 $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
-$logger->info(qq{[cvs] Mode is }, $dev ? 'development' : 'production');
+$logger->info(qq{[cvs] Mode is }, $cmd_devel ? 'development' : 'production');
 $logger->info(qq{[cvs] Tftp dir is $tftpdir});
 
 #--- verify command-line parameters ------------------------------------------

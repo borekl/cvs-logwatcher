@@ -18,22 +18,19 @@ There's no relation to actual CVS versioning system.
 ## Requirements
 
 * Perl 5.10 or newer
-* Following perl modules: Expect, Cwd, JSON, Log::Log4Perl, File::Tail
+* Following perl modules: Expect, JSON, Log::Log4Perl, File::Tail
 
 -----
 
 ## File System Layout
 
-    /opt/cvs            .. home directory of user cvs
-        prod/           .. production directory
-            bin/        .. executable scripts
-            cfg/        .. configuration files
-            data/       .. RCS repository
-        dev/            .. development directory
+Following directories are fixed and must exist in the directory the main script is
+executed from:
 
-I recommend to clone/update git repository into `dev` directory and copy the
-files into `prod` directory.  The `/opt/cvs` prefix is configurable in the
-`cvs-logwatcher.pl` script itself.
+    bin/  .. executable scripts
+    cfg/  .. configuration files
+
+The other directories (tftp, repository, temp) are configurable in the configuration file.
 
 -----
 
@@ -365,6 +362,13 @@ Do not perform RCS check in after successfully retrieving configuration from a d
 
 **`--nomangle`**  
 Do not perform configuration file transformations prescribed in the target config.
+
+**`--debug`**  
+Raises loglevel to DEBUG, which means debugging info will go to the log.
+
+**`--devel`**  
+Enables development mode: loglevel is set to DEBUG, log goes to STDOUT
+instead of file and the script does not detach from controlling terminal.
 
 ## To Do
 
