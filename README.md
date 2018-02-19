@@ -214,7 +214,7 @@ capture group `host` that matches source hostname; capture groups
 #### Targets configuration
 
 When a logfile match occurs, the program will search list of targets to decide
-what actiion to perform. The targets are defined as list of hashes, that define number of various options. Options `logfile` and `hostmatch` are used when searching for
+what action to perform. The targets are defined as list of hashes, that define number of various options. Options `logfile` and `hostmatch` are used when searching for
 a matching target. The first matching target is used and the rest is skipped.
 
 The reason for this logfile → target indirection is to enable to have one logfile
