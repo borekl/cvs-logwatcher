@@ -1,6 +1,6 @@
 log4perl.oneMessagePerAppender=1
 
-log4perl.logger.CVS.Main=DEBUG,AScrn
+log4perl.logger.CVS.Main=DEBUG,AScrn,AFile
 
 log4perl.appender.AScrn=Log::Dispatch::Screen
 log4perl.appender.AScrn.layout=Log::Log4perl::Layout::PatternLayout
