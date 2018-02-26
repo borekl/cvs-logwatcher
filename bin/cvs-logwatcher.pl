@@ -21,6 +21,7 @@ use warnings;
 use Carp;
 use Expect;
 use Log::Log4perl qw(get_logger);
+use Log::Log4perl::Level;
 use JSON;
 use File::Tail;
 use Getopt::Long;
@@ -32,8 +33,8 @@ use Getopt::Long;
 
 my ($cfg, $logger);
 my $tftpdir;
-my %replacements;
-my $js                = JSON->new()->relaxed(1);
+my %replacements = ('%d' => '' );
+my $js = JSON->new()->relaxed(1);
 
 
 #=============================================================================
@@ -1003,7 +1004,7 @@ sub help
   print "  --nocheckin[=FILE] do not perform RCS repository check in with --trigger\n";
   print "  --nomangle         do not perform config text transformations\n";
   print "  --debug            set loglevel to debug\n";
-  print "  --devel            set loglevel to debug, log to STDOUT, don't detach\n";
+  print "  --devel            development mode, implies --debug\n";
   print "\n";
 }
 
@@ -1032,7 +1033,6 @@ my $cmd_snmp_name;
 my $cmd_no_checkin;
 my $cmd_mangle = 1;
 my $cmd_debug;
-my $cmd_devel;
 
 if(!GetOptions(
   'trigger=s'   => \$cmd_trigger,
@@ -1045,19 +1045,13 @@ if(!GetOptions(
   'nocheckin:s' => \$cmd_no_checkin,
   'mangle!'     => \$cmd_mangle,
   'debug'       => \$cmd_debug,
-  'devel'       => \$cmd_devel,
+  'devel:s'     => sub {
+                     $cmd_debug = 1;
+                     $replacements{'%d'} = $_[1] || '-dev';
+                   },
 ) || $cmd_help) {
   help();
   exit(1);
-}
-
-#--- --devel implies debug loglevel
-
-if($cmd_devel) {
-  $cmd_debug = 1;
-  $replacements{'%d'} = '-dev';
-} else {
-  $replacements{'%d'} = '';
 }
 
 #--- directory 'cfg' must exist
@@ -1102,16 +1096,16 @@ if(! -r 'cfg/logging.conf') {
 Log::Log4perl->init_and_watch("cfg/logging.conf", 60);
 $logger = get_logger('CVS::Main');
 
-if($cmd_devel) {
+if($replacements{'%d'}) {
   $logger->remove_appender('AFile');
 } else {
   $logger->remove_appender('AScrn');
 }
 
 if($cmd_debug) {
-  $logger->level('DEBUG');
+  $logger->level($DEBUG);
 } else {
-  $logger->level('INFO');
+  $logger->level($INFO);
 }
 
 #--- initialize tftpdir variable ---------------------------------------------
@@ -1130,7 +1124,8 @@ $replacements{'%i'} = $cfg->{'config'}{'src-ip'};
 
 $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
-$logger->info(qq{[cvs] Mode is }, $cmd_devel ? 'development' : 'production');
+$logger->info(qq{[cvs] Mode is }, $replacements{'%d'} ? 'development' : 'production');
+$logger->debug(qq{[cvs] Debugging mode enabled}) if $cmd_debug;
 $logger->info(qq{[cvs] Tftp dir is $tftpdir});
 
 #--- verify command-line parameters ------------------------------------------
@@ -1335,4 +1330,3 @@ while (1) {
 
   }
 }
-    
