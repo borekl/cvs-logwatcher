@@ -13,8 +13,7 @@
 #
 # %d - becomes '-dev' if running in development mode, otherwise ''
 # %T - full tftp target directory
-# %t - tftp subdirectory relative to tftp root
-# %i - source IP address
+# %i - tftp server's IP address
 # %h - device hostname as gleaned given in the monitored logfile
 # %H - same as %h but without domain
 # %P - prompt, this can be set within a chat script and used to match system
@@ -35,18 +34,13 @@
 
     #--- the IP address where local TFTP server is reachable
 
-    "src-ip"    : "172.16.20.30",
+    "tftpip"    : "172.16.20.30",
 
-    #--- the tftp server's root directory; this should not be a subdirectory
-    #--- thereof, use "tftpdir" for this
+    #--- system TFTP directory, token "%d" will be replaced with "-dev" when
+    #--- running in development mode (allows for keeping development files
+    #--- separate)
 
-    "tftproot"  : "/tftpboot",
-
-    #--- directory within "tftproot", it must be a relative path without
-    #--- trailing slash; token "%d" will be replace with "-dev" when running
-    #--- in development mode (allows for keeping development files separate)
-
-    "tftpdir"   : "cs%d",
+    "tftpdir"   : "/tftpboot/cs%d",
 
     #--- defines external file that may be used to define passwords; this
     #--- allows to separate the secrets away from this configuration file

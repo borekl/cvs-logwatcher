@@ -542,6 +542,8 @@ sub process_match
       if(
         $target->{'snmp'}{'rw'}
         && $cfg->{'mib'}{'writeNet'}
+        && $cfg->{'config'}{'tftpip'}
+        && $cfg->{'config'}{'tftpdir'}
       ) {
 
   #--- request config upload: assemble the command
@@ -553,7 +555,7 @@ sub process_match
           repl($target->{'snmp'}{'rw'}),                   # RW community
           $host,                                           # hostname
           $cfg->{'mib'}{'writeNet'},                       # writeNet OID
-          $cfg->{'config'}{'src-ip'},                      # source IP addr
+          $cfg->{'config'}{'tftpip'},                      # source IP addr
           repl($cfg->{'config'}{'tftpdir'}),               # TFTP subdir
           $host_nodomain                                   # TFTP filename
         );
@@ -571,10 +573,21 @@ sub process_match
   #--- failure when something is missing
 
       } else {
+        my @missing;
+
+        if(!$target->{'snmp'}{'rw'}) { push(@missing, 'SNMP write community') }
+        if(!$cfg->{'mib'}{'writeNet'}) { push(@missing, 'SNMP writeNet OID') }
+        if(!$cfg->{'config'}{'tftpip'}) { push(@missing, 'TFTP server address') }
+        if(!$cfg->{'config'}{'tftpdir'}) { push(@missing, 'TFTP server directory') }
+
         $logger->error(
-          qq{[cvs/$tid] Write SNMP community and writeNet MIB OID } .
-          qq{must be defined for "cisco-writenet" feature}
+          qq{[cvs/$tid] Option "cisco-writenet" misconfigured, } .
+          'the following configuration is required but missing:'
         );
+        $logger->error(
+          qq{[cvs/$tid] }, join(', ', @missing)
+        );
+
         die;
       }
     }
@@ -1108,15 +1121,14 @@ if($cmd_debug) {
 
 #--- initialize tftpdir variable ---------------------------------------------
 
-$tftpdir = $cfg->{'config'}{'tftproot'};
-$tftpdir .= '/' . $cfg->{'config'}{'tftpdir'} if $cfg->{'config'}{'tftpdir'};
-$tftpdir = repl($tftpdir);
-$replacements{'%T'} = $tftpdir;
-$replacements{'%t'} = repl($cfg->{'config'}{'tftpdir'});
+if($cfg->{'config'}{'tftpdir'}) {
+  $tftpdir = repl($cfg->{'config'}{'tftpdir'});
+  $replacements{'%T'} = $tftpdir;
+}
 
 #--- source address ----------------------------------------------------------
 
-$replacements{'%i'} = $cfg->{'config'}{'src-ip'};
+$replacements{'%i'} = $cfg->{'config'}{'tftpip'};
 
 #--- title -------------------------------------------------------------------
 
@@ -1124,7 +1136,7 @@ $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
 $logger->info(qq{[cvs] Mode is }, $replacements{'%d'} ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging mode enabled}) if $cmd_debug;
-$logger->info(qq{[cvs] Tftp dir is $tftpdir});
+$logger->info(qq{[cvs] Tftp dir is $tftpdir}) if $tftpdir;
 
 #--- verify command-line parameters ------------------------------------------
 
