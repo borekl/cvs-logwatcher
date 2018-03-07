@@ -1131,13 +1131,14 @@ $logger->info(qq{[cvs] Tftp dir is $tftpdir});
 #--- verify command-line parameters ------------------------------------------
 
 if($cmd_trigger) {
-  if(grep { $_->{'id'} eq lc($cmd_trigger) } @{$cfg->{'targets'}}) {
-    if(!$cmd_host) {
-      $logger->fatal(qq{[cvs] No target host defined, aborting});
-      exit(1);
-    }
-  } else {
-    $logger->fatal(qq{[cvs] --trigger refers to non-existent target id, aborting});
+  if(!exists $cfg->{'logfiles'}{$cmd_trigger}) {
+    $logger->fatal(
+      '[cvs] Option --trigger refers to non-existend logfile id, aborting'
+    );
+    exit(1);
+  }
+  if(!$cmd_host) {
+    $logger->fatal(qq{[cvs] Option --trigger requires --host, aborting});
     exit(1);
   }
 }
