@@ -979,11 +979,9 @@ sub find_target
       && $arg{'host'}
       && !rule_hostname_match($target->{'hostmatch'}, $arg{'host'});
     # no mismatch, so target found
-    $tid = $target->{'id'};
+    return ($target->{'id'}, $target);
     last;
   }
-
-  return $tid;
 }
 
 
@@ -1141,7 +1139,9 @@ if($cmd_trigger) {
     exit(1);
   }
 }
-if($cmd_trigger) {
+
+
+if($cmd_trigger && !$cmd_snmp_name) {
   $cmd_trigger = lc($cmd_trigger);
   $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd_trigger));
   $logger->info(sprintf('[cvs] Explicit host is %s', $cmd_host));
@@ -1153,21 +1153,35 @@ if($cmd_trigger) {
 #--- SNMP name check ---------------------------------------------------------
 #-----------------------------------------------------------------------------
 
-# The --snmp-name allows to check what name given --host/--trigger reports
-# back, primarily for troubleshooting purposes.
+# The --snmp-name makes the cvs-logwatcher to send hostName SNMP query and
+# report the result; it also displays what target the given name is assigned.
+# Options --host and --trigger must be specified.
+#
+# FIXME: This is slightly incongruent with the 'snmphost' target option: this
+# commandline option will send the SNMP query even if the target doesn't have
+# the 'snmphost' option enable, which probably isn't quite right.
 
 if($cmd_snmp_name) {
   if($cmd_host && $cmd_trigger) {
-    my $tid = find_target(host => $cmd_host, logid => $cmd_trigger);
-    my ($target) = grep { $_->{'id'} eq $tid } @{$cfg->{'targets'}};
+
+    my ($tid, $target) = find_target(
+      host => $cmd_host,
+      logid => $cmd_trigger
+    );
+
     if(!$target) {
-      $logger->fatal("[cvs] No target found for host $cmd_host and log $cmd_trigger");
+      $logger->fatal(
+        "[cvs] No target found for host $cmd_host and log $cmd_trigger"
+      );
     } else {
       my $snmp_host = snmp_get_system_name($cmd_host, $target, 'cvs');
       if(!$snmp_host) {
         $logger->fatal("[cvs/$tid] No response for SNMP hostName query");
+        print "No response for SNMP hostName query\n" if !$replacements{'%d'};
       } else {
         $logger->info("[cvs/$tid] SNMP hostName query returned '$snmp_host'");
+        printf("host = %s, target = %s \n", $snmp_host, $tid)
+          if !$replacements{'%d'};
       }
     }
   } else {
