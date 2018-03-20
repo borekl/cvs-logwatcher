@@ -992,8 +992,11 @@ sub find_target
       && $arg{'host'}
       && !rule_hostname_match($target->{'hostmatch'}, $arg{'host'});
     # no mismatch, so target found
-    return ($target->{'id'}, $target);
-    last;
+    if(wantarray()) {
+      return ($target->{'id'}, $target);
+    } else {
+      return $target->{'id'};
+    }
   }
 }
 
