@@ -431,10 +431,10 @@ sub process_match
     $tid,               # 1. target id
     $host,              # 2. host
     $msg,               # 3. message
-    $chgwho,            # 3. username
-    $force,             # 4. --force option
-    $no_checkin,        # 5. --nocheckin option
-    $mangle,            # 6. --[no]mangle option
+    $chgwho,            # 4. username
+    $force,             # 5. --force option
+    $no_checkin,        # 6. --nocheckin option
+    $mangle,            # 7. --[no]mangle option
   ) = @_;
   
   #--- other variables
