@@ -273,10 +273,15 @@ sub run_expect_batch
 
     my $i = 1;
     for my $row (@$chat) {
+
+      $logger->debug(
+        sprintf('[%s] Expect chat line --- %d', $logpf, $i)
+      );
+
       my $chat_send = repl($row->[1]);
       my $chat_send_disp;
       my $open_log = repl($row->[2]);
-      
+
       #--- hide passwords, make CR visible
       $chat_send_disp = $chat_send;
       if($row->[0] =~ /password/i) {
@@ -308,11 +313,11 @@ sub run_expect_batch
       }
       repl_capture_groups(@g);
       if($row->[3]) { $replacements{'%P'} = quotemeta(repl($row->[3])) };
+      sleep($sleep) if $sleep;
       $logger->debug(
         sprintf('[%s] Expect send(%d): %s', $logpf, $i, repl($chat_send_disp))
       );
       $exh->print(repl($row->[1]));
-      sleep($sleep) if $sleep;
 
       #--- next line
       $i++;
@@ -323,6 +328,7 @@ sub run_expect_batch
   sleep($sleep) if $sleep;  
   if($@) {
     $logger->error(qq{[$logpf] Expect failed for host $host});
+    $logger->debug("[$logpf] Failure reason is: ", $@);
   }
   $exh->soft_close();
 }
