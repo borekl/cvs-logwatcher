@@ -742,12 +742,14 @@ sub process_match
   # This option is an array of regexes that each must be matched at least
   # once per config.  When this condition is not met, the configuration is
   # rejected as incomplete.  This is to protect against interrupted
-  # transfers that would drop valid data from repository.
+  # transfers that would drop valid data from repository. --nocheckin
+  # prevents validation.
 
     if(
       exists $target->{'validate'}
       && ref $target->{'validate'}
       && @{$target->{'validate'}}
+      && !defined $no_checkin
     ) {
       if(open(FIN, '<', $file)) {
         my @validate = @{$target->{'validate'}};
