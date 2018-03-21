@@ -90,10 +90,11 @@ In many parts of the configuration, following placeholders can be used:
 
 `%d` becomes '-dev' if running in development mode, otherwise ''  
 `%T` full tftp target directory  
-`%t` tftp subdirectory relative to tftp root  
-`%i` IP address local TFTP server is reachable on
-`%h` device hostname as gleaned given in the monitored logfile  
-`%H` same as %h but without domain  
+`%t` TFTP subdirectory (relative to TFTP root  
+`%D` temporary directory for non-TFTP files
+`%i` IP address local TFTP server is reachable on  
+`%h` device hostname as given in the monitored logfile  
+`%H` same as `%h` but without domain  
 `%P` prompt, this can be set within a chat script and used to match system prompt  
 
 Additional tokens can be defined in _keyring.json_ file, these are meant to be used for passwords (so they don't appear directly in the configuration file).
@@ -116,7 +117,10 @@ defines TFTP server root directory
 
 **`tftpdir`**  
 defines subdirectory within TFTP root where the configs will
-be saved, even the ones not actually retrieved with TFTP; the scripts write access to this directory so that it can process and remove retrieved files
+be saved, even the ones not actually retrieved with TFTP; the scripts write access to this directory so that it can process and remove retrieved files; this configuration key is optional
+
+**`tempdir`**  
+defines temporary directory that is used to store configurations received from devices (but not over TFTP, that uses above two options!)
 
 **`keyring`**  
 defines the keyring file

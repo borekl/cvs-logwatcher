@@ -12,7 +12,8 @@
 # In certain strings, following tokens can be used:
 #
 # %d - becomes '-dev' if running in development mode, otherwise ''
-# %T - full tftp target directory
+# %T - tftp target directory (relative to the tftproot)
+# %D - temporary directory for non-TFTP files
 # %i - tftp server's IP address
 # %h - device hostname as gleaned given in the monitored logfile
 # %H - same as %h but without domain
@@ -40,7 +41,13 @@
     #--- running in development mode (allows for keeping development files
     #--- separate)
 
-    "tftpdir"   : "/tftpboot/cs%d",
+    "tftproot"  : "/tftpboot",
+    "tftpdir"   : "cs%d",
+
+    #--- temporary directory for receiving files from devices (other than
+    #--- over TFTP); if this is not specified, current directory is used
+
+    "tempdir"   : "temp",
 
     #--- defines external file that may be used to define passwords; this
     #--- allows to separate the secrets away from this configuration file

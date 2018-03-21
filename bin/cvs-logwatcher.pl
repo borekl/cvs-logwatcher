@@ -25,6 +25,7 @@ use Log::Log4perl::Level;
 use JSON;
 use File::Tail;
 use Getopt::Long;
+use Cwd;
 
 
 #=============================================================================
@@ -32,7 +33,6 @@ use Getopt::Long;
 #=============================================================================
 
 my ($cfg, $logger);
-my $tftpdir;
 my %replacements = ('%d' => '' );
 my $js = JSON->new()->relaxed(1);
 
@@ -449,7 +449,8 @@ sub process_match
   my $host_snmp;        # hostname from SNMP
   my $group;            # administrative group
   my $sysdescr;         # system description from SNMP
-  
+  my $file;             # file holding retrieved configuration
+
   #--- find the target index
   # the $target argument refers to target identification, but targets are
   # actually stored in an array, so we need to find the actual item
@@ -471,7 +472,7 @@ sub process_match
   # "ignoreusers" configuration object is a list of users that should
   # be ignored and no processing be done for them (this is mainly for
   # debugging purposes).
-      
+
   if(
     $chgwho
     && exists $cfg->{'ignoreusers'}
@@ -532,6 +533,13 @@ sub process_match
       }
     }
 
+  #--- default config file location, this can change for the 'writenet' option
+
+    $file = $host_nodomain;
+    if($cfg->{'config'}{'tempdir'}) {
+      $file = $cfg->{'config'}{'tempdir'} . '/' . $file;
+    }
+
   #--- "cisco-writenet" option ----------------------------------------------
 
   # This uses feature of Cisco IOS that causes the device to upload their
@@ -549,21 +557,31 @@ sub process_match
         $target->{'snmp'}{'rw'}
         && $cfg->{'mib'}{'writeNet'}
         && $cfg->{'config'}{'tftpip'}
-        && $cfg->{'config'}{'tftpdir'}
+        && $cfg->{'config'}{'tftproot'}
       ) {
 
   #--- request config upload: assemble the command
 
+        my $tftp_root = repl($cfg->{'config'}{'tftproot'});
+        my $tftp_dir = repl($cfg->{'config'}{'tftpdir'});
+
+        my $tftp_file = $host_nodomain;
+        $file = "$tftp_root/$host_nodomain";
+
+        if($tftp_dir) {
+          $tftp_file = "$tftp_dir/$host_nodomain";
+          $file = "$tftp_root/$tftp_dir/$host_nodomain";
+        }
+
         my $exec = sprintf(
-          '%s -Lf /dev/null -v%s -t60 -r1 -c%s %s %s.%s s %s/%s',
+          '%s -Lf /dev/null -v%s -t60 -r1 -c%s %s %s.%s s %s',
           $cfg->{'snmp'}{'set'},                           # snmpset binary
           $target->{'snmp'}{'ver'},                        # SNMP version
           repl($target->{'snmp'}{'rw'}),                   # RW community
           $host,                                           # hostname
           $cfg->{'mib'}{'writeNet'},                       # writeNet OID
           $cfg->{'config'}{'tftpip'},                      # source IP addr
-          repl($cfg->{'config'}{'tftpdir'}),               # TFTP subdir
-          $host_nodomain                                   # TFTP filename
+          $tftp_file                                       # TFTP destination
         );
         $logger->debug(qq{[cvs/cisco] Cmd: }, $exec);
 
@@ -618,7 +636,6 @@ sub process_match
   #--------------------------------------------------------------------------
 
     my ($exec, $rv);
-    my $file = "$tftpdir/$host_nodomain";
     my $repo = sprintf(
       '%s/%s', $cfg->{'rcs'}{'rcsrepo'}, $group
     );
@@ -797,7 +814,7 @@ sub process_match
         $logger->info("[cvs/$tid] No check in requested, moving config to $dst_file instead");
         rename($file, $dst_file);
       } else {
-        $logger->info("[cvs/$tid] No check in requested, leaving the file in $tftpdir");
+        $logger->info("[cvs/$tid] No check in requested, leaving the file in $file");
       }
       die "NOREMOVE\n";
     }
@@ -841,13 +858,12 @@ sub process_match
     }
 
     $exec = sprintf(
-      '%s -q -w%s "-m%s" -t-%s %s/%s %s/%s,v',
+      '%s -q -w%s "-m%s" -t-%s %s %s/%s,v',
       $cfg->{'rcs'}{'rcsci'},                      # rcs ci binary
       $chgwho,                                     # author
       $msg,                                        # commit message
       $host,                                       # file description
-      $tftpdir,                                    # tftp directory
-      $host_nodomain,                              # config from device
+      $file,                                       # tftp directory
       $repo, $host_nodomain                        # config in repo
     );
     $logger->debug("[cvs/$tid] Cmd: $exec");
@@ -865,9 +881,9 @@ sub process_match
 
   #--- remove the file
 
-  if(-f "$tftpdir/$host_nodomain" && $@ ne "NOREMOVE\n" ) {
-    $logger->debug(qq{[cvs/$tid] Removing file $tftpdir/$host_nodomain});
-    unlink("$tftpdir/$host_nodomain");
+  if(-f "$file" && $@ ne "NOREMOVE\n" ) {
+    $logger->debug(qq{[cvs/$tid] Removing file $file});
+    unlink("$file");
   }
 }
 
@@ -987,6 +1003,14 @@ sub find_target
 {
   my %arg = @_;
   my $tid;
+
+  #--- remove domain from hostname
+
+  if($arg{'host'}) {
+    $arg{'host'} =~ s/\..*$//g;
+  }
+
+  #--- do the matching
 
   foreach my $target (@{$cfg->{'targets'}}) {
     # "logfile" condition
@@ -1130,11 +1154,34 @@ if($cmd_debug) {
   $logger->level($INFO);
 }
 
-#--- initialize tftpdir variable ---------------------------------------------
+#--- initialize tftpdir/tempdir ---------------------------------------------
 
 if($cfg->{'config'}{'tftpdir'}) {
-  $tftpdir = repl($cfg->{'config'}{'tftpdir'});
-  $replacements{'%T'} = $tftpdir;
+  my $tftpdir = repl($cfg->{'config'}{'tftpdir'});
+  $replacements{'%t'} = $tftpdir;
+}
+
+if($cfg->{'config'}{'tftproot'}) {
+  my $tftproot = repl(
+    join('/',
+      grep { defined $_ } (
+        $cfg->{'config'}{'tftproot'},
+        $cfg->{'config'}{'tftpdir'}
+      )
+    )
+  );
+  $replacements{'%T'} = $tftproot;
+}
+
+{
+  my $tempdir = cwd();
+  if($cfg->{'config'}{'tempdir'}) {
+    $tempdir = repl($cfg->{'config'}{'tempdir'});
+  }
+  if(substr($tempdir, 0, 1) ne '/') {
+    $tempdir = cwd() . '/' . $tempdir;
+  }
+  $replacements{'%D'} = $tempdir
 }
 
 #--- source address ----------------------------------------------------------
@@ -1147,7 +1194,12 @@ $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
 $logger->info(qq{[cvs] Mode is }, $replacements{'%d'} ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging mode enabled}) if $cmd_debug;
-$logger->info(qq{[cvs] Tftp dir is $tftpdir}) if $tftpdir;
+$logger->info(qq{[cvs] Tftp root is } . $replacements{'%T'})
+  if $replacements{'%T'};
+$logger->info(qq{[cvs] Tftp dir is } . $replacements{'%t'})
+  if $replacements{'%t'};
+$logger->info(qq{[cvs] Temp dir is } . $replacements{'%D'})
+  if $replacements{'%D'};
 
 #--- verify command-line parameters ------------------------------------------
 
