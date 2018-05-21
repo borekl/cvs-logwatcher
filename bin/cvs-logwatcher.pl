@@ -104,7 +104,7 @@ sub get_admin_group
 
   #--- do the matching
   
-  for my $grp (keys $cfg->{'groups'}) {
+  for my $grp (keys %{$cfg->{'groups'}}) {
     for my $re_src (@{$cfg->{'groups'}{$grp}}) {
       my $re = qr/$re_src/i;
       return $grp if $host =~ /$re/;
