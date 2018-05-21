@@ -1051,6 +1051,7 @@ sub help
   print "  --nomangle         do not perform config text transformations\n";
   print "  --debug            set loglevel to debug\n";
   print "  --devel            development mode, implies --debug\n";
+  print "  --initonly         init everything and exit\n";
   print "\n";
 }
 
@@ -1079,6 +1080,7 @@ my $cmd_snmp_name;
 my $cmd_no_checkin;
 my $cmd_mangle = 1;
 my $cmd_debug;
+my $cmd_initonly;
 
 if(!GetOptions(
   'trigger=s'   => \$cmd_trigger,
@@ -1095,6 +1097,12 @@ if(!GetOptions(
                      $cmd_debug = 1;
                      $replacements{'%d'} = $_[1] || '-dev';
                    },
+
+  # --initonly
+  # Only intialize everything, but do not run the main event loop
+
+  'initonly'    => \$cmd_initonly,
+
 ) || $cmd_help) {
   help();
   exit(1);
@@ -1354,6 +1362,14 @@ for my $log (keys %{$cfg->{'logfiles'}}) {
 if(scalar(@logfiles) == 0) { 
   $logger->fatal(qq{[cvs] No valid logfiles defined, aborting});
   die; 
+}
+
+#--- if user specifies --initonly, do not enter the main loop
+#--- this is for testing purposes
+
+if($cmd_initonly) {
+  $logger->info(qq{[cvs] Init completed, exiting});
+  exit(0);
 }
 
 #--- main loop
