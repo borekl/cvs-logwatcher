@@ -476,7 +476,7 @@ sub process_match
   if(
     $chgwho
     && exists $cfg->{'ignoreusers'}
-    && $chgwho ~~ @{$cfg->{'ignoreusers'}}
+    && grep { /^$chgwho$/ } @{$cfg->{'ignoreusers'}}
   ) {
     $logger->info(qq{[cvs/$tid] Ignored user, skipping processing});
     return;
