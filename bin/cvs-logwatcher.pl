@@ -1083,6 +1083,7 @@ my $cmd_mangle = 1;
 my $cmd_debug;
 my $cmd_initonly;
 my $cmd_log;
+my $cmd_watchonly;
 
 if(!GetOptions(
   'trigger=s'   => \$cmd_trigger,
@@ -1109,6 +1110,12 @@ if(!GetOptions(
   # Limit processing only to this one log for testing purposes
 
   'log=s'       => \$cmd_log,
+
+  # --watchonly
+  # Inhibit any processing. Instead, display all lines received from logfiles
+  # and indicate matches. This is meant for testing/debugging purposes.
+
+  'watchonly'   => \$cmd_watchonly,
 
 ) || $cmd_help) {
   help();
@@ -1422,6 +1429,11 @@ while (1) {
     die 'Assertion failed, logid missing in File::Tail handle' if !$logid;
     my $file = $cfg->{'logfiles'}{$logid}{'filename'};
 
+    #--- if --watchonly is active, display the line
+    if($cmd_watchonly) {
+      $logger->info("[cvs/$logid] $l");
+    }
+
     #--- match the line
     my $regex = $cfg->{'logfiles'}{$logid}{'match'};
     next if $l !~ /$regex/;
@@ -1436,6 +1448,10 @@ while (1) {
       $logger->warn("[cvs] No target found for match from '$+{host}' in source '$logid'");
       next;
     }
+
+    #--- finish if --watchonly
+
+    next if $cmd_watchonly;
 
     #--- start processing
     process_match(
