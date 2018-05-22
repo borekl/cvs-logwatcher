@@ -20,6 +20,10 @@ There's no relation to actual CVS versioning system.
 * Perl 5.10 or newer
 * Following perl modules: Expect, JSON, Log::Log4Perl, File::Tail
 
+Please note that File::Tail contains a bug that can interfere with
+cvs-logwatcher's function. See [this](https://rt.cpan.org/Public/Bug/Display.html?id=107522)
+bug report for the fix.
+
 -----
 
 ## File System Layout
