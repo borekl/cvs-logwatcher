@@ -1359,7 +1359,7 @@ for my $log (keys %{$cfg->{'logfiles'}}) {
 
   # check if we are suppressing this logfile
 
-  if($cmd_log ne $log) {
+  if(defined $cmd_log && $cmd_log ne $log) {
     $logger->info("[cvs] Suppressing $logfile ($log)");
     next;
   }
