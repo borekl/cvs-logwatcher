@@ -1052,6 +1052,7 @@ sub help
   print "  --debug            set loglevel to debug\n";
   print "  --devel            development mode, implies --debug\n";
   print "  --initonly         init everything and exit\n";
+  print "  --log=LOGID        only process this log\n";
   print "\n";
 }
 
@@ -1081,6 +1082,7 @@ my $cmd_no_checkin;
 my $cmd_mangle = 1;
 my $cmd_debug;
 my $cmd_initonly;
+my $cmd_log;
 
 if(!GetOptions(
   'trigger=s'   => \$cmd_trigger,
@@ -1102,6 +1104,11 @@ if(!GetOptions(
   # Only intialize everything, but do not run the main event loop
 
   'initonly'    => \$cmd_initonly,
+
+  # --log=LOGID
+  # Limit processing only to this one log for testing purposes
+
+  'log=s'       => \$cmd_log,
 
 ) || $cmd_help) {
   help();
@@ -1341,6 +1348,13 @@ for my $log (keys %{$cfg->{'logfiles'}}) {
   my $logfile = $cfg->{'logfiles'}{$log}{'filename'} // '';
   if(substr($logfile,0,1) ne '/') {
     $logfile = $cfg->{'config'}{'logprefix'} . $logfile;
+  }
+
+  # check if we are suppressing this logfile
+
+  if($cmd_log ne $log) {
+    $logger->info("[cvs] Suppressing $logfile ($log)");
+    next;
   }
 
   # check if it is actually accessible, ignore if it is not
