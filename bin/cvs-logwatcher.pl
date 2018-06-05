@@ -26,6 +26,7 @@ use JSON;
 use File::Tail;
 use Getopt::Long;
 use Cwd;
+use Try::Tiny;
 
 
 #=============================================================================
@@ -269,7 +270,7 @@ sub run_expect_batch
   $exh->restart_timeout_upon_receive(1);
   $exh->match_max(8192);
 
-  eval {  #<--- eval begins here ---------------------------------------------
+  try { #<--- try block begins here ------------------------------------------
 
     my $i = 1;
     for my $row (@$chat) {
@@ -322,14 +323,15 @@ sub run_expect_batch
       #--- next line
       $i++;
     }
-  
-  }; #<--- eval ends here ----------------------------------------------------
 
-  sleep($sleep) if $sleep;  
-  if($@) {
+  } #<--- try block ends here ------------------------------------------------
+
+  catch {
     $logger->error(qq{[$logpf] Expect failed for host $host});
-    $logger->debug("[$logpf] Failure reason is: ", $@);
-  }
+    $logger->debug("[$logpf] Failure reason is: ", $_);
+  };
+
+  sleep($sleep) if $sleep;
   $exh->soft_close();
 }
 
@@ -629,7 +631,7 @@ sub process_match
 
   #--------------------------------------------------------------------------
 
-  eval {
+  try {
 
   #--------------------------------------------------------------------------
   #--- RCS check-in ---------------------------------------------------------
@@ -875,16 +877,17 @@ sub process_match
 
     $logger->info(qq{[cvs/$tid] CVS check-in completed successfully});
 
-  #--- end of eval ----------------------------------------------------------
+  #--- end of try block ------------------------------------------------------
 
-  };
+  } catch {
 
   #--- remove the file
 
-  if(-f "$file" && $@ ne "NOREMOVE\n" ) {
-    $logger->debug(qq{[cvs/$tid] Removing file $file});
-    unlink("$file");
-  }
+    if(-f "$file" && $_ ne "NOREMOVE\n" ) {
+      $logger->debug(qq{[cvs/$tid] Removing file $file});
+      unlink("$file");
+    }
+  };
 }
 
 
