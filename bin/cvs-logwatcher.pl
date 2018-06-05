@@ -369,10 +369,12 @@ sub compare_to_prev
 {
   #--- arguments
 
-  my $target = shift;   # target
-  my $host = shift;     # host
-  my $file = shift;     # file to compare
-  my $repo = shift;     # repository file
+  my (
+    $target,   # 1. target
+    $host,     # 2. host
+    $file,     # 3. file to compare
+    $repo,     # 4. repository file
+  ) = @_;
 
   #--- other variables
   
@@ -406,14 +408,15 @@ sub compare_to_prev
 
   #--- compare line counts
 
-  $logger->debug("$logpf ", sprintf("Linecounts: new = %d, repo = %d", scalar(@$f_new), scalar(@$f_repo)));
-  if(scalar(@$f_new) != scalar(@$f_repo)) {
-    return 1;
-  }
-  
+  $logger->debug(
+    "$logpf ",
+    sprintf("Linecounts: new = %d, repo = %d", scalar(@$f_new), scalar(@$f_repo))
+  );
+  return 1 if @$f_new != @$f_repo;
+
   #--- compare contents
-        
-  for(my $i = 0; $i < scalar(@$f_new); $i++) {
+
+  for(my $i = 0; $i < @$f_new; $i++) {
     if($f_new->[$i] ne $f_repo->[$i]) {
       return 1;
     }
@@ -483,16 +486,16 @@ sub process_match
     $logger->info(qq{[cvs/$tid] Ignored user, skipping processing});
     return;
   }
-  
+
   #--- get hostname without trailing domain name
-      
+
   $host_nodomain = $host;
   $host_nodomain =~ s/\..*$//g;
   $replacements{'%H'} = $host_nodomain;
   $replacements{'%h'} = $host;
 
   #--- assign admin group
-      
+
   $group = get_admin_group($host_nodomain, $target);
   if($group) {
     $logger->info(qq{[cvs/$tid] Admin group: $group});
@@ -805,7 +808,7 @@ sub process_match
         my $dst_file = $no_checkin;
 
         # check whether --nocheckin value specifies existing directory, if
-        # it is, move the current file with its "received" filename to the
+        # it does, move the current file with its "received" filename to the
         # directory; otherwise, move the current file into specified target
         # file
 
@@ -1360,7 +1363,7 @@ for my $log (keys %{$cfg->{'logfiles'}}) {
   # with a slash) or relative to config.logprefix
 
   my $logfile = $cfg->{'logfiles'}{$log}{'filename'} // '';
-  if(substr($logfile,0,1) ne '/') {
+  if(substr($logfile, 0, 1) ne '/') {
     $logfile = $cfg->{'config'}{'logprefix'} . $logfile;
   }
 
