@@ -1042,21 +1042,25 @@ sub find_target
 
 sub help
 {
-  print "Usage: cvs-logwatcher.pl [options]\n\n";
-  print "  --help             get this information text\n";
-  print "  --trigger=LOGID    trigger processing as if LOGID matched\n";
-  print "  --host=HOST        define host for --trigger or limit processing to it\n";
-  print "  --user=USER        define user for --trigger\n";
-  print "  --msg=MSG          define message for --trigger\n";
-  print "  --force            force check-in when using --trigger\n";
-  print "  --snmp-name        request SNMP hostName for given host/trigger and exit\n";
-  print "  --nocheckin[=FILE] do not perform RCS repository check in with --trigger\n";
-  print "  --nomangle         do not perform config text transformations\n";
-  print "  --debug            set loglevel to debug\n";
-  print "  --devel            development mode, implies --debug\n";
-  print "  --initonly         init everything and exit\n";
-  print "  --log=LOGID        only process this log\n";
-  print "\n";
+  print <<EOHD;
+
+Usage: cvs-logwatcher.pl [options]
+
+  --help             get this information text
+  --trigger=LOGID    trigger processing as if LOGID matched
+  --host=HOST        define host for --trigger or limit processing to it
+  --user=USER        define user for --trigger
+  --msg=MSG          define message for --trigger
+  --force            force check-in when using --trigger
+  --snmp-name        request SNMP hostName for given host/trigger and exit
+  --nocheckin[=FILE] do not perform RCS repository check in with --trigger
+  --nomangle         do not perform config text transformations
+  --debug            set loglevel to debug
+  --devel            development mode, implies --debug
+  --initonly         init everything and exit
+  --log=LOGID        only process this log
+
+EOHD
 }
 
 
