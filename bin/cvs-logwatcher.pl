@@ -486,6 +486,21 @@ sub process_match
     return;
   }
 
+  #--- skip if ignored hosts
+
+  # "ignorehosts" configuration object is a list of regexps that
+  # if any one of them matches hostname as received from logfile,
+  # causes the processing to abort; this allows to ignore certain
+  # source hosts
+
+  if(
+    exists $cfg->{'ignorehosts'}
+    && grep { $host =~ /$_/ } @{$cfg->{'ignorehosts'}}
+  ) {
+    $logger->info(qq{[cvs/$tid] Ignored host, skipping processing});
+    return;
+  }
+
   #--- get hostname without trailing domain name
 
   $host_nodomain = $host;
