@@ -475,8 +475,7 @@ sub process_match
   #--- skip if ignored user
        
   # "ignoreusers" configuration object is a list of users that should
-  # be ignored and no processing be done for them (this is mainly for
-  # debugging purposes).
+  # be ignored and no processing be done for them
 
   if(
     $chgwho
