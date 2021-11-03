@@ -1148,9 +1148,7 @@ if(!GetOptions(
 
 #--- directory 'cfg' must exist
 
-if(! -d 'cfg') {
-  die "Configuration directory 'cfg' does not exist\n";
-}
+die "Configuration directory 'cfg' does not exist\n" unless -d 'cfg';
 
 #--- read configuration ------------------------------------------------------
 
