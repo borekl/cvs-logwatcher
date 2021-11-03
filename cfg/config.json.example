@@ -12,7 +12,7 @@
 # In certain strings, following tokens can be used:
 #
 # %d - becomes '-dev' if running in development mode, otherwise ''
-# %D - temporary directory for non-TFTP files
+# %D - temporary directory
 # %h - device hostname as gleaned given in the monitored logfile
 # %H - same as %h but without domain
 # %P - prompt, this can be set within a chat script and used to match system

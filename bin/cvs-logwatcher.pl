@@ -987,24 +987,7 @@ if($cmd_debug) {
   $logger->level($INFO);
 }
 
-#--- initialize tftpdir/tempdir ---------------------------------------------
-
-if($cfg->{'config'}{'tftpdir'}) {
-  my $tftpdir = repl($cfg->{'config'}{'tftpdir'});
-  $replacements{'%t'} = $tftpdir;
-}
-
-if($cfg->{'config'}{'tftproot'}) {
-  my $tftproot = repl(
-    join('/',
-      grep { defined $_ } (
-        $cfg->{'config'}{'tftproot'},
-        $cfg->{'config'}{'tftpdir'}
-      )
-    )
-  );
-  $replacements{'%T'} = $tftproot;
-}
+#--- initialize tempdir ------------------------------------------------------
 
 {
   my $tempdir = cwd();
@@ -1017,22 +1000,12 @@ if($cfg->{'config'}{'tftproot'}) {
   $replacements{'%D'} = $tempdir
 }
 
-#--- source address ----------------------------------------------------------
-
-$replacements{'%i'} = $cfg->{'config'}{'tftpip'};
-
 #--- title -------------------------------------------------------------------
 
 $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
 $logger->info(qq{[cvs] Mode is }, $replacements{'%d'} ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging mode enabled}) if $cmd_debug;
-$logger->info(qq{[cvs] Tftp root is } . $replacements{'%T'})
-  if $replacements{'%T'};
-$logger->info(qq{[cvs] Tftp dir is } . $replacements{'%t'})
-  if $replacements{'%t'};
-$logger->info(qq{[cvs] Temp dir is } . $replacements{'%D'})
-  if $replacements{'%D'};
 
 #--- verify command-line parameters ------------------------------------------
 
