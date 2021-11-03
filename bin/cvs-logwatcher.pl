@@ -1408,9 +1408,7 @@ while (1) {
     my $file = $cfg->{'logfiles'}{$logid}{'filename'};
 
     #--- if --watchonly is active, display the line
-    if($cmd_watchonly) {
-      $logger->info("[cvs/$logid] $l");
-    }
+    $logger->info("[cvs/$logid] $l") if $cmd_watchonly;
 
     #--- match the line
     my $regex = $cfg->{'logfiles'}{$logid}{'match'};
