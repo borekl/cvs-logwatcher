@@ -90,8 +90,7 @@ The main configuration file is a JSON file. The configuration is designed to be 
 In many parts of the configuration, following placeholders can be used:
 
 `%d` becomes '-dev' if running in development mode, otherwise ''  
-`%D` temporary directory for non-TFTP files
-`%i` IP address local TFTP server is reachable on  
+`%D` temporary directory for retrieved configurations
 `%h` device hostname as given in the monitored logfile  
 `%H` same as `%h` but without domain  
 `%P` prompt, this can be set within a chat script and used to match system prompt  
@@ -107,12 +106,8 @@ defines where the logfiles are stored, usual value is
 `/var/log` on Unix-like systems. Specifying individual log files with relative
 filenames will prepend this value to them.
 
-**`src-ip`**  
-defines the IP address that is to be used for sending configuration
-to a TFTP server, so it should be the primary interface for the server the program runs on.
-
 **`tempdir`**  
-defines temporary directory that is used to store configurations received from devices (but not over TFTP, that uses above two options!)
+defines temporary directory that is used to store configurations received from devices
 
 **`keyring`**  
 defines the keyring file
@@ -138,32 +133,6 @@ defines the subdirectory that will hold the RCS repository
 
 **`rcsctl`**, **`rcsci`**, **`rcsco`**  
 defines the path to the RCS binaries
-
-#### MIB configuration
-
-**`writeNet`**  
-defines OID of the writeNet SNMP variable, used for triggering
-TFTP upload on Cisco IOS devices
-
-**`hostName`**  
-defines OID of the hostName SNMP variable, used for retrieving
-devices canonical hostname
-
-**`sysName`**  
-defines OID of the sysName SNMP variable, used for retrieving
-devices canonical hostname (backup for when hostName is unavailable)
-
-**`sysDescr`**  
-defines OID of the sysDescr SNMP variable, used to discriminate
-specific Cisco devices platforms.
-
-#### SNMP utilities configuration
-
-**`get`**  
-specifies path to SNMP get utility
-
-**`set`**  
-specifies path to SNMP set utility
 
 #### Ping configuration
 
@@ -268,7 +237,6 @@ Multiple rules can be specified in a `hostmatch` (make it a "ruleset"), though t
 Define list of options that should be used for the target. Following options are supported:
 
 * `normeol` this option will make the program to convert retrieved configurations to local end-of-line characters; this is recommended
-* `cisco-writenet` this option will make the program retrieve configuration from the device by issuing a SNMP set to `mib.writeNet` OID; this compels the device to initiate a TFTP upload
 
 **`validate`**  
 This specifies list of regular expressions that each must match at least once per configuration file. This can be used to defend against failed downloads. Try to use something that is guaranteed to appear at the end of the configuration. For example Cisco IOS configuration always has `end` as the last line, Nokia 7750SR has final line that starts with `# Finished`, etc. This is highly recommended.
