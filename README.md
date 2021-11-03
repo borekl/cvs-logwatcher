@@ -34,7 +34,7 @@ executed from:
     bin/  .. executable scripts
     cfg/  .. configuration files
 
-The other directories (tftp, repository, temp) are configurable in the configuration file.
+The other directories (repository, temp) are configurable in the configuration file.
 
 -----
 
@@ -52,9 +52,6 @@ configuration, and check it into local RCS repository residing in `data`
 directory.
 
 Configuration download can be performed in three ways:
-
-* Cisco routers/switches can be triggered to upload configuration over tftp
-by an SNMP set
 
 * The script can log into the device and issue the upload command, that will
 store it somewhere on the local server
@@ -93,8 +90,6 @@ The main configuration file is a JSON file. The configuration is designed to be 
 In many parts of the configuration, following placeholders can be used:
 
 `%d` becomes '-dev' if running in development mode, otherwise ''  
-`%T` full tftp target directory  
-`%t` TFTP subdirectory (relative to TFTP root  
 `%D` temporary directory for non-TFTP files
 `%i` IP address local TFTP server is reachable on  
 `%h` device hostname as given in the monitored logfile  
@@ -115,13 +110,6 @@ filenames will prepend this value to them.
 **`src-ip`**  
 defines the IP address that is to be used for sending configuration
 to a TFTP server, so it should be the primary interface for the server the program runs on.
-
-**`tftproot`**  
-defines TFTP server root directory
-
-**`tftpdir`**  
-defines subdirectory within TFTP root where the configs will
-be saved, even the ones not actually retrieved with TFTP; the scripts write access to this directory so that it can process and remove retrieved files; this configuration key is optional
 
 **`tempdir`**  
 defines temporary directory that is used to store configurations received from devices (but not over TFTP, that uses above two options!)

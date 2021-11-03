@@ -438,87 +438,11 @@ sub process_match
 
   {
 
-  #--- default config file location, this can change for the 'writenet' option
+  #--- default config file location, this can change for the option
 
     $file = $host_nodomain;
     if($cfg->{'config'}{'tempdir'}) {
       $file = $cfg->{'config'}{'tempdir'} . '/' . $file;
-    }
-
-  #--- "cisco-writenet" option ----------------------------------------------
-
-  # This uses feature of Cisco IOS that causes the device to upload their
-  # configuration when triggered by SNMP write to writeNet OID.
-
-    if(
-      exists $target->{'options'}
-      && ref $target->{'options'}
-      && (grep { $_ eq 'cisco-writenet' } @{$target->{'options'}})
-    ) {
-
-  #--- ensure all prerequisites are met
-
-      if(
-        $target->{'snmp'}{'rw'}
-        && $cfg->{'mib'}{'writeNet'}
-        && $cfg->{'config'}{'tftpip'}
-        && $cfg->{'config'}{'tftproot'}
-      ) {
-
-  #--- request config upload: assemble the command
-
-        my $tftp_root = repl($cfg->{'config'}{'tftproot'});
-        my $tftp_dir = repl($cfg->{'config'}{'tftpdir'});
-
-        my $tftp_file = $host_nodomain;
-        $file = "$tftp_root/$host_nodomain";
-
-        if($tftp_dir) {
-          $tftp_file = "$tftp_dir/$host_nodomain";
-          $file = "$tftp_root/$tftp_dir/$host_nodomain";
-        }
-
-        my $exec = sprintf(
-          '%s -Lf /dev/null -v%s -t60 -r1 -c%s %s %s.%s s %s',
-          $cfg->{'snmp'}{'set'},                           # snmpset binary
-          $target->{'snmp'}{'ver'},                        # SNMP version
-          repl($target->{'snmp'}{'rw'}),                   # RW community
-          $host,                                           # hostname
-          $cfg->{'mib'}{'writeNet'},                       # writeNet OID
-          $cfg->{'config'}{'tftpip'},                      # source IP addr
-          $tftp_file                                       # TFTP destination
-        );
-        $logger->debug(qq{[cvs/cisco] Cmd: }, $exec);
-
-  #--- request config upload: perform the command
-
-        open(my $fh, '-|', $exec) || do {
-          $logger->fatal(qq{[cvs/cisco] Failed to request config ($exec)});
-          next;
-        };
-        <$fh>;
-        close($fh);
-
-  #--- failure when something is missing
-
-      } else {
-        my @missing;
-
-        if(!$target->{'snmp'}{'rw'}) { push(@missing, 'SNMP write community') }
-        if(!$cfg->{'mib'}{'writeNet'}) { push(@missing, 'SNMP writeNet OID') }
-        if(!$cfg->{'config'}{'tftpip'}) { push(@missing, 'TFTP server address') }
-        if(!$cfg->{'config'}{'tftpdir'}) { push(@missing, 'TFTP server directory') }
-
-        $logger->error(
-          qq{[cvs/$tid] Option "cisco-writenet" misconfigured, } .
-          'the following configuration is required but missing:'
-        );
-        $logger->error(
-          qq{[cvs/$tid] }, join(', ', @missing)
-        );
-
-        die;
-      }
     }
 
   #--- run expect script ----------------------------------------------------
