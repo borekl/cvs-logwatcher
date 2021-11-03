@@ -197,6 +197,7 @@
       "validrange" : [ "^(!|version )", "^end\\s*$" ],
       "filter"     : [ "^Connection to \\S+ closed", "# exit\\s*$" ],
       "ignoreline" : "^(!|ntp clock-period)",
+      "hostname"   : "^(?:hostname|switchname)\\s([-a-zA-Z0-9]+)",
       "options"    : [ "normeol" ],
       "expect"     : {
         "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",

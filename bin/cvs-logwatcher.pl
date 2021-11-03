@@ -25,8 +25,8 @@ use Log::Log4perl::Level;
 use JSON;
 use File::Tail;
 use Getopt::Long;
-use Cwd;
 use Try::Tiny;
+use Path::Tiny;
 
 
 #=============================================================================
@@ -321,6 +321,31 @@ sub compare_to_prev
 
 
 #=============================================================================
+# Try to extract hostname from configuration file; caller must supply a regex
+# for the matching/extraction
+#=============================================================================
+
+sub extract_hostname
+{
+  my ($file, $regex) = @_;
+
+  # read the new file
+  open my $fh, $file or die "Could not open file '$file'";
+  chomp( my @new_file = <$fh> );
+  close $fh;
+
+  # try to find and extract hostname
+  foreach (@new_file) {
+    if(/$regex/) { return $1 }
+  }
+
+  # nothing was found
+  return undef;
+}
+
+
+
+#=============================================================================
 # Process a match
 #=============================================================================
 
@@ -339,11 +364,20 @@ sub process_match
   ) = @_;
   
   #--- other variables
-  
+
   my $host_nodomain;    # hostname without domain
   my $group;            # administrative group
   my $sysdescr;         # system description from SNMP
   my $file;             # file holding retrieved configuration
+  my $scratch;          # directory for the temporary files
+
+  #--- scratch directory
+
+  if($cfg->{'config'}{'tempdir'}) {
+    $scratch = path($cfg->{'config'}{'tempdir'});
+  } else {
+    $scratch = path('.');
+  }
 
   #--- find the target index
   # the $target argument refers to target identification, but targets are
@@ -420,12 +454,10 @@ sub process_match
 
   {
 
-  #--- default config file location, this can change for the option
+  #--- default config file location, this can later be changed if we are
+  #--- extracting hostname from the configuration
 
-    $file = $host_nodomain;
-    if($cfg->{'config'}{'tempdir'}) {
-      $file = $cfg->{'config'}{'tempdir'} . '/' . $file;
-    }
+    $file = $scratch->child($host_nodomain);
 
   #--- run expect script ----------------------------------------------------
 
@@ -602,6 +634,25 @@ sub process_match
       }
     }
 
+  #--- extract hostname from the configuration
+
+  # This makes it possible to use host's own notion of hostname avoiding
+  # reliance on the name that appears in syslog
+
+    if($target->{hostname}) {
+      my $selfname = extract_hostname($file, $target->{hostname});
+      if($selfname && $selfname ne $file->basename) {
+        my $target = $file->sibling($selfname);
+        $file->move($target);
+        $logger->info(sprintf(
+          "[cvs/$tid] Changing name from %s to %s",
+          $file->basename, $selfname
+        ));
+        $file = $target;
+        $host_nodomain = $file->basename;
+      }
+    }
+
   #--- --nocheckin option
 
   # This blocks actually checking the file into the repository, instead the
@@ -641,7 +692,7 @@ sub process_match
   # What is considered a comment or other non-significant part of the
   # configuration is decided by matching regex from "ignoreline"
   # configuration item.
-      
+
     if(!compare_to_prev($target, $host_nodomain, $file, $repo)) {
       if($force) {
         $logger->info("[cvs/$tid] No change to current revision, but --force in effect");
@@ -652,6 +703,8 @@ sub process_match
     }
 
   #--- create new revision
+
+    $logger->debug('STEP 3');
 
     # is this really needed? I have no idea.
     if(-f "$repo/$host_nodomain,v") {
@@ -694,7 +747,9 @@ sub process_match
 
     if(-f "$file" && $_ ne "NOREMOVE\n" ) {
       $logger->debug(qq{[cvs/$tid] Removing file $file});
-      unlink("$file");
+      $file->remove;
+    } elsif($_) {
+      $logger->error(qq{[cvs/$tid] Check-in failed ($_)});
     }
   };
 }
@@ -990,14 +1045,11 @@ if($cmd_debug) {
 #--- initialize tempdir ------------------------------------------------------
 
 {
-  my $tempdir = cwd();
+  my $tempdir = path('.');
   if($cfg->{'config'}{'tempdir'}) {
-    $tempdir = repl($cfg->{'config'}{'tempdir'});
+    $tempdir = path($cfg->{'config'}{'tempdir'});
   }
-  if(substr($tempdir, 0, 1) ne '/') {
-    $tempdir = cwd() . '/' . $tempdir;
-  }
-  $replacements{'%D'} = $tempdir
+  $replacements{'%D'} = $tempdir->absolute->stringify;
 }
 
 #--- title -------------------------------------------------------------------
@@ -1006,6 +1058,7 @@ $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
 $logger->info(qq{[cvs] Mode is }, $replacements{'%d'} ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging mode enabled}) if $cmd_debug;
+$logger->debug(qq{[cvs] Scratch directory is }, $replacements{'%D'});
 
 #--- verify command-line parameters ------------------------------------------
 

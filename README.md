@@ -286,6 +286,15 @@ List of regular expressions, all matching lines are discarded from the configura
 **`ignoreline`**  
 Defines single regular expression that specifies configuration lines that should be ignored when comparing new and old revision of the config. This lets the program ignore certain parts of the configuration that change even when the config actually doesn't (comments, Cisco IOS's `ntp clock-period` etc.)
 
+**`hostname`**
+Regular expression that tries to extract hostname as defined in the
+configuration. This is useful when you do not want to rely on hostnames as
+they appear in syslog (usually taken from DNS). The regex must have single
+capturing group that is taken as containing the hostname. Cisco devices
+example:
+
+    "hostname"   : "^(?:hostname|switchname)\\s([-a-zA-Z0-9]+)",
+
 **`expect.spawn`**  
 Command to be executed to initiate a session with the device. Example for SSH:
 
