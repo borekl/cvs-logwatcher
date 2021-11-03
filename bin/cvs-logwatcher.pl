@@ -246,29 +246,6 @@ sub run_expect_batch
 
 
 #=============================================================================
-# Read file into array of lines
-#=============================================================================
-
-sub read_file
-{
-  my $file = shift;
-  my $regex = shift;
-  my @re;
-  
-  open(my $fh, $file) or return undef;
-  while(<$fh>) {
-    chomp;
-    next if $regex && /$regex/;
-    push(@re, $_);
-  }
-  close($fh);
-
-  return \@re;
-}
-
-
-
-#=============================================================================
 # Compare a file with its last revision in CVS and return true if there is a
 # difference.
 #=============================================================================
@@ -289,18 +266,20 @@ sub compare_to_prev
   my ($re_src, $re_com);
   my $logpf = '[cvs/' . $target->{'id'}  . ']';
   
-  #--- compile regex (if any)
+  #--- read the new file
+
+  open my $fh, $file or die "Could not open file '$file'";
+  chomp( my @new_file = <$fh> );
+  close $fh;
+
+  #--- remove ignored lines
         
   if(exists $target->{'ignoreline'}) {
     $re_src = $target->{'ignoreline'};
     $re_com = qr/$re_src/;
+    $logger->debug("$logpf Ignoreline regexp: ", $re_src);
+    @new_file = grep { !/$re_com/ } @new_file;
   }
-  $logger->debug("$logpf Ignoreline regexp: ", $re_src);
-  
-  #--- read the new file
-  
-  my $f_new = read_file($file, $re_com);
-  return 0 if !ref($f_new);
   
   #--- read the most recent CVS version
 
@@ -311,23 +290,26 @@ sub compare_to_prev
     $host
   );
   $logger->debug("$logpf Cmd: $exec");
-  my $f_repo = read_file("$exec 2>/dev/null |", $re_com);
-  return 0 if !ref($f_repo);
+  open $fh, '-|', "$exec 2>/dev/null"
+    or die "Could not get latest revision from '$exec'";
+  chomp( my @old_file = <$fh> );
+  close $fh;
+  @old_file = grep { !/$re_com/ } @old_file if $re_com;
 
   #--- compare line counts
 
   $logger->debug(
     "$logpf ",
-    sprintf("Linecounts: new = %d, repo = %d", scalar(@$f_new), scalar(@$f_repo))
+    sprintf(
+      'Linecounts: new = %d, repo = %d', scalar(@new_file), scalar(@old_file)
+    )
   );
-  return 1 if @$f_new != @$f_repo;
+  return 1 if @new_file != @old_file;
 
   #--- compare contents
 
-  for(my $i = 0; $i < @$f_new; $i++) {
-    if($f_new->[$i] ne $f_repo->[$i]) {
-      return 1;
-    }
+  for(my $i = 0; $i < @new_file; $i++) {
+    return 1 if $new_file[$i] ne $old_file[$i];
   }
 
   #--- return false
