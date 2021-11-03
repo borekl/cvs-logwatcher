@@ -362,9 +362,6 @@ Provides commit message for a manually triggered event.
 **`--force`**  
 Force RCS commit even when there's no change in the configuration (after filtering using the `ignoreline` target option). Note that when old and new revision are *exactly* the same, no commit is created by RCS.
 
-**`--snmp-name`**  
-Query device given with the `--host` option for system name and then quit.
-
 **`--nocheckin[=PATHNAME]`**  
 Do not perform RCS check in after successfully retrieving configuration from a device. When no PATHNAME is defined, the file is just left in the directory it was downloaded to. When directory is specified, the file is moved there. When filename is specified, the file is renamed into it. This should only be used when manually triggering with the `--trigger` option.
 

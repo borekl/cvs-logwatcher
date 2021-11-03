@@ -1069,7 +1069,6 @@ Usage: cvs-logwatcher.pl [options]
   --user=USER        define user for --trigger
   --msg=MSG          define message for --trigger
   --force            force check-in when using --trigger
-  --snmp-name        request SNMP hostName for given host/trigger and exit
   --nocheckin[=FILE] do not perform RCS repository check in with --trigger
   --nomangle         do not perform config text transformations
   --debug            set loglevel to debug
@@ -1101,7 +1100,6 @@ my $cmd_user;
 my $cmd_msg;
 my $cmd_force;
 my $cmd_help;
-my $cmd_snmp_name;
 my $cmd_no_checkin;
 my $cmd_mangle = 1;
 my $cmd_debug;
@@ -1116,7 +1114,6 @@ if(!GetOptions(
   'msg=s'       => \$cmd_msg,
   'force'       => \$cmd_force,
   'help'        => \$cmd_help,
-  'snmp-name'   => \$cmd_snmp_name,
   'nocheckin:s' => \$cmd_no_checkin,
   'mangle!'     => \$cmd_mangle,
   'debug'       => \$cmd_debug,
@@ -1261,53 +1258,12 @@ if($cmd_trigger) {
 }
 
 
-if($cmd_trigger && !$cmd_snmp_name) {
+if($cmd_trigger) {
   $cmd_trigger = lc($cmd_trigger);
   $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd_trigger));
   $logger->info(sprintf('[cvs] Explicit host is %s', $cmd_host));
   $logger->info(sprintf('[cvs] Explicit user is %s', $cmd_user)) if $cmd_user;
   $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd_msg)) if $cmd_msg;
-}
-
-#-----------------------------------------------------------------------------
-#--- SNMP name check ---------------------------------------------------------
-#-----------------------------------------------------------------------------
-
-# The --snmp-name makes the cvs-logwatcher to send hostName SNMP query and
-# report the result; it also displays what target the given name is assigned.
-# Options --host and --trigger must be specified.
-#
-# FIXME: This is slightly incongruent with the 'snmphost' target option: this
-# commandline option will send the SNMP query even if the target doesn't have
-# the 'snmphost' option enable, which probably isn't quite right.
-
-if($cmd_snmp_name) {
-  if($cmd_host && $cmd_trigger) {
-
-    my ($tid, $target) = find_target(
-      host => $cmd_host,
-      logid => $cmd_trigger
-    );
-
-    if(!$target) {
-      $logger->fatal(
-        "[cvs] No target found for host $cmd_host and log $cmd_trigger"
-      );
-    } else {
-      my $snmp_host = snmp_get_system_name($cmd_host, $target, 'cvs');
-      if(!$snmp_host) {
-        $logger->fatal("[cvs/$tid] No response for SNMP hostName query");
-        print "No response for SNMP hostName query\n" if !$replacements{'%d'};
-      } else {
-        $logger->info("[cvs/$tid] SNMP hostName query returned '$snmp_host'");
-        printf("host = %s, target = %s \n", $snmp_host, $tid)
-          if !$replacements{'%d'};
-      }
-    }
-  } else {
-    $logger->fatal('[cvs] --host and --trigger must be given with --snmp-host');
-  }
-  exit(0);
 }
 
 #-----------------------------------------------------------------------------
