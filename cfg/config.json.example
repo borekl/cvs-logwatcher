@@ -107,7 +107,6 @@
 
     #--- define location of snmpget and snmpset
 
-    "get" : "/usr/bin/snmpget",
     "set" : "/usr/bin/snmpset"
   },
 
@@ -197,11 +196,7 @@
       "validrange" : [ "^(!|version )", "^end\\s*$" ],
       "validate"   : [ "^end\\s*$" ],
       "ignoreline" : "^(!|ntp clock-period)",
-      "snmp"       : {
-        "ro" : "%1",
-        "ver" : "2c",
-      },
-      "options"    : [ "snmphost", "normeol" ],
+      "options"    : [ "normeol" ],
       "expect"     : {
         "spawn" : "/usr/bin/telnet %h",
         "sleep" : 1,
@@ -226,11 +221,7 @@
       "validrange" : [ "^(!|version )", "^end\\s*$" ],
       "filter"     : [ "^Connection to \\S+ closed", "# exit\\s*$" ],
       "ignoreline" : "^(!|ntp clock-period)",
-      "snmp"       : {
-        "ro" : "%1",
-        "ver" : "2c",
-      },
-      "options"    : [ "snmphost", "normeol" ],
+      "options"    : [ "normeol" ],
       "expect"     : {
         "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",
         "sleep" : 1,
@@ -253,11 +244,10 @@
       "logfile"    : "cisco",
       "ignoreline" : "^(!|ntp clock-period)",
       "snmp"       : {
-        "ro" : "%1",
         "rw" : "%2",
         "ver" : "2c",
       },
-      "options"    : [ "cisco-writenet", "normeol", "snmphost" ],
+      "options"    : [ "cisco-writenet", "normeol" ],
     },
 
     #--- Alcatel-Lucent 7750SR, uses static user 'cvs' that needs privilege

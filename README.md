@@ -276,13 +276,9 @@ Matching by regular expressions is also available and has the same semantics as 
 
 Multiple rules can be specified in a `hostmatch` (make it a "ruleset"), though this is probably not very useful. At any rate, ruleset is considered a match when at least one rule is a match. In above example any device that doesn't start with "sw-london" or "sw-paris" is matched, but "sw-london-01" and 'sw-london-01" are exempt from this exclusion and are matched anyway.
 
-**`snmp.ro`**, **`snmp.ver`**  
-Define read-only community and SNMP version.
-
 **`options`**  
 Define list of options that should be used for the target. Following options are supported:
 
-* `snmphost` this will cause the program to perform SNMP query for system name; if such query succeeds, the obtained name is used for the device instead of that from logfile; this makes it possible to have properly capitalized device names
 * `normeol` this option will make the program to convert retrieved configurations to local end-of-line characters; this is recommended
 * `cisco-writenet` this option will make the program retrieve configuration from the device by issuing a SNMP set to `mib.writeNet` OID; this compels the device to initiate a TFTP upload
 

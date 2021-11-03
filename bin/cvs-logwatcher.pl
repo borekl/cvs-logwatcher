@@ -123,98 +123,6 @@ sub get_admin_group
 
 
 #=============================================================================
-# Get single value from a specific SNMP OID. At this moment it only reads
-# string variables.
-#=============================================================================
-
-sub snmp_get_value
-{
-  #--- arguments 
-  
-  my (
-    $host,         # 1. hostname
-    $target,       # 2. target definition
-    $oid,          # 3. oid (shortname)
-    $logpf,        # 4. log prefix
-  ) = @_;
-
-  #--- make <> read the whole input at once
-  
-  local $/;
-    
-  #--- SNMP command to run
-  
-  my $cmd = sprintf(
-    '%s -Lf /dev/null -v %s %s %s %s',
-    $cfg->{'snmp'}{'get'},
-    ($target->{'snmp'}{'ver'} // '1'),
-    $host,
-    $target->{'snmp'}{'ro'} ? '-c ' . repl($target->{'snmp'}{'ro'}) : '',
-    $cfg->{'mib'}{$oid}
-  );
-  
-  #--- run the command
-
-  $logger->debug(qq{[$logpf] Cmd: $cmd});
-  open(FH, "$cmd 2>/dev/null |") || do {
-    $logger->fatal(qq{[$logpf] Failed to execute SNMP get ($cmd), aborting});
-    return undef;
-  };
-  my $val = <FH>;
-  close(FH);
-  if($?) {
-    $logger->debug(
-      sprintf("[%s] SNMP get returned %d", $logpf, $?)
-    );
-    return undef;
-  }
-  
-  #--- parse
-
-  $val =~ s/\R/ /mg;
-  $val =~ s/^.*= STRING:\s+(.*?)\s*$/$1/;
-  $val =~ s/^\"(.*)\"$/$1/;  # hostName is returned with quotes
-
-  $val = undef if $val =~ /= No Such Object/;
-
-  #--- finish
-  
-  return $val;
-}
-
-
-
-#=============================================================================
-# Get system name for a device. This is done by first trying 'hostName' and if
-# that fails then tries 'sysName'.
-#=============================================================================
-
-sub snmp_get_system_name
-{
-  my (
-    $host,
-    $target,
-    $logpf,
-  ) = @_;
-  
-  #--- first use hostName
-  my $host_snmp = snmp_get_value($host, $target, 'hostName', $logpf);
-  return $host_snmp if $host_snmp;
-  
-  #--- if that fails, try sysName
-  $host_snmp = snmp_get_value($host, $target, 'sysName', $logpf);
-  if($host_snmp) {
-    $host_snmp =~ s/\..*$//;
-    return $host_snmp;
-  }
-
-  #--- otherwise fail  
-  return undef;
-}
-
-
-
-#=============================================================================
 # Execute batch of expect-response pairs. If there's third value in the 
 # arrayref containing the exp-resp pair, it will be taken as a file to
 # begin logging into.
@@ -451,7 +359,6 @@ sub process_match
   #--- other variables
   
   my $host_nodomain;    # hostname without domain
-  my $host_snmp;        # hostname from SNMP
   my $group;            # administrative group
   my $sysdescr;         # system description from SNMP
   my $file;             # file holding retrieved configuration
@@ -530,27 +437,6 @@ sub process_match
   #--------------------------------------------------------------------------
 
   {
-
-  #--- "snmphost" option ----------------------------------------------------
-
-  # This option triggers retrieval of SNMP hostName value from the device
-  # which is then used as a filename to check the config as. Intended as a
-  # way to use proper capitalization of hostname.
-
-    if(
-      exists $target->{'options'}
-      && ref $target->{'options'}
-      && (grep { $_ eq 'snmphost' } @{$target->{'options'}})
-    ) {
-      my $snmp_host = snmp_get_system_name($host, $target, "cvs/$tid");
-      if($snmp_host) {
-        $host_nodomain = $snmp_host;
-        $replacements{'%H'} = $snmp_host;
-        $logger->info(qq{[cvs/$tid] Source host: $snmp_host (from SNMP)});
-      } else {
-        $logger->warn(qq{[cvs/$tid] Failed to get hostname via SNMP});
-      }
-    }
 
   #--- default config file location, this can change for the 'writenet' option
 
