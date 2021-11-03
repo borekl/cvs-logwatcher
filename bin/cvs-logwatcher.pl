@@ -1250,7 +1250,7 @@ $logger->info(qq{[cvs] Temp dir is } . $replacements{'%D'})
 if($cmd_trigger) {
   if(!exists $cfg->{'logfiles'}{$cmd_trigger}) {
     $logger->fatal(
-      '[cvs] Option --trigger refers to non-existend logfile id, aborting'
+      '[cvs] Option --trigger refers to non-existent logfile id, aborting'
     );
     exit(1);
   }
