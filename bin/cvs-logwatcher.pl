@@ -50,7 +50,7 @@ sub repl
 {
   my $string = shift;
 
-  return undef if !$string;  
+  return undef if !$string;
   for my $k (keys %replacements) {
     my $v = $replacements{$k};
     $k = quotemeta($k);
@@ -96,7 +96,7 @@ sub repl_capture_groups
 
 sub get_admin_group
 {
-  #--- arguments 
+  #--- arguments
 
   my (
     $host,
@@ -104,16 +104,16 @@ sub get_admin_group
   ) = @_;
 
   #--- do the matching
-  
+
   for my $grp (keys %{$cfg->{'groups'}}) {
     for my $re_src (@{$cfg->{'groups'}{$grp}}) {
       my $re = qr/$re_src/i;
       return $grp if $host =~ /$re/;
     }
   }
-  
+
   #--- if no match, try to get the default group
-  
+
   if(exists $target->{'defgrp'}) {
     return $target->{'defgrp'}
   } else {
@@ -123,7 +123,7 @@ sub get_admin_group
 
 
 #=============================================================================
-# Execute batch of expect-response pairs. If there's third value in the 
+# Execute batch of expect-response pairs. If there's third value in the
 # arrayref containing the exp-resp pair, it will be taken as a file to
 # begin logging into.
 #
@@ -152,16 +152,16 @@ sub get_admin_group
 sub run_expect_batch
 {
   #--- arguments
-  
+
   my (
     $expect_def,    # 1. expect conversation definitions from the config.json
     $host,          # 2. hostname
     $host_nodomain, # 3. hostname without domain
     $logpf,         # 4. logging message prefix
   ) = @_;
-    
+
   #--- variables
-  
+
   my $spawn = repl($expect_def->{'spawn'});
   my $sleep = $expect_def->{'sleep'};
   my $chat = $expect_def->{'chat'};
@@ -262,10 +262,10 @@ sub compare_to_prev
   ) = @_;
 
   #--- other variables
-  
+
   my ($re_src, $re_com);
   my $logpf = '[cvs/' . $target->{'id'}  . ']';
-  
+
   #--- read the new file
 
   open my $fh, $file or die "Could not open file '$file'";
@@ -273,14 +273,14 @@ sub compare_to_prev
   close $fh;
 
   #--- remove ignored lines
-        
+
   if(exists $target->{'ignoreline'}) {
     $re_src = $target->{'ignoreline'};
     $re_com = qr/$re_src/;
     $logger->debug("$logpf Ignoreline regexp: ", $re_src);
     @new_file = grep { !/$re_com/ } @new_file;
   }
-  
+
   #--- read the most recent CVS version
 
   my $exec = sprintf(
@@ -313,9 +313,9 @@ sub compare_to_prev
   }
 
   #--- return false
-  
+
   return 0;
-  
+
 }
 
 
@@ -352,7 +352,7 @@ sub extract_hostname
 sub process_match
 {
   #--- arguments
-  
+
   my (
     $tid,               # 1. target id
     $host,              # 2. host
@@ -362,7 +362,7 @@ sub process_match
     $no_checkin,        # 6. --nocheckin option
     $mangle,            # 7. --[no]mangle option
   ) = @_;
-  
+
   #--- other variables
 
   my $host_nodomain;    # hostname without domain
@@ -390,13 +390,13 @@ sub process_match
   }
 
   #--- log some information
-      
+
   $logger->info(qq{[cvs/$tid] Source host: $host (from syslog)});
   $logger->info(qq{[cvs/$tid] Message:     }, $msg);
   $logger->info(qq{[cvs/$tid] User:        }, $chgwho) if $chgwho;
 
   #--- skip if ignored user
-       
+
   # "ignoreusers" configuration object is a list of users that should
   # be ignored and no processing be done for them
 
@@ -484,7 +484,7 @@ sub process_match
     );
 
   #--- check if we really have the input file
-      
+
     if(! -f $file) {
       $logger->fatal(
         "[cvs/$tid] File $file does not exist, skipping further processing"
@@ -1176,9 +1176,9 @@ for my $log (keys %{$cfg->{'logfiles'}}) {
   $logger->info("[cvs] Started observing $logfile ($log)");
 }
 
-if(scalar(@logfiles) == 0) { 
+if(scalar(@logfiles) == 0) {
   $logger->fatal(qq{[cvs] No valid logfiles defined, aborting});
-  die; 
+  die;
 }
 
 #--- if user specifies --initonly, do not enter the main loop
@@ -1204,7 +1204,7 @@ while (1) {
   );
 
 #--- timeout reached without any data arriving
-  
+
   if(!$nfound) {
     $logger->info('[cvs] Heartbeat');
     next;
@@ -1219,7 +1219,7 @@ while (1) {
     #--- get next available line
     my $l = $_->read();
     chomp($l);
-    
+
     #--- get filename of the file the line is from
     my $logid = $_->{'cvslogwatch.logid'};
     die 'Assertion failed, logid missing in File::Tail handle' if !$logid;
