@@ -25,7 +25,7 @@ use Log::Log4perl::Level;
 use JSON;
 use File::Tail;
 use Getopt::Long;
-use Try::Tiny;
+use Feature::Compat::Try;
 use Path::Tiny;
 
 
@@ -234,10 +234,10 @@ sub run_expect_batch
 
   } #<--- try block ends here ------------------------------------------------
 
-  catch {
+  catch ($e) {
     $logger->error(qq{[$logpf] Expect failed for host $host});
-    $logger->debug("[$logpf] Failure reason is: ", $_);
-  };
+    $logger->debug("[$logpf] Failure reason is: ", $e);
+  }
 
   sleep($sleep) if $sleep;
   $exh->soft_close();
@@ -741,17 +741,17 @@ sub process_match
 
   #--- end of try block ------------------------------------------------------
 
-  } catch {
+  } catch ($e) {
 
   #--- remove the file
 
-    if(-f "$file" && $_ ne "NOREMOVE\n" ) {
+    if(-f "$file" && $e ne "NOREMOVE\n" ) {
       $logger->debug(qq{[cvs/$tid] Removing file $file});
       $file->remove;
-    } elsif($_) {
-      $logger->error(qq{[cvs/$tid] Check-in failed ($_)});
+    } elsif($e) {
+      $logger->error(qq{[cvs/$tid] Check-in failed ($e)});
     }
-  };
+  }
 }
 
 
