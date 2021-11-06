@@ -27,6 +27,7 @@ use File::Tail;
 use Getopt::Long;
 use Feature::Compat::Try;
 use Path::Tiny;
+use FindBin qw($Bin);
 
 
 #=============================================================================
@@ -992,14 +993,14 @@ if(!GetOptions(
 
 #--- directory 'cfg' must exist
 
-die "Configuration directory 'cfg' does not exist\n" unless -d 'cfg';
+die "Configuration directory 'cfg' does not exist\n" unless -d "$Bin/cfg";
 
 #--- read configuration ------------------------------------------------------
 
 {
   local $/;
   my $fh;
-  open($fh, '<', "cfg/config.json") or die "Configuration file not found\n";
+  open($fh, '<', "$Bin/cfg/config.json") or die "Configuration file not found\n";
   my $cfg_json = <$fh>;
   close($fh);
   $cfg = $js->decode($cfg_json) or die "Failed to parse configuration file\n";
@@ -1010,7 +1011,7 @@ die "Configuration directory 'cfg' does not exist\n" unless -d 'cfg';
 if(exists $cfg->{'config'}{'keyring'}) {
   local $/;
   my ($fh, $krg);
-  open($fh, '<', "cfg/" . $cfg->{'config'}{'keyring'})
+  open($fh, '<', "$Bin/cfg/" . $cfg->{'config'}{'keyring'})
     or die "Failed to read keyring file " . $cfg->{'config'}{'keyring'} . "\n";
   my $krg_json = <$fh>;
   close($fh);
@@ -1045,7 +1046,7 @@ if($cmd_debug) {
 #--- initialize tempdir ------------------------------------------------------
 
 {
-  my $tempdir = path('.');
+  my $tempdir = path($Bin);
   if($cfg->{'config'}{'tempdir'}) {
     $tempdir = path($cfg->{'config'}{'tempdir'});
   }
