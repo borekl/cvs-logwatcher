@@ -28,6 +28,8 @@ use Getopt::Long;
 use Feature::Compat::Try;
 use Path::Tiny;
 use FindBin qw($Bin);
+use lib "$Bin/lib";
+use CVSLogwatcher::Config;
 
 
 #=============================================================================
@@ -991,35 +993,15 @@ if(!GetOptions(
   exit(1);
 }
 
-#--- directory 'cfg' must exist
-
-die "Configuration directory 'cfg' does not exist\n" unless -d "$Bin/cfg";
-
 #--- read configuration ------------------------------------------------------
 
-{
-  local $/;
-  my $fh;
-  open($fh, '<', "$Bin/cfg/config.json") or die "Configuration file not found\n";
-  my $cfg_json = <$fh>;
-  close($fh);
-  $cfg = $js->decode($cfg_json) or die "Failed to parse configuration file\n";
-}
+my $cfg2 = CVSLogwatcher::Config->new(config_file => "$Bin/cfg/config.json");
+$cfg = $cfg2->config;
 
 #--- read keyring ------------------------------------------------------------
 
-if(exists $cfg->{'config'}{'keyring'}) {
-  local $/;
-  my ($fh, $krg);
-  open($fh, '<', "$Bin/cfg/" . $cfg->{'config'}{'keyring'})
-    or die "Failed to read keyring file " . $cfg->{'config'}{'keyring'} . "\n";
-  my $krg_json = <$fh>;
-  close($fh);
-  $krg = $js->decode($krg_json)
-    or die "Failed to parse keyring file " . $cfg->{'config'}{'keyring'} . "\n";
-  for my $k (keys %$krg) {
-    $replacements{$k} = $krg->{$k};
-  }
+for my $k (keys %{$cfg2->keyring}) {
+  $replacements{$k} = $cfg2->keyring->{$k};
 }
 
 #--- initialize Log4perl logging system --------------------------------------
