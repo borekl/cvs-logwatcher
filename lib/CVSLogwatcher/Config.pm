@@ -11,6 +11,9 @@ use experimental 'signatures';
 use JSON;
 use Path::Tiny;
 
+# base directory
+has basedir => ( is => 'ro', required => 1 );
+
 # main configuration file
 has config_file => (
   is => 'ro', required => 1,
@@ -30,6 +33,9 @@ has config => ( is => 'lazy' );
 
 # parse keyring file
 has keyring => ( is => 'lazy');
+
+# scratch direcotry
+has tempdir => ( is => 'lazy' );
 
 #------------------------------------------------------------------------------
 # load and parse configuration
@@ -53,6 +59,28 @@ sub _build_keyring ($self)
   }
 
   return {};
+}
+
+#------------------------------------------------------------------------------
+# get scratch directory; if config.tempdir gives absolute path use that,
+# otherwise root the relative path at FindBin's $Bin (that is the directory
+# the executing script is in). If config.tempdir
+sub _build_tempdir ($self)
+{
+  my $cfg = $self->config;
+  my $d = $self->basedir;
+
+  if(
+    exists $cfg->{config}
+    && exists $cfg->{config}{tempdir}
+    && $cfg->{config}{tempdir}
+  ) {
+    $d = path $cfg->{config}{tempdir};
+    $d = $self->basedir->child($cfg->{config}{tempdir}) unless $d->is_absolute;
+  }
+
+  die "Temporary directory '$d' not found" unless $d->is_dir;
+  return $d;
 }
 
 1;

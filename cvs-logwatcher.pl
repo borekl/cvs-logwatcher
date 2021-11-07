@@ -36,7 +36,7 @@ use CVSLogwatcher::Config;
 #=== GLOBAL VARIABLES                                                      ===
 #=============================================================================
 
-my ($cfg, $logger);
+my ($cfg, $cfg2, $logger);
 my %replacements = ('%d' => '' );
 my $js = JSON->new()->relaxed(1);
 
@@ -372,15 +372,6 @@ sub process_match
   my $group;            # administrative group
   my $sysdescr;         # system description from SNMP
   my $file;             # file holding retrieved configuration
-  my $scratch;          # directory for the temporary files
-
-  #--- scratch directory
-
-  if($cfg->{'config'}{'tempdir'}) {
-    $scratch = path($cfg->{'config'}{'tempdir'});
-  } else {
-    $scratch = path('.');
-  }
 
   #--- find the target index
   # the $target argument refers to target identification, but targets are
@@ -460,7 +451,7 @@ sub process_match
   #--- default config file location, this can later be changed if we are
   #--- extracting hostname from the configuration
 
-    $file = $scratch->child($host_nodomain);
+    $file = $cfg2->tempdir->child($host_nodomain);
 
   #--- run expect script ----------------------------------------------------
 
@@ -995,7 +986,10 @@ if(!GetOptions(
 
 #--- read configuration ------------------------------------------------------
 
-my $cfg2 = CVSLogwatcher::Config->new(config_file => "$Bin/cfg/config.json");
+$cfg2 = CVSLogwatcher::Config->new(
+  basedir => path("$Bin"),
+  config_file => "$Bin/cfg/config.json"
+);
 $cfg = $cfg2->config;
 
 #--- read keyring ------------------------------------------------------------
@@ -1027,13 +1021,7 @@ if($cmd_debug) {
 
 #--- initialize tempdir ------------------------------------------------------
 
-{
-  my $tempdir = path($Bin);
-  if($cfg->{'config'}{'tempdir'}) {
-    $tempdir = path($cfg->{'config'}{'tempdir'});
-  }
-  $replacements{'%D'} = $tempdir->absolute->stringify;
-}
+$replacements{'%D'} = $cfg2->tempdir;
 
 #--- title -------------------------------------------------------------------
 
