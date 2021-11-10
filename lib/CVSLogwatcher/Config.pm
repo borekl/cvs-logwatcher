@@ -37,6 +37,9 @@ has keyring => ( is => 'lazy');
 # scratch direcotry
 has tempdir => ( is => 'lazy' );
 
+# log directory
+has logprefix => ( is => 'lazy' );
+
 #------------------------------------------------------------------------------
 # load and parse configuration
 sub _build_config ($self)
@@ -81,6 +84,19 @@ sub _build_tempdir ($self)
 
   die "Temporary directory '$d' not found" unless $d->is_dir;
   return $d;
+}
+
+#------------------------------------------------------------------------------
+# handle log directory, ie. the main directory where logs to be observed are
+# stored in (usually /var/log)
+sub _build_logprefix ($self)
+{
+  my $cfg = $self->config;
+
+  die 'No config.logprefix defined'
+  unless $cfg->{config}{logprefix};
+
+  return path $cfg->{config}{logprefix};
 }
 
 1;

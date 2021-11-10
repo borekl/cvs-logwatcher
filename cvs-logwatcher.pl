@@ -1030,6 +1030,7 @@ $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
 $logger->info(qq{[cvs] Mode is }, $replacements{'%d'} ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging mode enabled}) if $cmd_debug;
 $logger->debug(qq{[cvs] Scratch directory is }, $replacements{'%D'});
+$logger->debug(qq{[cvs] Log directory is }, $cfg2->logprefix);
 
 #--- verify command-line parameters ------------------------------------------
 
@@ -1121,7 +1122,7 @@ for my $log (keys %{$cfg->{'logfiles'}}) {
 
   my $logfile = $cfg->{'logfiles'}{$log}{'filename'} // '';
   if(substr($logfile, 0, 1) ne '/') {
-    $logfile = $cfg->{'config'}{'logprefix'} . $logfile;
+    $logfile = $cfg2->logprefix->child($logfile);
   }
 
   # check if we are suppressing this logfile
@@ -1184,7 +1185,6 @@ while (1) {
 #--- processing data
 
   foreach(@pending) {
-    my $lprefix = $cfg->{'config'}{'logprefix'};
     my $tid;
 
     #--- get next available line
