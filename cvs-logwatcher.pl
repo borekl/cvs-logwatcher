@@ -406,10 +406,7 @@ sub process_match
   # causes the processing to abort; this allows to ignore certain
   # source hosts
 
-  if(
-    exists $cfg->{'ignorehosts'}
-    && grep { $host =~ /$_/ } @{$cfg->{'ignorehosts'}}
-  ) {
+  if($cfg2->is_ignored_host($host)) {
     $logger->info(qq{[cvs/$tid] Ignored host, skipping processing});
     return;
   }

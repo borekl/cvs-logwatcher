@@ -161,4 +161,21 @@ sub is_ignored_user ($self, $u)
   return undef;
 }
 
+#------------------------------------------------------------------------------
+# Return true if the host passed as argument is on the ignore list
+sub is_ignored_host ($self, $h)
+{
+  my $cfg = $self->config;
+
+  if(
+    exists $cfg->{ignorehosts}
+    && ref $cfg->{ignorehosts}
+    && grep { $h =~ /$_/ } @{$cfg->{ignorehosts}}
+  ) {
+    return 1;
+  }
+
+  return undef;
+}
+
 1;
