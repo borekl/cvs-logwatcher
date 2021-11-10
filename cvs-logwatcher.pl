@@ -213,7 +213,7 @@ sub run_expect_batch
       $logger->debug(
         sprintf('[%s] Expect string(%d): %s', $logpf, $i, repl($row->[0]))
       );
-      $exh->expect($cfg->{'config'}{'expmax'} // 300, '-re', repl($row->[0])) or die;
+      $exh->expect($cfg2->tailparam('expmax') // 300, '-re', repl($row->[0])) or die;
       my @g = $exh->matchlist();
       $logger->debug(
         sprintf('[%s] Expect receive(%d): %s', $logpf, $i, $exh->match())
@@ -1140,7 +1140,7 @@ for my $log (keys %{$cfg->{'logfiles'}}) {
 
   my $h = File::Tail->new(
     name=>$logfile,
-    maxinterval=>$cfg->{'config'}{'tailint'}
+    maxinterval=>$cfg2->tailparam('tailint')
   );
   $h->{'cvslogwatch.logid'} = $log;
   push(@logfiles, $h);
@@ -1171,7 +1171,7 @@ while (1) {
   my ($nfound, $timeleft, @pending)
   = File::Tail::select(
     undef, undef, undef,
-    $cfg->{'config'}{'tailmax'},
+    $cfg2->tailparam('tailmax'),
     @logfiles
   );
 
