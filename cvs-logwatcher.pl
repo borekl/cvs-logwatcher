@@ -1104,43 +1104,30 @@ if($cmd_trigger) {
 #--- initializing the logfiles -----------------------------------------------
 
 # array of File::Tail filehandles
-
 my @logfiles;
 
 # loop over all configured logfiles
-
-for my $log (keys %{$cfg->{'logfiles'}}) {
-
-  # get log's filename; log filename can be specified both absolute (starting
-  # with a slash) or relative to config.logprefix
-
-  my $logfile = $cfg->{'logfiles'}{$log}{'filename'} // '';
-  if(substr($logfile, 0, 1) ne '/') {
-    $logfile = $cfg2->logprefix->child($logfile);
-  }
+$cfg2->iterate_logfiles(sub {
+  my $log = shift;
 
   # check if we are suppressing this logfile
-
-  if(defined $cmd_log && $cmd_log ne $log) {
-    $logger->info("[cvs] Suppressing $logfile ($log)");
-    next;
+  if(defined $cmd_log && $cmd_log ne $log->id) {
+    $logger->info(sprintf('[cvs] Suppressing %s (%s)', $log->file, $log->id));
+    return;
   }
 
-  # check if it is actually accessible, ignore if it is not
-
-  next if !-r $logfile;
-
   # start watching the logfile
-
   my $h = File::Tail->new(
-    name=>$logfile,
-    maxinterval=>$cfg2->tailparam('tailint')
+    name => $log->file,
+    maxinterval => $cfg2->tailparam('tailint')
   );
-  $h->{'cvslogwatch.logid'} = $log;
+  $h->{'cvslogwatch.logid'} = $log->id;
   push(@logfiles, $h);
 
-  $logger->info("[cvs] Started observing $logfile ($log)");
-}
+  $logger->info(
+    sprintf('[cvs] Started observing %s (%s)', $log->file, $log->id)
+  );
+});
 
 if(scalar(@logfiles) == 0) {
   $logger->fatal(qq{[cvs] No valid logfiles defined, aborting});
@@ -1162,8 +1149,7 @@ while (1) {
 
 #--- wait for new data becoming available in any of the watched logs
 
-  my ($nfound, $timeleft, @pending)
-  = File::Tail::select(
+  my ($nfound, $timeleft, @pending) = File::Tail::select(
     undef, undef, undef,
     $cfg2->tailparam('tailmax'),
     @logfiles
@@ -1188,23 +1174,25 @@ while (1) {
     #--- get filename of the file the line is from
     my $logid = $_->{'cvslogwatch.logid'};
     die 'Assertion failed, logid missing in File::Tail handle' if !$logid;
-    my $file = $cfg->{'logfiles'}{$logid}{'filename'};
+    my $log = $cfg2->logfiles->{$logid};
 
     #--- if --watchonly is active, display the line
     $logger->info("[cvs/$logid] $l") if $cmd_watchonly;
 
     #--- match the line
-    my $regex = $cfg->{'logfiles'}{$logid}{'match'};
-    next if $l !~ /$regex/;
+    my ($host, $user, $msg) = $log->match($l);
+    next unless $host;
 
     #--- find target
     $tid = find_target(
       logid => $logid,
-      host => $+{'host'}
+      host => $host
     );
 
     if(!$tid) {
-      $logger->warn("[cvs] No target found for match from '$+{host}' in source '$logid'");
+      $logger->warn(
+        "[cvs] No target found for match from '$host' in source '$logid'"
+      );
       next;
     }
 
@@ -1215,9 +1203,9 @@ while (1) {
     #--- start processing
     process_match(
       $tid,
-      $+{'host'},
-      $+{'msg'},
-      $+{'user'} ? $+{'user'} : 'unknown',
+      $host,
+      $msg,
+      $user ? $user : 'unknown',
       undef,
       undef,
       $cmd_mangle,

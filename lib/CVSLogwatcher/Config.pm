@@ -11,6 +11,8 @@ use experimental 'signatures';
 use JSON;
 use Path::Tiny;
 
+use CVSLogwatcher::Logfile;
+
 # base directory
 has basedir => ( is => 'ro', required => 1 );
 
@@ -42,6 +44,9 @@ has logprefix => ( is => 'lazy' );
 
 # repository base dir
 has repodir => ( is => 'lazy' );
+
+# logfiles
+has logfiles => ( is => 'lazy' );
 
 #------------------------------------------------------------------------------
 # load and parse configuration
@@ -115,6 +120,30 @@ sub _build_repodir ($self)
 }
 
 #------------------------------------------------------------------------------
+sub _build_logfiles ($self)
+{
+  my $cfg = $self->config;
+  my %logs;
+
+  for my $logid (keys %{$cfg->{logfiles}}) {
+    my $log = $cfg->{logfiles}{$logid};
+    my $logfile = path $log->{filename};
+    # handle relative filenames
+    $logfile = $cfg->basedir->child($logfile) if substr($logfile, 0, 1) ne '/';
+    # ignore unreadable logfiles
+    next if !-r $logfile;
+    # instantiate a logfile
+    $logs{$logid} = CVSLogwatcher::Logfile->new(
+      id => $logid,
+      file => $logfile,
+      matchre => $log->{match}
+    );
+  }
+
+  return \%logs;
+}
+
+#------------------------------------------------------------------------------
 # File::Tail parameters
 sub tailparam ($self, $p)
 {
@@ -176,6 +205,14 @@ sub is_ignored_host ($self, $h)
   }
 
   return undef;
+}
+
+#------------------------------------------------------------------------------
+sub iterate_logfiles ($self, $cb)
+{
+  foreach my $log (keys %{$self->logfiles}) {
+    $cb->($self->logfiles->{$log});
+  }
 }
 
 1;
