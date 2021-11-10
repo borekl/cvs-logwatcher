@@ -31,10 +31,10 @@ has _config_dir => (
 # parsed configuration
 has config => ( is => 'lazy' );
 
-# parse keyring file
+# parsed keyring file
 has keyring => ( is => 'lazy');
 
-# scratch direcotry
+# scratch directory
 has tempdir => ( is => 'lazy' );
 
 # log directory
