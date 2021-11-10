@@ -144,4 +144,21 @@ sub rcs ($self, $p)
 # Ping configuration
 sub ping ($self) { $self->config->{ping} // undef }
 
+#------------------------------------------------------------------------------
+# Return true if the user passed as argument is on the ignore list
+sub is_ignored_user ($self, $u)
+{
+  my $cfg = $self->config;
+
+  if(
+    exists $cfg->{ignoreusers}
+    && ref $cfg->{ignoreusers}
+    && grep { lc eq lc $u } @{$cfg->{ignoreusers}}
+  ) {
+    return 1;
+  }
+
+  return undef;
+}
+
 1;

@@ -394,11 +394,7 @@ sub process_match
   # "ignoreusers" configuration object is a list of users that should
   # be ignored and no processing be done for them
 
-  if(
-    $chgwho
-    && exists $cfg->{'ignoreusers'}
-    && grep { /^$chgwho$/ } @{$cfg->{'ignoreusers'}}
-  ) {
+  if($chgwho && $cfg2->is_ignored_user($chgwho)) {
     $logger->info(qq{[cvs/$tid] Ignored user, skipping processing});
     return;
   }
@@ -437,7 +433,7 @@ sub process_match
 
   #--- ensure reachability
 
-  if($cfg->{'ping'} && system(repl($cfg->{'ping'})) >> 8) {
+  if($cfg2->ping && system(repl($cfg2->ping)) >> 8) {
     $logger->error(qq{[cvs/$tid Host $host_nodomain unreachable, skipping});
     return;
   }
