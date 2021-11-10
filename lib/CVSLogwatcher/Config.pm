@@ -140,4 +140,8 @@ sub rcs ($self, $p)
   die "Invalid rcs argument '$p'";
 }
 
+#------------------------------------------------------------------------------
+# Ping configuration
+sub ping ($self) { $self->config->{ping} // undef }
+
 1;
