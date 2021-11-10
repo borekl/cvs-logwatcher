@@ -288,7 +288,7 @@ sub compare_to_prev
 
   my $exec = sprintf(
     '%s -q -p %s/%s,v',
-    $cfg->{'rcs'}{'rcsco'},
+    $cfg2->rcs('rcsco'),
     $repo,
     $host
   );
@@ -704,7 +704,7 @@ sub process_match
     if(-f "$repo/$host_nodomain,v") {
       $exec = sprintf(
         '%s -q -U %s/%s,v',
-        $cfg->{'rcs'}{'rcsctl'},                     # rcs binary
+        $cfg2->rcs('rcsctl'),                        # rcs binary
         $repo, $host_nodomain                        # config in repo
       );
       $logger->debug("[cvs/$tid] Cmd: $exec");
@@ -717,7 +717,7 @@ sub process_match
 
     $exec = sprintf(
       '%s -q -w%s "-m%s" -t-%s %s %s/%s,v',
-      $cfg->{'rcs'}{'rcsci'},                      # rcs ci binary
+      $cfg2->rcs('rcsci'),                         # rcs ci binary
       $chgwho,                                     # author
       $msg,                                        # commit message
       $host,                                       # file description
@@ -1029,8 +1029,9 @@ $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
 $logger->info(qq{[cvs] Mode is }, $replacements{'%d'} ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging mode enabled}) if $cmd_debug;
-$logger->debug(qq{[cvs] Scratch directory is }, $replacements{'%D'});
 $logger->debug(qq{[cvs] Log directory is }, $cfg2->logprefix);
+$logger->debug(qq{[cvs] Scratch directory is }, $replacements{'%D'});
+$logger->debug(qq{[cvs] Repository directory is }, $cfg2->repodir);
 
 #--- verify command-line parameters ------------------------------------------
 

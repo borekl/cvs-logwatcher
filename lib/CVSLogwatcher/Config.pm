@@ -40,6 +40,9 @@ has tempdir => ( is => 'lazy' );
 # log directory
 has logprefix => ( is => 'lazy' );
 
+# repository base dir
+has repodir => ( is => 'lazy' );
+
 #------------------------------------------------------------------------------
 # load and parse configuration
 sub _build_config ($self)
@@ -100,6 +103,18 @@ sub _build_logprefix ($self)
 }
 
 #------------------------------------------------------------------------------
+# Repository base dir
+sub _build_repodir ($self)
+{
+  my $cfg = $self->config;
+  my $dir = path($cfg->{rcs}{rcsrepo} // 'data');
+
+  $dir = $self->basedir->child($dir) unless $dir->is_absolute;
+
+  return $dir;
+}
+
+#------------------------------------------------------------------------------
 # File::Tail parameters
 sub tailparam ($self, $p)
 {
@@ -110,6 +125,19 @@ sub tailparam ($self, $p)
   elsif($p eq 'expmax') { return $cfg->{config}{expmax} // 60 }
 
   die "Invalid tailparam argument '$p'";
+}
+
+#------------------------------------------------------------------------------
+# RCS binaries
+sub rcs ($self, $p)
+{
+  my $cfg = $self->config;
+
+  if($p eq 'rcsctl') { return $cfg->{rcs}{rcsctl} // '/usr/bin/rcs' }
+  elsif($p eq 'rcsci') { return $cfg->{rcs}{rcsci} // '/usr/bin/ci' }
+  elsif($p eq 'rcsco') { return $cfg->{rcs}{rcsco} // '/usr/bin/co' }
+
+  die "Invalid rcs argument '$p'";
 }
 
 1;
