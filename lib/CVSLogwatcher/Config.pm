@@ -7,11 +7,13 @@ package CVSLogwatcher::Config;
 use Moo;
 use warnings;
 use strict;
+use v5.10;
 use experimental 'signatures';
 use JSON;
 use Path::Tiny;
 
 use CVSLogwatcher::Logfile;
+use CVSLogwatcher::Target;
 
 # base directory
 has basedir => ( is => 'ro', required => 1 );
@@ -47,6 +49,9 @@ has repodir => ( is => 'lazy' );
 
 # logfiles
 has logfiles => ( is => 'lazy' );
+
+# targets
+has targets => ( is => 'lazy' );
 
 #------------------------------------------------------------------------------
 # load and parse configuration
@@ -144,6 +149,16 @@ sub _build_logfiles ($self)
 }
 
 #------------------------------------------------------------------------------
+sub _build_targets ($self)
+{
+  my $cfg = $self->config;
+
+  return [
+    map { CVSLogwatcher::Target->new(config => $_) } @{$cfg->{targets}}
+  ];
+}
+
+#------------------------------------------------------------------------------
 # File::Tail parameters
 sub tailparam ($self, $p)
 {
@@ -212,6 +227,30 @@ sub iterate_logfiles ($self, $cb)
 {
   foreach my $log (keys %{$self->logfiles}) {
     $cb->($self->logfiles->{$log});
+  }
+}
+
+#------------------------------------------------------------------------------
+sub find_target ($self, $logid, $host)
+{
+  my $cfg = $self->config;
+
+  # remove domain from hostname
+  $host =~ s/\..*$//g if $host;
+
+  foreach my $target (@{$self->targets}) {
+    # "logfile" condition
+    next if
+      exists $target->config->{'logfile'}
+      && $target->config->{'logfile'} ne $logid;
+    # "hostmatch" condition
+    next if $host && !$target->match_hostname($host);
+    # no mismatch, target found
+    if(wantarray()) {
+      return ($target->id, $target->config);
+    } else {
+      return $target->id;
+    }
   }
 }
 

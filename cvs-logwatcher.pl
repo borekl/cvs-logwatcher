@@ -742,151 +742,6 @@ sub process_match
 }
 
 
-
-#=============================================================================
-# Function to match hostname (obtained from logfile) against an array of rules
-# and decide the result (MATCH or NO MATCH).
-#
-# A hostname is considered a rule match when all conditions in the rule are
-# evaluated as matching. A hostname is considered a ruleset match when at
-# least one rule results in a match.
-#
-# Following conditions are supported in a rule:
-#
-# {
-#   includere => [],
-#   excludere => [],
-#   includelist => [],
-#   excludelist => [],
-# }
-#
-#=============================================================================
-
-sub rule_hostname_match
-{
-  #--- arguments
-
-  my (
-    $group,    # 1. aref  array of rules
-    $hostname  # 2. strg  hostname that is to be matched to the ruleset
-  ) = @_;
-
-  #--- sanitize arguments
-
-  if(!ref($group)) {
-    croak q{'group' argument not a reference};
-  }
-  if(!$hostname) {
-    croak q{'hostname' argument missing};
-  }
-
-  return '' if !@$group;
-
-  #--- iterate over the ruleset
-
-  for my $rule (@$group) {
-
-    my ($match_incre, $match_inclst, $match_excre, $match_exclst);
-
-  #--- 'includere' condition
-
-    if(exists $rule->{'includere'}) {
-      for my $re (@{$rule->{'includere'}}) {
-        $match_incre ||= ($hostname =~ /$re/i);
-      }
-    }
-
-  #--- 'includelist' condition
-
-    if(exists $rule->{'includelist'}) {
-      for my $en (@{$rule->{'includelist'}}) {
-        $match_inclst ||= (lc($hostname) eq lc($en));
-      }
-    }
-
-  #--- 'excludere' condition
-
-    if(exists $rule->{'excludere'}) {
-      my $match_excre_local = 'magic';
-      for my $re (@{$rule->{'excludere'}}) {
-        $match_excre_local &&= ($hostname !~ /$re/i);
-      }
-      $match_excre = $match_excre_local eq 'magic' ? '' : $match_excre_local
-    }
-
-  #--- 'excludelist' condition
-
-    if(exists $rule->{'excludelist'}) {
-      my $match_exclst_local = 'magic';
-      for my $en (@{$rule->{'excludelist'}}) {
-        $match_exclst_local &&= (lc($hostname) ne lc($en));
-      }
-      $match_exclst = $match_exclst_local eq 'magic' ? '' : $match_exclst_local
-    }
-
-  #--- evaluate the result of current rule
-
-    my $result = 1;
-
-    for my $val ($match_incre, $match_inclst, $match_excre, $match_exclst) {
-      if(
-        defined $val
-        && !$val
-      ) {
-        $result = '';
-      }
-    }
-
-    return 1 if($result);
-
-  #--- end of ruleset iteration
-
-  }
-
-  #--- default exit as FALSE
-
-  return '';
-}
-
-
-#=============================================================================
-# Find target based on configured conditions.
-#=============================================================================
-
-sub find_target
-{
-  my %arg = @_;
-  my $tid;
-
-  #--- remove domain from hostname
-
-  if($arg{'host'}) {
-    $arg{'host'} =~ s/\..*$//g;
-  }
-
-  #--- do the matching
-
-  foreach my $target (@{$cfg->{'targets'}}) {
-    # "logfile" condition
-    next if
-      exists $target->{'logfile'}
-      && $target->{'logfile'} ne $arg{'logid'};
-    # "hostmatch" condition
-    next if
-      exists $target->{'hostmatch'}
-      && ref($target->{'hostmatch'})
-      && $arg{'host'}
-      && !rule_hostname_match($target->{'hostmatch'}, $arg{'host'});
-    # no mismatch, so target found
-    if(wantarray()) {
-      return ($target->{'id'}, $target);
-    } else {
-      return $target->{'id'};
-    }
-  }
-}
-
-
 #=============================================================================
 # Display usage help
 #=============================================================================
@@ -1073,10 +928,7 @@ if($cmd_trigger) {
 
   # process each host
   for my $host (@hosts) {
-    my $tid = find_target(
-      logid => $cmd_trigger,
-      host => lc($host)
-    );
+    my $tid = $cfg2->find_target($cmd_trigger, lc($host));
     if(!$tid) {
       $logger->warn("[cvs] No target found for match from '$host' in source '$cmd_trigger'");
       next;
@@ -1184,10 +1036,7 @@ while (1) {
     next unless $host;
 
     #--- find target
-    $tid = find_target(
-      logid => $logid,
-      host => $host
-    );
+    $tid = $cfg2->find_target($logid, $host);
 
     if(!$tid) {
       $logger->warn(
