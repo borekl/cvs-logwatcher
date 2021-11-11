@@ -254,4 +254,20 @@ sub find_target ($self, $logid, $host)
   }
 }
 
+#------------------------------------------------------------------------------
+# Gets admin group name from hostname. Admin group is decided based on
+# regexes define in "groups" top-level config object.
+sub admin_group ($self, $host)
+{
+  my $cfg = $self->config;
+
+  for my $grp (keys %{$cfg->{'groups'}}) {
+    for my $re_src (@{$cfg->{'groups'}{$grp}}) {
+      my $re = qr/$re_src/i;
+      return $grp if $host =~ /$re/;
+    }
+  }
+  return undef;
+}
+
 1;

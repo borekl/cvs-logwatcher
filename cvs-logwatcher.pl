@@ -92,40 +92,6 @@ sub repl_capture_groups
 
 
 #=============================================================================
-# Gets admin group name from hostname. Admin group is decided based on
-# regexes define in "groups" top-level config object. If no match is found,
-# "defgroup" key is tried under "targets"->{logid}.
-#=============================================================================
-
-sub get_admin_group
-{
-  #--- arguments
-
-  my (
-    $host,
-    $target
-  ) = @_;
-
-  #--- do the matching
-
-  for my $grp (keys %{$cfg->{'groups'}}) {
-    for my $re_src (@{$cfg->{'groups'}{$grp}}) {
-      my $re = qr/$re_src/i;
-      return $grp if $host =~ /$re/;
-    }
-  }
-
-  #--- if no match, try to get the default group
-
-  if(exists $target->{'defgrp'}) {
-    return $target->{'defgrp'}
-  } else {
-    return undef;
-  }
-}
-
-
-#=============================================================================
 # Execute batch of expect-response pairs. If there's third value in the
 # arrayref containing the exp-resp pair, it will be taken as a file to
 # begin logging into.
@@ -420,7 +386,7 @@ sub process_match
 
   #--- assign admin group
 
-  $group = get_admin_group($host_nodomain, $target);
+  $group = $cfg2->admin_group($host_nodomain) // $target->{defgroup} // undef;
   if($group) {
     $logger->info(qq{[cvs/$tid] Admin group: $group});
   } else {
