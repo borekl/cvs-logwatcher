@@ -30,6 +30,7 @@ use Path::Tiny;
 use FindBin qw($Bin);
 use lib "$Bin/lib";
 use CVSLogwatcher::Config;
+use CVSLogwatcher::Cmdline;
 
 
 #=============================================================================
@@ -709,34 +710,6 @@ sub process_match
 
 
 #=============================================================================
-# Display usage help
-#=============================================================================
-
-sub help
-{
-  print <<EOHD;
-
-Usage: cvs-logwatcher.pl [options]
-
-  --help             get this information text
-  --trigger=LOGID    trigger processing as if LOGID matched
-  --host=HOST        define host for --trigger or limit processing to it
-  --user=USER        define user for --trigger
-  --msg=MSG          define message for --trigger
-  --force            force check-in when using --trigger
-  --nocheckin[=FILE] do not perform RCS repository check in with --trigger
-  --nomangle         do not perform config text transformations
-  --debug            set loglevel to debug
-  --devel            development mode, implies --debug
-  --initonly         init everything and exit
-  --log=LOGID        only process this log
-
-EOHD
-}
-
-
-
-#=============================================================================
 #===================  _  =====================================================
 #===  _ __ ___   __ _(_)_ __  ================================================
 #=== | '_ ` _ \ / _` | | '_ \  ===============================================
@@ -747,56 +720,8 @@ EOHD
 #=============================================================================
 
 
-#--- get command-line options ------------------------------------------------
-
-my $cmd_trigger;
-my $cmd_host;
-my $cmd_user;
-my $cmd_msg;
-my $cmd_force;
-my $cmd_help;
-my $cmd_no_checkin;
-my $cmd_mangle = 1;
-my $cmd_debug;
-my $cmd_initonly;
-my $cmd_log;
-my $cmd_watchonly;
-
-if(!GetOptions(
-  'trigger=s'   => \$cmd_trigger,
-  'host=s'      => \$cmd_host,
-  'user=s'      => \$cmd_user,
-  'msg=s'       => \$cmd_msg,
-  'force'       => \$cmd_force,
-  'help'        => \$cmd_help,
-  'nocheckin:s' => \$cmd_no_checkin,
-  'mangle!'     => \$cmd_mangle,
-  'debug'       => \$cmd_debug,
-  'devel:s'     => sub {
-                     $cmd_debug = 1;
-                     $replacements{'%d'} = $_[1] || '-dev';
-                   },
-
-  # --initonly
-  # Only intialize everything, but do not run the main event loop
-
-  'initonly'    => \$cmd_initonly,
-
-  # --log=LOGID
-  # Limit processing only to this one log for testing purposes
-
-  'log=s'       => \$cmd_log,
-
-  # --watchonly
-  # Inhibit any processing. Instead, display all lines received from logfiles
-  # and indicate matches. This is meant for testing/debugging purposes.
-
-  'watchonly'   => \$cmd_watchonly,
-
-) || $cmd_help) {
-  help();
-  exit(1);
-}
+# get command-line options
+my $cmd = CVSLogwatcher::Cmdline->new;
 
 #--- read configuration ------------------------------------------------------
 
@@ -814,24 +739,13 @@ for my $k (keys %{$cfg2->keyring}) {
 
 #--- initialize Log4perl logging system --------------------------------------
 
-if(! -r 'cfg/logging.conf') {
-  die "Logging configurartion 'cfg/logging.conf' not found or not readable\n";
-}
+die "Logging configurartion 'cfg/logging.conf' not found or not readable\n"
+unless -r 'cfg/logging.conf';
 
 Log::Log4perl->init_and_watch("cfg/logging.conf", 60);
 $logger = get_logger('CVS::Main');
-
-if($replacements{'%d'}) {
-  $logger->remove_appender('AFile');
-} else {
-  $logger->remove_appender('AScrn');
-}
-
-if($cmd_debug) {
-  $logger->level($DEBUG);
-} else {
-  $logger->level($INFO);
-}
+$logger->remove_appender($cmd->devel ? 'AFile' : 'AScrn');
+$logger->level($cmd->debug ? $DEBUG : $INFO);
 
 #--- initialize tempdir ------------------------------------------------------
 
@@ -841,34 +755,33 @@ $replacements{'%D'} = $cfg2->tempdir;
 
 $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
-$logger->info(qq{[cvs] Mode is }, $replacements{'%d'} ? 'development' : 'production');
-$logger->debug(qq{[cvs] Debugging mode enabled}) if $cmd_debug;
+$logger->info(qq{[cvs] Mode is }, $cmd->devel ? 'development' : 'production');
+$logger->debug(qq{[cvs] Debugging enabled}) if $cmd->debug;
 $logger->debug(qq{[cvs] Log directory is }, $cfg2->logprefix);
 $logger->debug(qq{[cvs] Scratch directory is }, $replacements{'%D'});
 $logger->debug(qq{[cvs] Repository directory is }, $cfg2->repodir);
 
 #--- verify command-line parameters ------------------------------------------
 
-if($cmd_trigger) {
-  if(!exists $cfg->{'logfiles'}{$cmd_trigger}) {
+if($cmd->trigger) {
+  if(!exists $cfg->{'logfiles'}{$cmd->trigger}) {
     $logger->fatal(
       '[cvs] Option --trigger refers to non-existent logfile id, aborting'
     );
     exit(1);
   }
-  if(!$cmd_host) {
+  if(!$cmd->host) {
     $logger->fatal(qq{[cvs] Option --trigger requires --host, aborting});
     exit(1);
   }
 }
 
 
-if($cmd_trigger) {
-  $cmd_trigger = lc($cmd_trigger);
-  $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd_trigger));
-  $logger->info(sprintf('[cvs] Explicit host is %s', $cmd_host));
-  $logger->info(sprintf('[cvs] Explicit user is %s', $cmd_user)) if $cmd_user;
-  $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd_msg)) if $cmd_msg;
+if($cmd->trigger) {
+  $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd->trigger));
+  $logger->info(sprintf('[cvs] Explicit host is %s', $cmd->host));
+  $logger->info(sprintf('[cvs] Explicit user is %s', $cmd->user)) if $cmd->user;
+  $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd->msg)) if $cmd->msg;
 }
 
 #-----------------------------------------------------------------------------
@@ -881,32 +794,32 @@ if($cmd_trigger) {
 # --host=HOST must be used to tell which device(s) to check; --user and --msg
 # should be used to specify commit author and message.
 
-if($cmd_trigger) {
+if($cmd->trigger) {
 
   # get list of hosts to process
   my @hosts;
-  if($cmd_host =~ /^@(.*)$/) {
+  if($cmd->host =~ /^@(.*)$/) {
     my $group = $1;
     @hosts = @{$cfg->{'devgroups'}{$group}};
   } else {
-    @hosts = ( $cmd_host );
+    @hosts = ( $cmd->host );
   }
 
   # process each host
   for my $host (@hosts) {
-    my $tid = $cfg2->find_target($cmd_trigger, lc($host));
+    my $tid = $cfg2->find_target($cmd->trigger, lc($host));
     if(!$tid) {
-      $logger->warn("[cvs] No target found for match from '$host' in source '$cmd_trigger'");
+      $logger->warn("[cvs] No target found for match from '$host' in source '$cmd->trigger'");
       next;
     }
     process_match(
       $tid,
       $host,
-      $cmd_msg // 'Manual check-in',
-      $cmd_user // 'cvs',
-      $cmd_force,
-      $cmd_no_checkin,
-      $cmd_mangle,
+      $cmd->msg // 'Manual check-in',
+      $cmd->user // 'cvs',
+      $cmd->force,
+      $cmd->nocheckin,
+      $cmd->mangle,
     );
   }
 
@@ -929,7 +842,7 @@ $cfg2->iterate_logfiles(sub {
   my $log = shift;
 
   # check if we are suppressing this logfile
-  if(defined $cmd_log && $cmd_log ne $log->id) {
+  if(defined $cmd->log && $cmd->log ne $log->id) {
     $logger->info(sprintf('[cvs] Suppressing %s (%s)', $log->file, $log->id));
     return;
   }
@@ -955,7 +868,7 @@ if(scalar(@logfiles) == 0) {
 #--- if user specifies --initonly, do not enter the main loop
 #--- this is for testing purposes
 
-if($cmd_initonly) {
+if($cmd->initonly) {
   $logger->info(qq{[cvs] Init completed, exiting});
   exit(0);
 }
@@ -995,7 +908,7 @@ while (1) {
     my $log = $cfg2->logfiles->{$logid};
 
     #--- if --watchonly is active, display the line
-    $logger->info("[cvs/$logid] $l") if $cmd_watchonly;
+    $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
 
     #--- match the line
     my ($host, $user, $msg) = $log->match($l);
@@ -1013,7 +926,7 @@ while (1) {
 
     #--- finish if --watchonly
 
-    next if $cmd_watchonly;
+    next if $cmd->watchonly;
 
     #--- start processing
     process_match(
@@ -1023,7 +936,7 @@ while (1) {
       $user ? $user : 'unknown',
       undef,
       undef,
-      $cmd_mangle,
+      $cmd->mangle,
     );
 
   }
