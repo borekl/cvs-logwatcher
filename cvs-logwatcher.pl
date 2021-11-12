@@ -144,7 +144,7 @@ sub run_expect_batch
           sprintf('[%s] Expect groups(%d): %s', $logpf, $i, join(',', @g))
         );
       }
-      repl_capture_groups(@g);
+      $repl->add_capture_groups(@g);
       if($row->[3]) {
         $repl->add_value('%P' => quotemeta($repl->replace($row->[3])))
       };
