@@ -296,12 +296,9 @@ sub process_match
   my $sysdescr;         # system description from SNMP
   my $file;             # file holding retrieved configuration
 
-  #--- find the target index
-  # the $target argument refers to target identification, but targets are
-  # actually stored in an array, so we need to find the actual item
-
-  my ($target) = grep { $_->{'id'} eq $tid } @{$cfg->{'targets'}};
-  if(!$target || !ref($target)) {
+  # get the target instance
+  my $target = $cfg2->get_target($tid);
+  if(!$target) {
     $logger->error("Target '$tid' not found, no action taken");
     return;
   }
@@ -345,7 +342,7 @@ sub process_match
 
   #--- assign admin group
 
-  $group = $cfg2->admin_group($host_nodomain) // $target->{defgroup} // undef;
+  $group = $cfg2->admin_group($host_nodomain) // $target->defgroup;
   if($group) {
     $logger->info(qq{[cvs/$tid] Admin group: $group});
   } else {
@@ -373,9 +370,9 @@ sub process_match
 
   #--- run expect script ----------------------------------------------------
 
-    if($target->{'expect'}) {
+    if($target->config->{'expect'}) {
       run_expect_batch(
-        $target->{'expect'},
+        $target->config->{'expect'},
         $host, $host_nodomain,
         "cvs/$tid"
       );
@@ -410,12 +407,7 @@ sub process_match
 
   #--- convert line endings to local style
 
-    if(
-      $mangle
-      && exists $target->{'options'}
-      && ref $target->{'options'}
-      && (grep { $_ eq 'normeol' } @{$target->{'options'}})
-    ) {
+    if($mangle && $target->has_option('normeol')) {
       my $done;
       if(open(FOUT, '>', "$file.eolconv.$$")) {
         if(open(FIN, '<', $file)) {
@@ -450,22 +442,11 @@ sub process_match
   # the last line.  This allows filtering junk that is saved with the config
   # (echo of the chat commands, disconnection message etc.)
 
-    if(
-      $mangle
-      && exists $target->{'validrange'}
-      && ref $target->{'validrange'}
-      && @{$target->{'validrange'}} == 2
-    ) {
+    if($mangle && (my $vr = $target->validrange)) {
       if(open(FOUT, '>', "$file.validrange.$$")) {
         if(open(FIN, '<', "$file")) {
-          my $in_range = defined $target->{'validrange'}[0] ? 0 : 1;
           while(my $l = <FIN>) {
-            $in_range = 1
-              if $l =~ $target->{'validrange'}[0];
-            print FOUT $l if $in_range;
-            $in_range = 0
-              if defined $target->{'validrange'}[1]
-              && $l =~ $target->{'validrange'}[1];
+            print FOUT $l if $vr->($l);
           }
           close(FIN);
           $logger->debug(
@@ -485,16 +466,11 @@ sub process_match
   # This complements above "validrange" feature by filtering by set of regexes.
   # Any line matching any of the regexes in array "filter" is thrown away.
 
-    if(
-      $mangle
-      && exists $target->{'filter'}
-      && ref $target->{'filter'}
-      && @{$target->{'filter'}}
-    ) {
+    if($mangle && $target->has_filter) {
       if(open(FOUT, '>', "$file.filter.$$")) {
         if(open(FIN, '<', "$file")) {
           while(my $l = <FIN>) {
-            print FOUT $l if(!(grep { $l =~ /$_/ } @{$target->{'filter'}}));
+            print FOUT $l if $target->filter_pass($l);
           }
           close(FIN);
           $logger->debug(
@@ -517,28 +493,14 @@ sub process_match
   # transfers that would drop valid data from repository. --nocheckin
   # prevents validation.
 
-    if(
-      exists $target->{'validate'}
-      && ref $target->{'validate'}
-      && @{$target->{'validate'}}
-      && !defined $no_checkin
-    ) {
+    if(!defined $no_checkin && (my $v = $target->validate_checker)) {
       if(open(FIN, '<', $file)) {
-        my @validate = @{$target->{'validate'}};
-        while(my $l = <FIN>) {
-          chomp($l);
-          for(my $i = 0; $i < @validate; $i++) {
-            my $re = $validate[$i];
-            if($l =~ /$re/) {
-              splice(@validate, $i, 1);
-            }
-          }
-        }
-        if(@validate) {
+        while(my $l = <FIN>) { last if !$v->($l) }
+        if($v->()) {
           $logger->warn("[cvs/$tid] Validation required but failed, aborting check in");
           $logger->debug(
             "[cvs/$tid] Failed validation expressions: ",
-            join(', ', map { "'$_'" } @validate)
+            join(', ', map { "'$_'" } $v->())
           );
           die;
         }
@@ -551,8 +513,8 @@ sub process_match
   # This makes it possible to use host's own notion of hostname avoiding
   # reliance on the name that appears in syslog
 
-    if($target->{hostname}) {
-      my $selfname = extract_hostname($file, $target->{hostname});
+    if($target->config->{hostname}) {
+      my $selfname = extract_hostname($file, $target->config->{hostname});
       if($selfname && $selfname ne $file->basename) {
         my $target = $file->sibling($selfname);
         $file->move($target);
@@ -605,7 +567,7 @@ sub process_match
   # configuration is decided by matching regex from "ignoreline"
   # configuration item.
 
-    if(!compare_to_prev($target, $host_nodomain, $file, $repo)) {
+    if(!compare_to_prev($target->config, $host_nodomain, $file, $repo)) {
       if($force) {
         $logger->info("[cvs/$tid] No change to current revision, but --force in effect");
       } else {

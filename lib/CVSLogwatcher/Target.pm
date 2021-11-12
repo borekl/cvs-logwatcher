@@ -5,15 +5,33 @@
 package CVSLogwatcher::Target;
 
 use Moo;
+use v5.12;
 use warnings;
 use strict;
 use experimental 'signatures';
 
+# full config as parsed from the config file
 has config => ( is => 'ro', required => 1 );
+
+# target id
 has id => ( is => 'lazy' );
+
+# default administrative group
 has defgroup => (
-  is => 'ro', lazy => 1,
+  is => 'ro',
   default => sub ($s) { $s->config->{defgrp} // undef }
+);
+
+# filter expressions for filtering configuration
+has filter => (
+  is => 'ro',
+  default => sub ($s) { $s->config->{filter} // [] }
+);
+
+# validation list
+has validate => (
+  is => 'ro',
+  default => sub ($s) { $s->config->{validate} // [] }
 );
 
 sub _build_id ($self) { $self->config->{id} }
@@ -137,6 +155,37 @@ sub validrange ($self)
       $re = ($in_range == 1);
       $in_range = 2 if $in_range == 1 && $out && $l =~ /$out/;
       return $re;
+    }
+  } else {
+    return undef;
+  }
+}
+
+#------------------------------------------------------------------------------
+# Custom predicate for filter
+sub has_filter ($self) { return scalar(@{$self->filter}) }
+
+#------------------------------------------------------------------------------
+# Return true if the line of configuration is passed through the filter; no
+# filter makes everything pass
+sub filter_pass ($self, $l)
+{
+  return 0 == grep { $l =~ /$_/ } @{$self->filter};
+}
+
+#------------------------------------------------------------------------------
+# Factory function for config validation. The returned function is fed the
+# config file line by line and returns list of remaining unmatched regexes; if
+# all regexes are matched, the list is empty.
+sub validate_checker ($self)
+{
+  my @regexes = @{$self->validate};
+
+  if(@{$self->validate}) {
+    return sub ($l=undef) {
+      return @regexes if !@regexes || !defined $l;
+      @regexes = grep { $l !~ /$_/ } @regexes;
+      return @regexes;
     }
   } else {
     return undef;
