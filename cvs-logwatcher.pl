@@ -31,66 +31,20 @@ use FindBin qw($Bin);
 use lib "$Bin/lib";
 use CVSLogwatcher::Config;
 use CVSLogwatcher::Cmdline;
-
+use CVSLogwatcher::Repl;
 
 #=============================================================================
 #=== GLOBAL VARIABLES                                                      ===
 #=============================================================================
 
 my ($cfg, $cfg2, $logger);
-my %replacements = ('%d' => '' );
+my $repl = CVSLogwatcher::Repl->new('%d' => '');
 my $js = JSON->new()->relaxed(1);
 
 
 #=============================================================================
 #=== FUNCTIONS                                                             ===
 #=============================================================================
-
-#=============================================================================
-# Perform token replacement in a string.
-#=============================================================================
-
-sub repl
-{
-  my $string = shift;
-
-  return undef if !$string;
-  for my $k (keys %replacements) {
-    my $v = $replacements{$k};
-    $k = quotemeta($k);
-    $string =~ s/$k/$v/g;
-  }
-  return $string;
-}
-
-
-#=============================================================================
-# This function adds the list of arguments into %replacements under keys
-# %+0, %+1 etc. It also removes all keys that are in this form (ie. purges
-# previous replacements).
-#
-# This is used to enable using capture groups in expect response strings.
-#=============================================================================
-
-sub repl_capture_groups
-{
-  #--- purge old values
-
-  for my $key (keys %replacements) {
-    if($key =~ /^%\+\d$/) {
-      delete $replacements{$key};
-    }
-  }
-
-  #--- add new values
-
-  for(my $i = 0; $i < scalar(@_); $i++) {
-    if($_[$i]) {
-      $replacements{ sprintf('%%+%d', $i) } = $_[$i];
-    }
-  }
-}
-
 
 #=============================================================================
 # Execute batch of expect-response pairs. If there's third value in the
@@ -108,9 +62,9 @@ sub repl_capture_groups
 #   ]
 # }
 #
-# All of the string values can use replacement tokens (using the repl()
-# function. The expect string can use capture groups, that are available to
-# response strings as %+0, %+1, etc.
+# All of the string values can use replacement tokens (using
+# CVSLogwatcher::Repl::replace() function. The expect string can use capture
+# groups, that are available to response strings as %+0, %+1, etc.
 #
 # The "logfile" element is optional; when present, the output is recorded
 # into specified file.
@@ -132,7 +86,7 @@ sub run_expect_batch
 
   #--- variables
 
-  my $spawn = repl($expect_def->{'spawn'});
+  my $spawn = $repl->replace($expect_def->{'spawn'});
   my $sleep = $expect_def->{'sleep'};
   my $chat = $expect_def->{'chat'};
 
@@ -157,9 +111,9 @@ sub run_expect_batch
         sprintf('[%s] Expect chat line --- %d', $logpf, $i)
       );
 
-      my $chat_send = repl($row->[1]);
+      my $chat_send = $repl->replace($row->[1]);
       my $chat_send_disp;
-      my $open_log = repl($row->[2]);
+      my $open_log = $repl->replace($row->[2]);
 
       #--- hide passwords, make CR visible
       $chat_send_disp = $chat_send;
@@ -178,9 +132,9 @@ sub run_expect_batch
 
       #--- perform the handshake
       $logger->debug(
-        sprintf('[%s] Expect string(%d): %s', $logpf, $i, repl($row->[0]))
+        sprintf('[%s] Expect string(%d): %s', $logpf, $i, $repl->replace($row->[0]))
       );
-      $exh->expect($cfg2->tailparam('expmax') // 300, '-re', repl($row->[0])) or die;
+      $exh->expect($cfg2->tailparam('expmax') // 300, '-re', $repl->replace($row->[0])) or die;
       my @g = $exh->matchlist();
       $logger->debug(
         sprintf('[%s] Expect receive(%d): %s', $logpf, $i, $exh->match())
@@ -191,12 +145,14 @@ sub run_expect_batch
         );
       }
       repl_capture_groups(@g);
-      if($row->[3]) { $replacements{'%P'} = quotemeta(repl($row->[3])) };
+      if($row->[3]) {
+        $repl->add_value('%P' => quotemeta($repl->replace($row->[3])))
+      };
       sleep($sleep) if $sleep;
       $logger->debug(
-        sprintf('[%s] Expect send(%d): %s', $logpf, $i, repl($chat_send_disp))
+        sprintf('[%s] Expect send(%d): %s', $logpf, $i, $repl->replace($chat_send_disp))
       );
-      $exh->print(repl($row->[1]));
+      $exh->print($repl->replace($row->[1]));
 
       #--- next line
       $i++;
@@ -382,8 +338,10 @@ sub process_match
 
   $host_nodomain = $host;
   $host_nodomain =~ s/\..*$//g;
-  $replacements{'%H'} = $host_nodomain;
-  $replacements{'%h'} = $host;
+  $repl->add_value(
+    '%H' => $host_nodomain,
+    '%h' => $host
+  );
 
   #--- assign admin group
 
@@ -397,7 +355,7 @@ sub process_match
 
   #--- ensure reachability
 
-  if($cfg2->ping && system(repl($cfg2->ping)) >> 8) {
+  if($cfg2->ping && system($repl->replace($cfg2->ping)) >> 8) {
     $logger->error(qq{[cvs/$tid Host $host_nodomain unreachable, skipping});
     return;
   }
@@ -731,11 +689,8 @@ $cfg2 = CVSLogwatcher::Config->new(
 );
 $cfg = $cfg2->config;
 
-#--- read keyring ------------------------------------------------------------
-
-for my $k (keys %{$cfg2->keyring}) {
-  $replacements{$k} = $cfg2->keyring->{$k};
-}
+# add keyring values to token store
+$repl->add_value(%{$cfg2->keyring});
 
 #--- initialize Log4perl logging system --------------------------------------
 
@@ -747,9 +702,8 @@ $logger = get_logger('CVS::Main');
 $logger->remove_appender($cmd->devel ? 'AFile' : 'AScrn');
 $logger->level($cmd->debug ? $DEBUG : $INFO);
 
-#--- initialize tempdir ------------------------------------------------------
-
-$replacements{'%D'} = $cfg2->tempdir;
+# initialize token for tempdir
+$repl->add_value('%D' => $cfg2->tempdir->stringify);
 
 #--- title -------------------------------------------------------------------
 
@@ -758,7 +712,7 @@ $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
 $logger->info(qq{[cvs] Mode is }, $cmd->devel ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging enabled}) if $cmd->debug;
 $logger->debug(qq{[cvs] Log directory is }, $cfg2->logprefix);
-$logger->debug(qq{[cvs] Scratch directory is }, $replacements{'%D'});
+$logger->debug(qq{[cvs] Scratch directory is }, $cfg2->tempdir);
 $logger->debug(qq{[cvs] Repository directory is }, $cfg2->repodir);
 
 #--- verify command-line parameters ------------------------------------------
