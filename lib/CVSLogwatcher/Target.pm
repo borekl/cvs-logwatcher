@@ -11,6 +11,10 @@ use experimental 'signatures';
 
 has config => ( is => 'ro', required => 1 );
 has id => ( is => 'lazy' );
+has defgroup => (
+  is => 'ro', lazy => 1,
+  default => sub ($s) { $s->config->{defgrp} // undef }
+);
 
 sub _build_id ($self) { $self->config->{id} }
 
