@@ -115,4 +115,32 @@ sub has_option ($self, $o)
   }
 }
 
+#------------------------------------------------------------------------------
+# Validrange factory; if there is valid 'validrange' specification, return a
+# coderef. The returned function receives all lines of a configuration file,
+# sequentially and for each line returns true or false given if they are inside
+# a specified range.
+sub validrange ($self)
+{
+  my $cfg = $self->config;
+
+  if(
+    exists $cfg->{validrange}
+    && ref $cfg->{validrange}
+    && @{$cfg->{validrange}} == 2
+  ) {
+    my ($in, $out) = @{$cfg->{validrange}};
+    my $in_range = defined $in ? 0 : 1;
+    return sub ($l) {
+      my $re;
+      $in_range = 1 if $in_range == 0 && $l =~ /$in/;
+      $re = ($in_range == 1);
+      $in_range = 2 if $in_range == 1 && $out && $l =~ /$out/;
+      return $re;
+    }
+  } else {
+    return undef;
+  }
+}
+
 1;
