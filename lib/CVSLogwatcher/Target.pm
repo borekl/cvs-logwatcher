@@ -98,4 +98,21 @@ sub match_hostname ($self, $hostname)
   return '';
 }
 
+#------------------------------------------------------------------------------
+# Return true if the target has the option given as an argument
+sub has_option ($self, $o)
+{
+  my $cfg = $self->config;
+
+  if(
+    exists $cfg->{options}
+    && ref $cfg->{options}
+    && grep { $_ eq $o } @{$cfg->{options}}
+  ) {
+    return 1;
+  } else {
+    return undef;
+  }
+}
+
 1;
