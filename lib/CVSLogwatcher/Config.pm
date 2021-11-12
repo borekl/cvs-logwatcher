@@ -255,6 +255,14 @@ sub find_target ($self, $logid, $host)
 }
 
 #------------------------------------------------------------------------------
+# Return target instance by id
+sub get_target ($self, $id)
+{
+  my ($target) = grep { $_->id eq $id } @{$self->targets};
+  return $target;
+}
+
+#------------------------------------------------------------------------------
 # Gets admin group name from hostname. Admin group is decided based on
 # regexes define in "groups" top-level config object.
 sub admin_group ($self, $host)
