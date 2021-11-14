@@ -32,6 +32,7 @@ use lib "$Bin/lib";
 use CVSLogwatcher::Config;
 use CVSLogwatcher::Cmdline;
 use CVSLogwatcher::Repl;
+use CVSLogwatcher::Misc;
 
 #=============================================================================
 #=== GLOBAL VARIABLES                                                      ===
@@ -243,32 +244,6 @@ sub compare_to_prev
   return 0;
 
 }
-
-
-
-#=============================================================================
-# Try to extract hostname from configuration file; caller must supply a regex
-# for the matching/extraction
-#=============================================================================
-
-sub extract_hostname
-{
-  my ($file, $regex) = @_;
-
-  # read the new file
-  open my $fh, $file or die "Could not open file '$file'";
-  chomp( my @new_file = <$fh> );
-  close $fh;
-
-  # try to find and extract hostname
-  foreach (@new_file) {
-    if(/$regex/) { return $1 }
-  }
-
-  # nothing was found
-  return undef;
-}
-
 
 
 #=============================================================================
