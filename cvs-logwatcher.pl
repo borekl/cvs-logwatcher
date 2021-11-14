@@ -284,9 +284,7 @@ sub process_match
     $host,              # 2. host
     $msg,               # 3. message
     $chgwho,            # 4. username
-    $force,             # 5. --force option
-    $no_checkin,        # 6. --nocheckin option
-    $mangle,            # 7. --[no]mangle option
+    $cmd,               # 5. CVSL::Cmdline instance
   ) = @_;
 
   #--- other variables
@@ -407,7 +405,7 @@ sub process_match
 
   #--- convert line endings to local style
 
-    if($mangle && $target->has_option('normeol')) {
+    if($cmd->mangle && $target->has_option('normeol')) {
       my $done;
       if(open(FOUT, '>', "$file.eolconv.$$")) {
         if(open(FIN, '<', $file)) {
@@ -442,7 +440,7 @@ sub process_match
   # the last line.  This allows filtering junk that is saved with the config
   # (echo of the chat commands, disconnection message etc.)
 
-    if($mangle && (my $vr = $target->validrange)) {
+    if($cmd->mangle && (my $vr = $target->validrange)) {
       if(open(FOUT, '>', "$file.validrange.$$")) {
         if(open(FIN, '<', "$file")) {
           while(my $l = <FIN>) {
@@ -466,7 +464,7 @@ sub process_match
   # This complements above "validrange" feature by filtering by set of regexes.
   # Any line matching any of the regexes in array "filter" is thrown away.
 
-    if($mangle && $target->has_filter) {
+    if($cmd->mangle && $target->has_filter) {
       if(open(FOUT, '>', "$file.filter.$$")) {
         if(open(FIN, '<', "$file")) {
           while(my $l = <FIN>) {
@@ -493,7 +491,7 @@ sub process_match
   # transfers that would drop valid data from repository. --nocheckin
   # prevents validation.
 
-    if(!defined $no_checkin && (my $v = $target->validate_checker)) {
+    if(!defined $cmd->nocheckin && (my $v = $target->validate_checker)) {
       if(open(FIN, '<', $file)) {
         while(my $l = <FIN>) { last if !$v->($l) }
         if($v->()) {
@@ -534,18 +532,19 @@ sub process_match
   # pathname specification) or it is saved into different location and
   # filename (when --nocheckin specifies path/filename).
 
-    if(defined $no_checkin) {
-      if($no_checkin ne '') {
-        my $dst_file = $no_checkin;
+    if(defined $cmd->nocheckin) {
+      if($cmd->nocheckin ne '') {
+        my $dst_file = $cmd->nocheckin;
 
         # check whether --nocheckin value specifies existing directory, if
         # it does, move the current file with its "received" filename to the
         # directory; otherwise, move the current file into specified target
         # file
 
-        if(-d $no_checkin) {
-          $no_checkin =~ s/\/+$//;
-          $dst_file = $no_checkin . '/' . $host_nodomain;
+        if(-d $cmd->nocheckin) {
+          my $ci_dir = $cmd->nocheckin;
+          $ci_dir =~ s/\/+$//;
+          $dst_file = $ci_dir . '/' . $host_nodomain;
         }
         $logger->info("[cvs/$tid] No check in requested, moving config to $dst_file instead");
         rename($file, $dst_file);
@@ -568,7 +567,7 @@ sub process_match
   # configuration item.
 
     if(!compare_to_prev($target->config, $host_nodomain, $file, $repo)) {
-      if($force) {
+      if($cmd->force) {
         $logger->info("[cvs/$tid] No change to current revision, but --force in effect");
       } else {
         $logger->info("[cvs/$tid] No change to current revision, skipping check-in");
@@ -733,9 +732,7 @@ if($cmd->trigger) {
       $host,
       $cmd->msg // 'Manual check-in',
       $cmd->user // 'cvs',
-      $cmd->force,
-      $cmd->nocheckin,
-      $cmd->mangle,
+      $cmd,
     );
   }
 
@@ -850,9 +847,7 @@ while (1) {
       $host,
       $msg,
       $user ? $user : 'unknown',
-      undef,
-      undef,
-      $cmd->mangle,
+      $cmd,
     );
 
   }
