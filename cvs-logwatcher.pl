@@ -291,7 +291,6 @@ sub process_match
 
   my $host_nodomain;    # hostname without domain
   my $group;            # administrative group
-  my $sysdescr;         # system description from SNMP
   my $file;             # file holding retrieved configuration
 
   # get the target instance
