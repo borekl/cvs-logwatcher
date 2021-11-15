@@ -14,6 +14,7 @@ use Path::Tiny;
 
 use CVSLogwatcher::Logfile;
 use CVSLogwatcher::Target;
+use CVSLogwatcher::Repl;
 
 # base directory
 has basedir => ( is => 'ro', required => 1 );
@@ -52,6 +53,9 @@ has logfiles => ( is => 'lazy' );
 
 # targets
 has targets => ( is => 'lazy' );
+
+# replacements
+has repl => ( is => 'lazy' );
 
 #------------------------------------------------------------------------------
 # load and parse configuration
@@ -157,6 +161,10 @@ sub _build_targets ($self)
     map { CVSLogwatcher::Target->new(config => $_) } @{$cfg->{targets}}
   ];
 }
+
+#------------------------------------------------------------------------------
+# Master Repl instance, initialized with keyring.
+sub _build_repl ($self) { CVSLogwatcher::Repl->new(%{$self->keyring}) }
 
 #------------------------------------------------------------------------------
 # File::Tail parameters

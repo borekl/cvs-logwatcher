@@ -31,7 +31,6 @@ use FindBin qw($Bin);
 use lib "$Bin/lib";
 use CVSLogwatcher::Config;
 use CVSLogwatcher::Cmdline;
-use CVSLogwatcher::Repl;
 use CVSLogwatcher::Misc;
 
 #=============================================================================
@@ -39,7 +38,6 @@ use CVSLogwatcher::Misc;
 #=============================================================================
 
 my ($cfg, $cfg2, $logger);
-my $repl = CVSLogwatcher::Repl->new('%d' => '');
 my $js = JSON->new()->relaxed(1);
 
 
@@ -84,6 +82,9 @@ sub run_expect_batch
     $host_nodomain, # 3. hostname without domain
     $logpf,         # 4. logging message prefix
   ) = @_;
+
+  # create local Repl instance
+  my $repl = $cfg2->repl->clone;
 
   #--- variables
 
@@ -264,9 +265,10 @@ sub process_match
 
   #--- other variables
 
-  my $host_nodomain;    # hostname without domain
-  my $group;            # administrative group
-  my $file;             # file holding retrieved configuration
+  my $host_nodomain;      # hostname without domain
+  my $group;              # administrative group
+  my $file;               # file holding retrieved configuration
+  my $repl = $cfg2->repl; # Repl instance
 
   # get the target instance
   my $target = $cfg2->get_target($tid);
@@ -624,8 +626,8 @@ $cfg2 = CVSLogwatcher::Config->new(
 );
 $cfg = $cfg2->config;
 
-# add keyring values to token store
-$repl->add_value(%{$cfg2->keyring});
+# FIXME: this is probably no longer needed
+$cfg2->repl->add_value('%d' => '');
 
 #--- initialize Log4perl logging system --------------------------------------
 
@@ -638,7 +640,7 @@ $logger->remove_appender($cmd->devel ? 'AFile' : 'AScrn');
 $logger->level($cmd->debug ? $DEBUG : $INFO);
 
 # initialize token for tempdir
-$repl->add_value('%D' => $cfg2->tempdir->stringify);
+$cfg2->repl->add_value('%D' => $cfg2->tempdir->stringify);
 
 #--- title -------------------------------------------------------------------
 
