@@ -9,6 +9,7 @@ use v5.12;
 use warnings;
 use strict;
 use experimental 'signatures';
+use CVSLogwatcher::Expect;
 
 # full config as parsed from the config file
 has config => ( is => 'ro', required => 1 );
@@ -34,7 +35,16 @@ has validate => (
   default => sub ($s) { $s->config->{validate} // [] }
 );
 
+# CVSL::Expect instance
+has expect => ( is => 'lazy' );
+
+#------------------------------------------------------------------------------
 sub _build_id ($self) { $self->config->{id} }
+
+#------------------------------------------------------------------------------
+sub _build_expect ($self) {
+  CVSLogwatcher::Expect->new(config => $self->config->{'expect'});
+}
 
 #------------------------------------------------------------------------------
 # Function to match hostname (obtained from logfile) against an array of rules
