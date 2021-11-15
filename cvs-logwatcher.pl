@@ -43,137 +43,6 @@ my ($cfg, $cfg2);
 #=============================================================================
 
 #=============================================================================
-# Execute batch of expect-response pairs. If there's third value in the
-# arrayref containing the exp-resp pair, it will be taken as a file to
-# begin logging into.
-#
-# The expect chat definition has this form:
-#
-# {
-#   spawn => "command to run",
-#   sleep => N,
-#   chat => [
-#     [ "expect string", "response string", "logfile", "prompt" ],
-#     ...
-#   ]
-# }
-#
-# All of the string values can use replacement tokens (using
-# CVSLogwatcher::Repl::replace() function. The expect string can use capture
-# groups, that are available to response strings as %+0, %+1, etc.
-#
-# The "logfile" element is optional; when present, the output is recorded
-# into specified file.
-#
-# The "prompt" element is optional; when preset it sets the value of the %P
-# replacement -- this is intended for setting up system prompt string.
-#=============================================================================
-
-sub run_expect_batch
-{
-  #--- arguments
-
-  my (
-    $expect_def,    # 1. expect conversation definitions from the config.json
-    $host,          # 2. hostname
-    $host_nodomain, # 3. hostname without domain
-    $logpf,         # 4. logging message prefix
-  ) = @_;
-
-  # create local Repl instance
-  my $repl = $cfg2->repl->clone;
-
-  # get logger
-  my $logger = $cfg2->logger;
-
-  #--- variables
-
-  my $spawn = $repl->replace($expect_def->{'spawn'});
-  my $sleep = $expect_def->{'sleep'};
-  my $chat = $expect_def->{'chat'};
-
-  #--- spawn command
-
-  $logger->debug("[$logpf] Spawning Expect instance ($spawn)");
-  $logger->debug("[$logpf] Chat definition has " . @$chat . ' lines');
-  my $exh = Expect->spawn($spawn) or do {
-    $logger->fatal("[$logpf] Failed to spawn Expect instance ($spawn)");
-    return;
-  };
-  $exh->log_stdout(0);
-  $exh->restart_timeout_upon_receive(1);
-  $exh->match_max(8192);
-
-  try { #<--- try block begins here ------------------------------------------
-
-    my $i = 1;
-    for my $row (@$chat) {
-
-      $logger->debug(
-        sprintf('[%s] Expect chat line --- %d', $logpf, $i)
-      );
-
-      my $chat_send = $repl->replace($row->[1]);
-      my $chat_send_disp;
-      my $open_log = $repl->replace($row->[2]);
-
-      #--- hide passwords, make CR visible
-      $chat_send_disp = $chat_send;
-      if($row->[0] =~ /password/i) {
-        $chat_send_disp = '***';
-      }
-      if($chat_send eq "\r") {
-        $chat_send_disp = '[CR]';
-      }
-
-      #--- open log
-      if($open_log) {
-        $exh->log_file($open_log, 'w') or die;
-        $logger->info("[$logpf] Logfile opened: ", $open_log);
-      }
-
-      #--- perform the handshake
-      $logger->debug(
-        sprintf('[%s] Expect string(%d): %s', $logpf, $i, $repl->replace($row->[0]))
-      );
-      $exh->expect($cfg2->tailparam('expmax') // 300, '-re', $repl->replace($row->[0])) or die;
-      my @g = $exh->matchlist();
-      $logger->debug(
-        sprintf('[%s] Expect receive(%d): %s', $logpf, $i, $exh->match())
-      );
-      if(@g) {
-        $logger->debug(
-          sprintf('[%s] Expect groups(%d): %s', $logpf, $i, join(',', @g))
-        );
-      }
-      $repl->add_capture_groups(@g);
-      if($row->[3]) {
-        $repl->add_value('%P' => quotemeta($repl->replace($row->[3])))
-      };
-      sleep($sleep) if $sleep;
-      $logger->debug(
-        sprintf('[%s] Expect send(%d): %s', $logpf, $i, $repl->replace($chat_send_disp))
-      );
-      $exh->print($repl->replace($row->[1]));
-
-      #--- next line
-      $i++;
-    }
-
-  } #<--- try block ends here ------------------------------------------------
-
-  catch ($e) {
-    $logger->error(qq{[$logpf] Expect failed for host $host});
-    $logger->debug("[$logpf] Failure reason is: ", $e);
-  }
-
-  sleep($sleep) if $sleep;
-  $exh->soft_close();
-}
-
-
-
-#=============================================================================
 # Compare a file with its last revision in CVS and return true if there is a
 # difference.
 #=============================================================================
@@ -335,23 +204,14 @@ sub process_match
   #--- retrieve configuration from a device ---------------------------------
   #--------------------------------------------------------------------------
 
-  {
-
   #--- default config file location, this can later be changed if we are
   #--- extracting hostname from the configuration
 
-    $file = $cfg2->tempdir->child($host_nodomain);
+  $file = $cfg2->tempdir->child($host_nodomain);
 
   #--- run expect script ----------------------------------------------------
 
-    if($target->config->{'expect'}) {
-      run_expect_batch(
-        $target->config->{'expect'},
-        $host, $host_nodomain,
-        "cvs/$tid"
-      );
-    }
-  }
+  my @files = $target->expect->run_task($host);
 
   #--------------------------------------------------------------------------
 
