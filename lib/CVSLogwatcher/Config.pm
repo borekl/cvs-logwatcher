@@ -19,7 +19,7 @@ use CVSLogwatcher::Target;
 use CVSLogwatcher::Repl;
 
 # base directory
-has basedir => ( is => 'ro', required => 1 );
+has basedir => ( is => 'ro', required => 1, coerce => sub ($b) { path $b } );
 
 # main configuration file
 has config_file => (
@@ -168,8 +168,14 @@ sub _build_targets ($self)
 }
 
 #------------------------------------------------------------------------------
-# Master Repl instance, initialized with keyring.
-sub _build_repl ($self) { CVSLogwatcher::Repl->new(%{$self->keyring}) }
+# Master Repl instance, initialized with keyring and %D (scratch dir)
+sub _build_repl ($self)
+{
+  CVSLogwatcher::Repl->new(
+    %{$self->keyring},
+    '%D' => $self->tempdir->stringify
+  );
+}
 
 #------------------------------------------------------------------------------
 # Log4Perl Logger initialization

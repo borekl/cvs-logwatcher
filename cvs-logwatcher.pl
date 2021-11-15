@@ -629,9 +629,6 @@ my $logger = $cfg2->logger;
 $logger->remove_appender($cmd->devel ? 'AFile' : 'AScrn');
 $logger->level($cmd->debug ? $DEBUG : $INFO);
 
-# initialize token for tempdir
-$cfg2->repl->add_value('%D' => $cfg2->tempdir->stringify);
-
 #--- title -------------------------------------------------------------------
 
 $logger->info(qq{[cvs] --------------------------------});
