@@ -626,9 +626,6 @@ $cfg2 = CVSLogwatcher::Config->new(
 );
 $cfg = $cfg2->config;
 
-# FIXME: this is probably no longer needed
-$cfg2->repl->add_value('%d' => '');
-
 # logging setup according to command-line
 my $logger = $cfg2->logger;
 $logger->remove_appender($cmd->devel ? 'AFile' : 'AScrn');
