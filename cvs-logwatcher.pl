@@ -20,26 +20,22 @@ use strict;
 use warnings;
 use Carp;
 use Expect;
-use Log::Log4perl qw(get_logger);
-use Log::Log4perl::Level;
 use JSON;
 use File::Tail;
 use Getopt::Long;
 use Feature::Compat::Try;
 use Path::Tiny;
 use FindBin qw($Bin);
+use Log::Log4perl::Level;
 use lib "$Bin/lib";
 use CVSLogwatcher::Config;
 use CVSLogwatcher::Cmdline;
-use CVSLogwatcher::Misc;
 
 #=============================================================================
 #=== GLOBAL VARIABLES                                                      ===
 #=============================================================================
 
-my ($cfg, $cfg2, $logger);
-my $js = JSON->new()->relaxed(1);
-
+my ($cfg, $cfg2);
 
 #=============================================================================
 #=== FUNCTIONS                                                             ===
@@ -85,6 +81,9 @@ sub run_expect_batch
 
   # create local Repl instance
   my $repl = $cfg2->repl->clone;
+
+  # get logger
+  my $logger = $cfg2->logger;
 
   #--- variables
 
@@ -192,6 +191,7 @@ sub compare_to_prev
   #--- other variables
 
   my ($re_src, $re_com);
+  my $logger = cfg2->logger;
   my $logpf = '[cvs/' . $target->{'id'}  . ']';
 
   #--- read the new file
@@ -264,11 +264,11 @@ sub process_match
   ) = @_;
 
   #--- other variables
-
-  my $host_nodomain;      # hostname without domain
-  my $group;              # administrative group
-  my $file;               # file holding retrieved configuration
-  my $repl = $cfg2->repl; # Repl instance
+  my $host_nodomain;          # hostname without domain
+  my $group;                  # administrative group
+  my $file;                   # file holding retrieved configuration
+  my $repl = $cfg2->repl;     # Repl instance
+  my $logger = $cfg2->logger; # logger instance
 
   # get the target instance
   my $target = $cfg2->get_target($tid);
@@ -629,13 +629,8 @@ $cfg = $cfg2->config;
 # FIXME: this is probably no longer needed
 $cfg2->repl->add_value('%d' => '');
 
-#--- initialize Log4perl logging system --------------------------------------
-
-die "Logging configurartion 'cfg/logging.conf' not found or not readable\n"
-unless -r 'cfg/logging.conf';
-
-Log::Log4perl->init_and_watch("cfg/logging.conf", 60);
-$logger = get_logger('CVS::Main');
+# logging setup according to command-line
+my $logger = $cfg2->logger;
 $logger->remove_appender($cmd->devel ? 'AFile' : 'AScrn');
 $logger->level($cmd->debug ? $DEBUG : $INFO);
 
