@@ -30,6 +30,7 @@ use Log::Log4perl::Level;
 use lib "$Bin/lib";
 use CVSLogwatcher::Config;
 use CVSLogwatcher::Cmdline;
+use CVSLogwatcher::Misc;
 
 #=============================================================================
 #=== GLOBAL VARIABLES                                                      ===
