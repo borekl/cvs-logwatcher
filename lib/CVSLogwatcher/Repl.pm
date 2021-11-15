@@ -45,6 +45,16 @@ sub add_value ($self, %args)
   foreach my $key (keys %args) {
     $self->values->{$key} = $args{$key};
   }
+  return $self;
+}
+
+#------------------------------------------------------------------------------
+# Clone this instance
+sub clone ($self)
+{
+  return CVSLogwatcher::Repl->new(
+    %{$self->values}
+  );
 }
 
 #------------------------------------------------------------------------------
