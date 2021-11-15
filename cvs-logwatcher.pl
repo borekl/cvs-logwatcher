@@ -308,8 +308,7 @@ sub process_match
 
   #--- get hostname without trailing domain name
 
-  $host_nodomain = $host;
-  $host_nodomain =~ s/\..*$//g;
+  $host_nodomain = host_strip_domain($host);
   $repl->add_value(
     '%H' => $host_nodomain,
     '%h' => $host
@@ -653,7 +652,6 @@ if($cmd->trigger) {
     exit(1);
   }
 }
-
 
 if($cmd->trigger) {
   $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd->trigger));
