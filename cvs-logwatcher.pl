@@ -618,7 +618,7 @@ my $cmd = CVSLogwatcher::Cmdline->new;
 
 #--- read configuration ------------------------------------------------------
 
-$cfg2 = CVSLogwatcher::Config->new(
+$cfg2 = CVSLogwatcher::Config->instance(
   basedir => path("$Bin"),
   config_file => "$Bin/cfg/config.json"
 );
