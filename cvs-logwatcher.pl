@@ -553,8 +553,6 @@ sub process_match
 
   #--- create new revision
 
-    $logger->debug('STEP 3');
-
     # is this really needed? I have no idea.
     if(-f "$repo/$host_nodomain,v") {
       $exec = sprintf(
