@@ -548,7 +548,7 @@ sub process_match
         $logger->info("[cvs/$tid] No change to current revision, but --force in effect");
       } else {
         $logger->info("[cvs/$tid] No change to current revision, skipping check-in");
-        die;
+        die 'OK';
       }
     }
 

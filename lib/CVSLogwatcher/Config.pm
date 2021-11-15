@@ -3,8 +3,9 @@
 #==============================================================================
 
 package CVSLogwatcher::Config;
-
 use Moo;
+with 'MooX::Singleton';
+
 use warnings;
 use strict;
 use v5.10;
