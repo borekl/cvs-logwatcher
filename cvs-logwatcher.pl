@@ -589,14 +589,13 @@ sub process_match
   #--- end of try block ------------------------------------------------------
 
   } catch ($e) {
-
-  #--- remove the file
-
+    # log the error (special 'NOREMOVE' and 'OK' values are not logged)
+    $logger->error(qq{[cvs/$tid] Check-in failed ($e)})
+    unless $e eq 'NOREMOVE' or $e =~ /^OK\s/;
+    # remove the file, unless specifically instructed not to
     if(-f "$file" && $e ne "NOREMOVE\n" ) {
       $logger->debug(qq{[cvs/$tid] Removing file $file});
       $file->remove;
-    } elsif($e) {
-      $logger->error(qq{[cvs/$tid] Check-in failed ($e)});
     }
   }
 }
