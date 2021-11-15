@@ -192,7 +192,7 @@ sub compare_to_prev
   #--- other variables
 
   my ($re_src, $re_com);
-  my $logger = cfg2->logger;
+  my $logger = $cfg2->logger;
   my $logpf = '[cvs/' . $target->{'id'}  . ']';
 
   #--- read the new file
