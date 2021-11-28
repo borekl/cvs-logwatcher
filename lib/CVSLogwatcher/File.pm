@@ -11,8 +11,18 @@ use experimental 'signatures';
 
 use Path::Tiny;
 
-has file => ( is => 'ro', required => 1, coerce => sub ($f) { path $f } );
+# file to be handled; either Path::Tiny instance or scalar pathname that gets
+# converted into Path::Tiny instance
+has file => (
+  is => 'ro', required => 1,
+  coerce => sub ($f) { ref $f ? $f : path $f },
+);
+
+# CVSLogwatcher::Target instance
 has target => ( is => 'ro', required => 1 );
+
+# contents of the file as an array of text lines, this will be automatically
+# lazy-loaded from the specified file
 has content => ( is => 'rwp', lazy => 1, builder => 1 );
 
 #------------------------------------------------------------------------------
