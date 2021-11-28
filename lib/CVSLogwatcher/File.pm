@@ -26,15 +26,31 @@ has target => ( is => 'ro', required => 1 );
 has content => ( is => 'rwp', lazy => 1, builder => 1 );
 
 #------------------------------------------------------------------------------
-# Load file content into memory.
+# Load file content into memory. If the file is RCS file, the head is checked
+# out and read instead of just reading it
 sub _build_content ($self)
 {
+  my $cfg = CVSLogwatcher::Config->instance;
   my $f = $self->file->stringify;
-  open(my $fh, '<', $f) or die "Could not open file '$f'";
+  my $fh;
+
+  if($self->is_rcs_file) {
+    my $exec = sprintf('%s -q -p %s', $cfg->rcs('rcsco'), $f);
+    open($fh, '-|', "$exec 2>/dev/null")
+    or die "Could not get latest revision from '$exec'";
+  } else {
+    open($fh, '<', $f) or die "Could not open file '$f'"
+    or die "Could not open file '$f'";
+  }
   my @fc = <$fh>;
   close($fh);
+
   return \@fc;
 }
+
+#------------------------------------------------------------------------------
+# Return true if our file is an RCS file
+sub is_rcs_file ($self) { $self->file->basename =~ /,v$/ }
 
 #------------------------------------------------------------------------------
 # Extract hostname if regex defined, otherwise return undef;
