@@ -202,4 +202,14 @@ sub validate_checker ($self)
   }
 }
 
+#------------------------------------------------------------------------------
+# Return true if line is ignored, as defined by 'ignoreline' configuration
+# option. Returns false if no ignoreline is defined.
+sub is_ignored ($self, $l)
+{
+  my $re = $self->config->{ignoreline} // undef;
+  return 1 if $re && $l =~ /$re/;
+  return undef;
+}
+
 1;

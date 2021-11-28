@@ -159,4 +159,18 @@ sub validate ($self)
   return @regexes == 0;
 }
 
+#------------------------------------------------------------------------------
+# Content iterator factory for the purpose of comparison of contents. It honors
+# the 'ignoreline' argument and skips ignored lines
+sub content_iter_factory ($self)
+{
+  my $i = 0;
+
+  return sub {
+    return undef unless $i < @{$self->content};
+    $i++ while $self->target->is_ignored($self->content->[$i]);
+    return $self->content->[$i++];
+  }
+}
+
 1;
