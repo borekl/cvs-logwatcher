@@ -53,6 +53,10 @@ sub _build_content ($self)
 sub is_rcs_file ($self) { $self->file->basename =~ /,v$/ }
 
 #------------------------------------------------------------------------------
+# Return number of lines of text in the file
+sub count ($self) { scalar @{$self->content} }
+
+#------------------------------------------------------------------------------
 # Extract hostname if regex defined, otherwise return undef;
 sub extract_hostname ($self)
 {
@@ -170,6 +174,27 @@ sub content_iter_factory ($self)
     return undef unless $i < @{$self->content};
     $i++ while $self->target->is_ignored($self->content->[$i]);
     return $self->content->[$i++];
+  }
+}
+
+#------------------------------------------------------------------------------
+# Compare content of this file with another file (passed in as CVSL::File
+# instance)
+sub is_changed ($this_file, $other_file)
+{
+  # the files have unequal line counts, return 'changed'
+  return 1 if $this_file->count != $other_file->count;
+
+  # get iterators
+  my $it_this = $this_file->content_iter_factory;
+  my $it_other = $other_file->content_iter_factory;
+
+  # go through the files' content and compare each line
+  while(1) {
+    my $l1 = $it_this->();
+    my $l2 = $it_other->();
+    return undef unless defined $l1 && defined $l2;
+    return 1 if $l1 ne $l2;
   }
 }
 
