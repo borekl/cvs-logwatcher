@@ -9,7 +9,7 @@ use warnings;
 use strict;
 use experimental 'signatures', 'postderef';
 
-use Path::Tiny;
+use Path::Tiny qw(path tempdir);
 
 # file to be handled; either Path::Tiny instance or scalar pathname that gets
 # converted into Path::Tiny instance
@@ -217,6 +217,54 @@ sub save ($self, $dest_file = undef)
   close($fh);
   rename("$dest_file.$$", $dest_file)
   or "die Failed to rename file $dest_file";
+}
+
+#------------------------------------------------------------------------------
+# Check the curent file into an RCS file. Since RCS does not allow us take the
+# input file from stdin, we must go through a file in temporary directory.
+sub rcs_check_in ($self, %arg)
+{
+  my $cfg = CVSLogwatcher::Config->instance;
+  my $logger = $cfg->logger;
+  my $tid = $self->target->id;
+
+  # get base filename
+  my $base = $self->file->basename(',v');
+
+  # get temporary file (in temporary directory)
+  my $tempdir = tempdir;
+  my $tempfile = $tempdir->child($base);
+  $tempfile->spew_raw($self->content->@*);
+
+  # get repo filename
+  my $repo = path($arg{repo})->child($base . ',v');
+  my $is_new = !$repo->exists;
+
+  # execute RCS ci to check-in new commit
+  my @exec = (
+    $cfg->rcs('rcsci'),
+    '-q',                  # quiet mode
+    '-w' . $arg{who},      # commiter name
+    '-m' . $arg{msg},      # commit message
+    '-t-' . $arg{host},    # "descriptive text"
+    $tempfile->stringify,  # source file
+    $repo->stringify       # RCS file
+  );
+  $logger->debug("[cvs/$tid] Cmd: ", join(' ', @exec));
+  my $rv = system(@exec);
+  die "RCS check-in failed ($rv)" if $rv;
+
+  # set soft-locking mode if the file is new (initial commit)
+  if($is_new) {
+    @exec = (
+      $cfg->rcs('rcsctl'),
+      '-q', '-U',
+      $repo->stringify
+    );
+    $logger->debug("[cvs/$tid] Cmd: ", join(' ', @exec));
+    $rv = system(@exec);
+    die "Failed to set RCS locking mode ($rv)" if $rv;
+  }
 }
 
 1;
