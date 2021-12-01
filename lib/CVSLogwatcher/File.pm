@@ -7,7 +7,7 @@ package CVSLogwatcher::File;
 use Moo;
 use warnings;
 use strict;
-use experimental 'signatures';
+use experimental 'signatures', 'postderef';
 
 use Path::Tiny;
 
@@ -196,6 +196,27 @@ sub is_changed ($this_file, $other_file)
     return undef unless defined $l1 && defined $l2;
     return 1 if $l1 ne $l2;
   }
+}
+
+#------------------------------------------------------------------------------
+# Save the current content into a file. Either current file is used, but
+# different target can optionally be specified. This is only for saving plain
+# files, not RCS repositories; use 'check_in' method instead.
+sub save ($self, $dest_file = undef)
+{
+  # not valid for RCS files
+  die 'Cannot save into RCS repostiory' if $self->is_rcs_file;
+
+  # get the destination file
+  $dest_file = $dest_file ? path $dest_file : $self->file;
+
+  # write target file
+  open(my $fh, '>', "$dest_file.$$")
+  or die "Could not open $dest_file for writing";
+  foreach ($self->content->@*) { print $fh $_ }
+  close($fh);
+  rename("$dest_file.$$", $dest_file)
+  or "die Failed to rename file $dest_file";
 }
 
 1;
