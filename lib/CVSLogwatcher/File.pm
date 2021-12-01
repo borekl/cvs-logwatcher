@@ -267,4 +267,8 @@ sub rcs_check_in ($self, %arg)
   }
 }
 
+#------------------------------------------------------------------------------
+# Delete the file
+sub remove ($self) { $self->file->remove }
+
 1;
