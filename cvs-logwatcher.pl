@@ -543,13 +543,13 @@ if($cmd->trigger) {
 
   # process each host
   for my $host (@hosts) {
-    my $tid = $cfg2->find_target($cmd->trigger, lc($host));
-    if(!$tid) {
+    my $target = $cfg2->find_target($cmd->trigger, lc($host));
+    if(!$target) {
       $logger->warn("[cvs] No target found for match from '$host' in source '$cmd->trigger'");
       next;
     }
     process_match(
-      $tid,
+      $target->id,
       $host,
       $cmd->msg // 'Manual check-in',
       $cmd->user // 'cvs',
@@ -649,9 +649,9 @@ while (1) {
     next unless $host;
 
     #--- find target
-    $tid = $cfg2->find_target($logid, $host);
+    my $target = $cfg2->find_target($logid, $host);
 
-    if(!$tid) {
+    if(!$target) {
       $logger->warn(
         "[cvs] No target found for match from '$host' in source '$logid'"
       );
@@ -664,7 +664,7 @@ while (1) {
 
     #--- start processing
     process_match(
-      $tid,
+      $target->id,
       $host,
       $msg,
       $user ? $user : 'unknown',

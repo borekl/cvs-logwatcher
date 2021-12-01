@@ -279,11 +279,7 @@ sub find_target ($self, $logid, $host)
     # "hostmatch" condition
     next if $host && !$target->match_hostname($host);
     # no mismatch, target found
-    if(wantarray()) {
-      return ($target->id, $target->config);
-    } else {
-      return $target->id;
-    }
+    return $target;
   }
 }
 
