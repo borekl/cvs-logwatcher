@@ -43,7 +43,10 @@ sub _build_id ($self) { $self->config->{id} }
 
 #------------------------------------------------------------------------------
 sub _build_expect ($self) {
-  CVSLogwatcher::Expect->new(config => $self->config->{'expect'});
+  CVSLogwatcher::Expect->new(
+    config => $self->config->{'expect'},
+    target => $self
+  );
 }
 
 #------------------------------------------------------------------------------

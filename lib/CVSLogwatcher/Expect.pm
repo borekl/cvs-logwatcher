@@ -8,7 +8,7 @@ use Moo;
 use v5.10;
 use warnings;
 use strict;
-use experimental 'signatures';
+use experimental 'signatures', 'postderef';
 
 use Feature::Compat::Try;
 use Expect;
@@ -16,8 +16,10 @@ use Expect;
 use CVSLogwatcher::Config;
 use CVSLogwatcher::Repl;
 use CVSLogwatcher::Misc;
+use CVSLogwatcher::File;
 
 has config => ( is => 'ro', required => 1 );
+has target => ( is => 'ro', required => 1 );
 has spawn => ( is => 'lazy' );
 has sleep => ( is => 'lazy' );
 
@@ -42,7 +44,7 @@ sub get_task ($self, $task = undef)
   # return either task identification or the content of the task itself with
   # taskname prepended as the first list element
   if(wantarray) {
-    return ($task, @{$cfg->{tasks}{$task}});
+    return ($task, $cfg->{tasks}{$task});
   } else {
     return $task;
   }
@@ -70,7 +72,10 @@ sub run_task ($self, $host, $task = undef)
   my $spawn = $repl->replace($self->spawn);
 
   # get sequence of chats to perform
-  my ($task_name, @chats) = $self->get_task($task);
+  my ($task_name, $task_def) = $self->get_task($task);
+  my @chats = $task_def->{seq}->@*;
+  my $suffix = $task_def->{suffix} // undef;
+
   if(@chats) {
     $cfg->logger->info(sprintf(
       '[cvs/%s] Running task "%s" with %d chats', $h, $task_name, scalar(@chats)
@@ -176,7 +181,9 @@ sub run_task ($self, $host, $task = undef)
   sleep($self->sleep) if $self->sleep;
   $exh->soft_close() if $exh;
 
-  return @files;
+  return map {
+    CVSLogwatcher::File->new(file => $_, target => $self->target)
+  } @files;
 }
 
 1;
