@@ -25,6 +25,9 @@ has target => ( is => 'ro', required => 1 );
 # lazy-loaded from the specified file
 has content => ( is => 'rwp', lazy => 1, builder => 1 );
 
+# size of the file before any of the transform operations
+has prev_size => ( is => 'rwp', default => 0 );
+
 #------------------------------------------------------------------------------
 # Load file content into memory. If the file is RCS file, the head is checked
 # out and read instead of just reading it
@@ -55,6 +58,22 @@ sub is_rcs_file ($self) { $self->file->basename =~ /,v$/ }
 #------------------------------------------------------------------------------
 # Return number of lines of text in the file
 sub count ($self) { scalar @{$self->content} }
+
+#------------------------------------------------------------------------------
+# Return size of the file in bytes
+sub size ($self, $set = 0)
+{
+  use bytes;
+  my $size = 0;
+  foreach my $l ($self->content->@*) { $size += length($l) }
+  $self->_set_prev_size($size) if $set;
+  return $size;
+}
+
+#------------------------------------------------------------------------------
+# Return size change compared to last saved size (size decrease is positive,
+# increase is negative)
+sub size_change ($self) { return $self->prev_size - $self->size }
 
 #------------------------------------------------------------------------------
 # Extract hostname if regex defined, otherwise return undef;
