@@ -96,10 +96,12 @@ sub extract_hostname ($self)
 # Convert EOLs to local representation
 sub normalize_eol ($self)
 {
-  foreach my $l (@{$self->content}) {
+  $self->size(1);
+  foreach my $l ($self->content->@*) {
     $l =~ s/\R//;
     $l = $l . "\n";
   }
+  return $self->size_change;
 }
 
 #------------------------------------------------------------------------------
@@ -107,17 +109,14 @@ sub normalize_eol ($self)
 # two regexes.
 sub validrange ($self)
 {
-  my @new;
-
   # do nothing unless 'validrange' option is properly specified
-  return $self unless
-    exists $self->target->config->{validrange}
-    && ref $self->target->config->{validrange}
-    && @{$self->target->config->{validrange}} == 2;
+  return undef unless $self->target->has_validrange;
 
   # initialize
+  my @new;
   my ($in, $out) = @{$self->target->config->{validrange}};
   my $in_range = defined $in ? 0 : 1;
+  $self->size(1);
 
   # iterate over lines of content
   foreach my $l (@{$self->content}) {
@@ -128,7 +127,7 @@ sub validrange ($self)
 
   # finish
   $self->_set_content(\@new);
-  return $self;
+  return $self->size_change;
 }
 
 #------------------------------------------------------------------------------
@@ -136,25 +135,24 @@ sub validrange ($self)
 # matches any of the list of regexes
 sub filter ($self)
 {
-  my @new;
-
   # do nothing unless 'filter' option is properly specified
-  return $self unless
-    exists $self->target->config->{filter}
-    && ref $self->target->config->{filter}
-    && @{$self->target->config->{filter}};
+  return undef unless $self->target->has_filter;
+
+  # init
+  my @new;
+  $self->size(1);
 
   # filter list
-  my @filters = @{$self->target->config->{filter}};
+  my @filters = $self->target->filter->@*;
 
   # iterate over lines of content
-  foreach my $l (@{$self->content}) {
+  foreach my $l ($self->content->@*) {
     push(@new, $l) unless grep { $l =~ /$_/ } @filters;
   }
 
   # finish
   $self->_set_content(\@new);
-  return $self;
+  return $self->size_change;
 }
 
 #------------------------------------------------------------------------------
