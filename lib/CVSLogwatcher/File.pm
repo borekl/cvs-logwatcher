@@ -161,23 +161,23 @@ sub filter ($self)
 # not defined or empty, this function returns true as well.
 sub validate ($self)
 {
-  # implicit success if 'filter' option is not properly specified
-  return 1 unless
+  # implicit success if 'validate' option is not properly specified
+  return () unless
     exists $self->target->config->{validate}
     && ref $self->target->config->{validate}
-    && @{$self->target->config->{validate}};
+    && $self->target->config->{validate}->@*;
 
   # list of validation regexes
-  my @regexes = @{$self->target->config->{validate}};
+  my @regexes = $self->target->config->{validate}->@*;
 
   # iterate over lines of content
-  foreach my $l (@{$self->content}) {
+  foreach my $l ($self->content->@*) {
     @regexes = grep { $l !~ /$_/ } @regexes;
     last if !@regexes;
   }
 
   # finish
-  return @regexes == 0;
+  return @regexes;
 }
 
 #------------------------------------------------------------------------------
