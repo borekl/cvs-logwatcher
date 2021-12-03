@@ -14,7 +14,7 @@ use Path::Tiny qw(path tempdir);
 # file to be handled; either Path::Tiny instance or scalar pathname that gets
 # converted into Path::Tiny instance
 has file => (
-  is => 'ro', required => 1,
+  is => 'rwp', required => 1,
   coerce => sub ($f) { ref $f ? $f : path $f },
 );
 
@@ -49,6 +49,13 @@ sub _build_content ($self)
   close($fh);
 
   return \@fc;
+}
+
+#------------------------------------------------------------------------------
+# Set new filename (only filename, not path)
+sub set_filename ($self, $filename)
+{
+  $self->_set_file($self->file->sibling($filename));
 }
 
 #------------------------------------------------------------------------------
