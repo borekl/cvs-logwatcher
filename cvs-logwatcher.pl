@@ -18,6 +18,7 @@
 
 use strict;
 use warnings;
+use experimental 'signatures';
 use Carp;
 use Expect;
 use JSON;
@@ -460,6 +461,166 @@ sub process_match
   }
 }
 
+#-----------------------------------------------------------------------------
+# Arguments: target, host, msg, who, cmd.
+sub process_match_2 (%arg)
+{
+  # shortcut variables
+  my $cfg = CVSLogwatcher::Config->instance;
+  my $logger = $cfg->logger;
+  my $host = $arg{host};
+  my $target = $arg{target};
+  my $cmd = $arg{cmd};
+
+  # these two are either parsed from the logfile or supplied by the user when
+  # manually triggering an action
+  my $who = $arg{who} // $cmd->user // '';
+  my $msg = $arg{msg} // $cmd->msg // '';
+
+  # get base hostname (without domain name) and set up % tokens
+  my $host_nodomain = host_strip_domain($arg{host});
+  my $repl = $cfg->repl->add_value(
+    '%H' => $host_nodomain,
+    '%h' => $arg{host}
+  );
+
+  # get logging tag
+  my $tag = sprintf('cvs/%s', $host_nodomain);
+
+  # log some basic information
+  $logger->info("[$tag] Source host: $host (from syslog)");
+  $logger->info("[$tag] Message:     ", $msg);
+  $logger->info("[$tag] User:        ", $who) if $who;
+
+  # skip if ignored user
+  if($who && $cfg->is_ignored_user($who)) {
+    $logger->info(qq{[$tag] Ignored user, skipping processing});
+    return;
+  }
+
+  # skip if ignored host
+  if($cfg->is_ignored_host($host_nodomain)) {
+    $logger->info(qq{[$tag] Ignored host, skipping processing});
+    return;
+  }
+
+  # get admin group
+  my $group = $cfg->admin_group($host_nodomain) // $target->defgroup;
+  if($group) {
+    $logger->info(qq{[$tag] Admin group: $group});
+  } else {
+    $logger->error(qq{[$tag] No admin group for $host_nodomain, skipping});
+    return;
+  }
+
+  # ensure reachability
+  if($cfg->ping && system($repl->replace($cfg->ping)) >> 8) {
+    $logger->error(qq{[$tag] Host $host_nodomain unreachable, skipping});
+    return;
+  }
+
+  try {
+
+    # run default expect chat sequence
+    my ($file) = $target->expect->run_task($host);
+    die sprintf("File %s does not exist", $file->file->stringify)
+    unless $file->file->is_file;
+    $logger->info(sprintf(
+      '[%s] File %s received, %d bytes',
+      $tag, $file->file->stringify, -s $file->file
+    ));
+
+    # load the file into memory and remove it from the disk
+    $file->remove;
+
+    # convert line endings to local representation
+    if($cmd->mangle && $target->has_option('normeol')) {
+      $logger->debug(sprintf(
+        '[%s] %d bytes stripped (normeol)', $tag, $file->normalize_eol
+      ));
+    }
+
+    # filter out junk at the start and the end ("validrange" option)
+    if($cmd->mangle && defined (my $diff = $file->validrange)) {
+      $logger->debug(sprintf(
+        '[%s] %d bytes stripped (validrange)', $tag, $diff
+      ))
+    }
+
+    # filter out lines anywhere in the configuration ("filter" option)
+    if($cmd->mangle && defined (my $diff = $file->filter)) {
+      $logger->debug(sprintf(
+        '[%s] %d bytes stripped (filter)', $tag, $diff
+      ))
+    }
+
+    # validate the configuration
+    if(my @failed = $file->validate) {
+      $logger->warn("[$tag] Validation required but failed, aborting check in");
+      $logger->debug(
+        "[$tag] Failed validation expressions: ",
+        join(', ', map { "'$_'" } @failed)
+      );
+      return;
+    }
+
+    # extract hostname from the configuration and set the extracted hostname
+    # as the new filename
+    if(my $confname = $file->extract_hostname) {
+      $host_nodomain = $confname;
+      $tag = "cvs/$confname";
+      $logger->info("[$tag] Changing file name");
+      $file->set_filename($confname);
+    }
+
+    # compare to the last revision
+    my $repo = CVSLogwatcher::File->new(
+      file => $cfg->repodir->child($group, $file->file->basename . ',v'),
+      target => $target
+    );
+    if(!$file->is_changed($repo)) {
+      if($cmd->force) {
+        $logger->info("[$tag] No change to current revision, but --force in effect");
+      } else {
+        $logger->info("[$tag] No change to current revision, skipping check-in");
+        return;
+      }
+    }
+
+    # create a new revision
+    if(!defined $cmd->nocheckin) {
+      $file->rcs_check_in(
+        repo => $repo->file->parent,
+        host => $host_nodomain,
+        msg => $msg,
+        who => $who
+      );
+      $logger->info("[$tag] CVS check-in completed successfully");
+    }
+
+    # command-line option --nocheckin in effect, but no directory or file
+    # specified
+    elsif($cmd->nocheckin eq '') {
+      $logger->info("[$tag] CVS check-in inhibited, file not saved");
+      return;
+    }
+
+    # command-line option --nocheckin in effect and directory/file specified
+    else {
+      my $dst = path $cmd->nocheckin;
+      $dst = $cfg->tempdir->child($dst) if $dst->is_relative;
+      if($dst->is_dir) {
+        $dst = $dst->child($host_nodomain);
+      }
+      $file->file($dst);
+      $file->save;
+      $logger->info("[$tag] CVS check-in inhibited, file goes to ", $dst);
+    }
+
+  } catch($err) {
+    $logger->error("[$tag] Processing failed, ", $err);
+  }
+}
 
 #=============================================================================
 #===================  _  =====================================================
@@ -548,12 +709,12 @@ if($cmd->trigger) {
       $logger->warn("[cvs] No target found for match from '$host' in source '$cmd->trigger'");
       next;
     }
-    process_match(
-      $target->id,
-      $host,
-      $cmd->msg // 'Manual check-in',
-      $cmd->user // 'cvs',
-      $cmd,
+    process_match_2(
+      target => $target,
+      host => $host,
+      msg => $cmd->msg,
+      who => $cmd->user,
+      cmd => $cmd
     );
   }
 
