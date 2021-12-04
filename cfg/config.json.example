@@ -53,7 +53,7 @@
     #--- expect timeout; this defines how long will the expect scripts wait
     #--- for input
 
-    "expmax"    : 60
+    "expmax"    : 60,
   },
 
 #=============================================================================
@@ -117,6 +117,15 @@
   ],
 
 #=============================================================================
+# IGNORE HOSTS section
+#
+# This defines a list of regex matches of hostnames (as received from logfile)
+# that cause processing to abort.
+#=============================================================================
+
+  "ignorehosts" : [],
+
+#=============================================================================
 # LOGFILES section
 #
 # This defines logfiles that will be opened and watched. The match regex must
@@ -126,7 +135,7 @@
 
   "logfiles" : {
     "cisco" : {
-      "filename" : "/var/log/cisco_all.log",
+      "filename" : "/var/log/cisco/cisco.log",
       "match" :    "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\\w+).*)\\s*$",
     },
     "alu" :   {
@@ -157,6 +166,9 @@
       "id"         : "cisco-telnet",
       "defgrp"     : "netit",
       "logfile"    : "cisco",
+      "hostmatch"  : [
+        { "includelist" : [ "rcns08", "strt00c", "chrt00c", "rcnt00c" ] },
+      ],
       "validrange" : [ "^(!|version )", "^end\\s*$" ],
       "validate"   : [ "^end\\s*$" ],
       "ignoreline" : "^(!|ntp clock-period)",
@@ -164,13 +176,28 @@
       "expect"     : {
         "spawn" : "/usr/bin/telnet %h",
         "sleep" : 1,
-        "chat" : [
-          [ "(Username|USERNAME|username):", "cvs1\r" ],
-          [ "(Password|PASSWORD|password):", "%3\r" ],
-          [ "^(\\S*)#", "term len 0\r", null, "%+0" ],
-          [ "^%P#", "sh run\r", "%T/%H" ],
-          [ "^%P#", "exit\r" ],
-        ],
+        "chats": {
+          "login": [
+            [ "(Password|PASSWORD|password):", "%3\r" ],
+            [ "^\\s?(\\S*)#", "term len 0\r", null, "%+0" ],
+          ],
+          "getconfig": [
+            [ "^\\s?%P#", "sh run\r", "%D/%H" ],
+            [ "^\\s?%P#", "sh run\r", "-" ],
+          ],
+          "getconfigall": [
+            [ "^\\s?%P#", "sh run all\r", "%D/%H.all" ],
+            [ "^\\s?%P#", "sh run\r", "-" ],
+          ],
+          "logout": [
+            [ "^\\s?%P#", "exit\r" ],
+          ],
+        },
+        "tasks" : {
+          "config": {
+            "seq": [ "login", "getconfig", "logout" ]
+          },
+        },
       }
     },
 
@@ -182,20 +209,45 @@
       "id"         : "cisco-ssh",
       "defgrp"     : "netit",
       "logfile"    : "cisco",
+      #"hostmatch"  : [
+      #  { "excludelist" : [ "nars00c" ] },
+      #],
       "validrange" : [ "^(!|version )", "^end\\s*$" ],
-      "filter"     : [ "^Connection to \\S+ closed", "# exit\\s*$" ],
+      "filter"     : [
+        "^Connection to \\S+ closed",
+        "# exit\\s*$",
+        "^\\w+#\\s*$"
+      ],
+      "validate"   : [ "^end\\s*$" ],
       "ignoreline" : "^(!|ntp clock-period)",
       "hostname"   : "^(?:hostname|switchname)\\s([-a-zA-Z0-9]+)",
       "options"    : [ "normeol" ],
       "expect"     : {
-        "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",
+        "spawn" : "/usr/bin/ssh -o KexAlgorithms=diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h",
         "sleep" : 1,
-        "chat" : [
-          [ "(Password|PASSWORD|password):", "%3\r" ],
-          [ "^\\s?(\\S*)#", "term len 0\r", null, "%+0" ],
-          [ "^\\s?%P#", "sh run\r", "%T/%H" ],
-          [ "^\\s?%P#", "exit\r" ],
-        ],
+        "deftask": "config",
+        "chats": {
+          "login": [
+            [ "(Password|PASSWORD|password):", "%3\r" ],
+            [ "^\\s?(\\S*)#", "term len 0\r", null, "%+0" ],
+          ],
+          "getconfig": [
+            [ "^\\s?%P#", "sh run\r", "%D/%H" ],
+            [ "^\\s?%P#", "sh run\r", "-" ],
+          ],
+          "getconfigall": [
+            [ "^\\s?%P#", "sh run all\r", "%D/%H.all" ],
+            [ "^\\s?%P#", "sh run\r", "-" ],
+          ],
+          "logout": [
+            [ "^\\s?%P#", "exit\r" ],
+          ],
+        },
+        "tasks" : {
+          "config": {
+            "seq": [ "login", "getconfig", "logout" ]
+          },
+        },
       }
     },
 
@@ -213,12 +265,25 @@
       "expect" : {
         "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h",
         "sleep" : 1,
-        "chat" : [
-          [ "password:", "%4\r" ],
-          [ "^(\\S*)#", "environment no more\r", null, "%+0" ],
-          [ "%P#", "admin display-config\r", "%T/%H" ],
-          [ "%P#", "logout\r" ]
-        ]
+        "deftask": "config",
+        "chats": {
+          "login": [
+            [ "password:", "%4\r" ],
+            [ "^(\\S*)#", "environment no more\r", null, "%+0" ],
+          ],
+          "getconfig": [
+            [ "%P#", "admin display-config\r", "%D/%H" ],
+            [ "%P#", "\r", "-" ],
+          ],
+          "logout": [
+            [ "%P#", "logout\r" ]
+          ]
+        },
+        "tasks" : {
+          "config": {
+            "seq": [ "login", "getconfig", "logout" ]
+          },
+        },
       }
     },
 
@@ -237,11 +302,21 @@
       "expect" : {
         "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l tufin %h",
         "sleep" : 1,
-        "chat" : [
-          [ "[Pp]assword:", "%5\r" ],
-          [ "^tufin@.*> $", "show configuration | display set | no-more\r", "%T/%H" ],
-          [ "^tufin@.*> $", "exit\r" ]
-        ]
+        "chats": {
+          "login": [
+            [ "[Pp]assword:", "%5\r" ],
+          ],
+          "getconfig": [
+            [ "^tufin@.*> $", "show configuration | display set | no-more\r", "%D/%H" ],
+            [ "^tufin@.*> $", "\r", "-" ],
+          ],
+          "logout": [
+            [ "^tufin@.*> $", "exit\r" ]
+          ],
+        },
+        "tasks": {
+          "config": [ "login", "getconfig", "logout" ],
+        }
       }
     },
 
@@ -256,7 +331,8 @@
 
   "devgroups" : {
     "nxosswitches" : [
-      "strs38", "strs39", "strs90", "strs91", "rcns17", "rcns18", "rcns19", "rcns20"
+      "strs38", "strs39", "strs90", "strs91", "rcns17", "rcns18", "rcns19",
+      "rcns20"
     ]
   }
 
