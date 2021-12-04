@@ -1,0 +1,8 @@
+*~
+.cvs_*
+data/
+cfg/*.json
+cfg/*.conf
+*.log
+t.pl
+t[0-9].pl
