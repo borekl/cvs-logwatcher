@@ -14,7 +14,7 @@ use Path::Tiny qw(path tempdir);
 # file to be handled; either Path::Tiny instance or scalar pathname that gets
 # converted into Path::Tiny instance
 has file => (
-  is => 'rwp', required => 1,
+  is => 'rw', required => 1,
   coerce => sub ($f) { ref $f ? $f : path $f },
 );
 
@@ -55,7 +55,7 @@ sub _build_content ($self)
 # Set new filename (only filename, not path)
 sub set_filename ($self, $filename)
 {
-  $self->_set_file($self->file->sibling($filename));
+  $self->file($self->file->sibling($filename));
 }
 
 #------------------------------------------------------------------------------
@@ -246,6 +246,7 @@ sub save ($self, $dest_file = undef)
 #------------------------------------------------------------------------------
 # Check the curent file into an RCS file. Since RCS does not allow us take the
 # input file from stdin, we must go through a file in temporary directory.
+# Arguments: repo, host, who, msg.
 sub rcs_check_in ($self, %arg)
 {
   my $cfg = CVSLogwatcher::Config->instance;
@@ -261,7 +262,7 @@ sub rcs_check_in ($self, %arg)
   $tempfile->spew_raw($self->content->@*);
 
   # get repo filename
-  my $repo = path($arg{repo})->child($base . ',v');
+  my $repo = $arg{repo}->child($base . ',v');
   my $is_new = !$repo->exists;
 
   # execute RCS ci to check-in new commit
@@ -274,7 +275,7 @@ sub rcs_check_in ($self, %arg)
     $tempfile->stringify,  # source file
     $repo->stringify       # RCS file
   );
-  $logger->debug("[cvs/$tid] Cmd: ", join(' ', @exec));
+  $logger->debug("[cvs/$arg{host}] Cmd: ", join(' ', @exec));
   my $rv = system(@exec);
   die "RCS check-in failed ($rv)" if $rv;
 
@@ -293,6 +294,13 @@ sub rcs_check_in ($self, %arg)
 
 #------------------------------------------------------------------------------
 # Delete the file
-sub remove ($self) { $self->file->remove }
+sub remove ($self)
+{
+  # make sure the content is loaded from the file before removing
+  $self->content;
+
+  # remove the source file
+  $self->file->remove
+}
 
 1;
