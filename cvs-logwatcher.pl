@@ -29,18 +29,10 @@ use CVSLogwatcher::Config;
 use CVSLogwatcher::Cmdline;
 use CVSLogwatcher::Misc;
 
-#=============================================================================
-#=== GLOBAL VARIABLES                                                      ===
-#=============================================================================
-
-my ($cfg, $cfg2);
-
-#=============================================================================
-#=== FUNCTIONS                                                             ===
-#=============================================================================
-
 #-----------------------------------------------------------------------------
-# Arguments: target, host, msg, who, cmd.
+# This function encapsulates all of the processing of a single host. It
+# downloads a config from a host, processes it and checks it into
+# a repository. Arguments: target, host, msg, who, cmd.
 sub process_host (%arg)
 {
   # shortcut variables
@@ -214,33 +206,29 @@ sub process_host (%arg)
 # get command-line options
 my $cmd = CVSLogwatcher::Cmdline->new;
 
-#--- read configuration ------------------------------------------------------
-
-$cfg2 = CVSLogwatcher::Config->instance(
+# read configuration
+my $cfg = CVSLogwatcher::Config->instance(
   basedir => path("$Bin"),
   config_file => "$Bin/cfg/config.json"
 );
-$cfg = $cfg2->config;
 
 # logging setup according to command-line
-my $logger = $cfg2->logger;
+my $logger = $cfg->logger;
 $logger->remove_appender($cmd->devel ? 'AFile' : 'AScrn');
 $logger->level($cmd->debug ? $DEBUG : $INFO);
 
-#--- title -------------------------------------------------------------------
-
+# title
 $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
 $logger->info(qq{[cvs] Mode is }, $cmd->devel ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging enabled}) if $cmd->debug;
-$logger->debug(qq{[cvs] Log directory is }, $cfg2->logprefix);
-$logger->debug(qq{[cvs] Scratch directory is }, $cfg2->tempdir);
-$logger->debug(qq{[cvs] Repository directory is }, $cfg2->repodir);
+$logger->debug(qq{[cvs] Log directory is }, $cfg->logprefix);
+$logger->debug(qq{[cvs] Scratch directory is }, $cfg->tempdir);
+$logger->debug(qq{[cvs] Repository directory is }, $cfg->repodir);
 
-#--- verify command-line parameters ------------------------------------------
-
+# verify command-line parameters
 if($cmd->trigger) {
-  if(!exists $cfg->{'logfiles'}{$cmd->trigger}) {
+  if(!exists $cfg->logfiles->{$cmd->trigger}) {
     $logger->fatal(
       '[cvs] Option --trigger refers to non-existent logfile id, aborting'
     );
@@ -250,13 +238,6 @@ if($cmd->trigger) {
     $logger->fatal(qq{[cvs] Option --trigger requires --host, aborting});
     exit(1);
   }
-}
-
-if($cmd->trigger) {
-  $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd->trigger));
-  $logger->info(sprintf('[cvs] Explicit host is %s', $cmd->host));
-  $logger->info(sprintf('[cvs] Explicit user is %s', $cmd->user)) if $cmd->user;
-  $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd->msg)) if $cmd->msg;
 }
 
 #-----------------------------------------------------------------------------
@@ -271,6 +252,12 @@ if($cmd->trigger) {
 
 if($cmd->trigger) {
 
+  # give some basic info
+  $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd->trigger));
+  $logger->info(sprintf('[cvs] Explicit host is %s', $cmd->host));
+  $logger->info(sprintf('[cvs] Explicit user is %s', $cmd->user)) if $cmd->user;
+  $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd->msg)) if $cmd->msg;
+
   # get list of hosts to process
   my @hosts;
   if($cmd->host =~ /^@(.*)$/) {
@@ -282,7 +269,7 @@ if($cmd->trigger) {
 
   # process each host
   for my $host (@hosts) {
-    my $target = $cfg2->find_target($cmd->trigger, lc($host));
+    my $target = $cfg->find_target($cmd->trigger, lc($host));
     if(!$target) {
       $logger->warn("[cvs] No target found for match from '$host' in source '$cmd->trigger'");
       next;
@@ -305,13 +292,11 @@ if($cmd->trigger) {
 #--- logfiles handling -------------------------------------------------------
 #-----------------------------------------------------------------------------
 
-#--- initializing the logfiles -----------------------------------------------
-
 # array of File::Tail filehandles
 my @logfiles;
 
 # loop over all configured logfiles
-$cfg2->iterate_logfiles(sub {
+$cfg->iterate_logfiles(sub {
   my $log = shift;
 
   # check if we are suppressing this logfile
@@ -323,7 +308,7 @@ $cfg2->iterate_logfiles(sub {
   # start watching the logfile
   my $h = File::Tail->new(
     name => $log->file,
-    maxinterval => $cfg2->tailparam('tailint')
+    maxinterval => $cfg->tailparam('tailint')
   );
   $h->{'cvslogwatch.logid'} = $log->id;
   push(@logfiles, $h);
@@ -338,57 +323,52 @@ if(scalar(@logfiles) == 0) {
   die;
 }
 
-#--- if user specifies --initonly, do not enter the main loop
-#--- this is for testing purposes
-
+# if user specifies --initonly, do not enter the main loop, this is for testing
+# purposes only
 if($cmd->initonly) {
   $logger->info(qq{[cvs] Init completed, exiting});
   exit(0);
 }
 
-#--- main loop
-
+# main loop
 $logger->debug('[cvs] Entering main loop');
 while (1) {
 
-#--- wait for new data becoming available in any of the watched logs
-
+  # wait for new data becoming available in any of the watched logs
   my ($nfound, $timeleft, @pending) = File::Tail::select(
     undef, undef, undef,
-    $cfg2->tailparam('tailmax'),
+    $cfg->tailparam('tailmax'),
     @logfiles
   );
 
-#--- timeout reached without any data arriving
-
+  # timeout reached without any data arriving
   if(!$nfound) {
     $logger->info('[cvs] Heartbeat');
     next;
   }
 
-#--- processing data
-
+  # processing data
   foreach(@pending) {
     my $tid;
 
-    #--- get next available line
+    # get next available line
     my $l = $_->read();
     chomp($l);
 
-    #--- get filename of the file the line is from
+    # get filename of the file the line is from
     my $logid = $_->{'cvslogwatch.logid'};
     die 'Assertion failed, logid missing in File::Tail handle' if !$logid;
-    my $log = $cfg2->logfiles->{$logid};
+    my $log = $cfg->logfiles->{$logid};
 
-    #--- if --watchonly is active, display the line
+    # if --watchonly is active, display the line
     $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
 
-    #--- match the line
+    # match the line
     my ($host, $user, $msg) = $log->match($l);
     next unless $host;
 
-    #--- find target
-    my $target = $cfg2->find_target($logid, $host);
+    # find target
+    my $target = $cfg->find_target($logid, $host);
 
     if(!$target) {
       $logger->warn(
@@ -397,11 +377,10 @@ while (1) {
       next;
     }
 
-    #--- finish if --watchonly
-
+    # finish if --watchonly
     next if $cmd->watchonly;
 
-    #--- start processing
+    # start processing
     process_host(
       target => $target,
       host => $host,
