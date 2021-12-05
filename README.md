@@ -17,26 +17,19 @@ There's no relation to actual CVS versioning system.
 
 ## Requirements
 
-* Perl 5.10 or newer
-* Following perl modules: Expect, JSON, Log::Log4Perl, File::Tail
+* Perl 5.12 or newer
+* Following perl modules: 
+  * Expect
+  * Log::Log4Perl
+  * File::Tail
+  * Moo
+  * Feature::Compat::Try
+  * Path::Tiny
 
 Please note that File::Tail contains a bug that can interfere with
 cvs-logwatcher's function. See [this](https://rt.cpan.org/Public/Bug/Display.html?id=107522)
 bug report for the fix.
 
------
-
-## File System Layout
-
-Following directories are fixed and must exist in the directory the main script is
-executed from:
-
-    bin/  .. executable scripts
-    cfg/  .. configuration files
-
-The other directories (repository, temp) are configurable in the configuration file.
-
------
 
 ## How It Works
 
@@ -89,7 +82,6 @@ The main configuration file is a JSON file. The configuration is designed to be 
 
 In many parts of the configuration, following placeholders can be used:
 
-`%d` becomes '-dev' if running in development mode, otherwise ''  
 `%D` temporary directory for retrieved configurations
 `%h` device hostname as given in the monitored logfile  
 `%H` same as `%h` but without domain  
@@ -129,7 +121,7 @@ is abandoned.
 #### RCS configuration
 
 **`rcsrepo`**  
-defines the subdirectory that will hold the RCS repository
+defines the subdirectory that will hold the RCS repository files
 
 **`rcsctl`**, **`rcsci`**, **`rcsco`**  
 defines the path to the RCS binaries
@@ -143,8 +135,8 @@ Defines command for testing device reachability -- unreachable devices are skipp
 
 **`groups`**  
 defines device groups, that are used to store their config in separate
-subdirectories in the repository. The key is a hash of group names that in turn
-are arrays of regexes. For example:
+subdirectories in the main repository directory. The key is a hash of group
+names that in turn are arrays of regexes used match hostnames. For example:
 
     "groups" : {
        "routers" : [ "^router", "^bsc", "^cisco" ],
@@ -152,17 +144,27 @@ are arrays of regexes. For example:
        "lanswitches" : [ "^lan" ],
     }
 
-#### Ignored users configuration
+#### Ignored users and hosts configuration
 
 **`ignoreusers`**  
 is an array that lists users who should not trigger repository update
+
+**`ignoreusers`**  
+is an array that lists regexes; if a match is found, the host is ignored and will not trigger an update
 
 #### Logfiles configuration
 
 This section lists logfiles that the program will observe for configuration
 events. When the defined regex matches, the "Targets" list will be searched
 for a match based on the log id and hostname. The first match is used and
-terminates further search.
+terminates further search. Here is example for Cisco devices (IOS, NXOS):
+
+    "logfiles" : {
+      "cisco" : {
+        "filename" : "/var/log/cisco/cisco.log",
+        "match" :    "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\\w+).*)\\s*$",
+      }
+    }
 
 **`filename`**  
 is either absolute or relative pathname; if it is relative, `config.logprefix` is prepended to it.
@@ -176,12 +178,14 @@ capture group `host` that matches source hostname; capture groups
 #### Targets configuration
 
 When a logfile match occurs, the program will search list of targets to decide
-what action to perform. The targets are defined as list of hashes, that define number of various options. Options `logfile` and `hostmatch` are used when searching for
-a matching target. The first matching target is used and the rest is skipped.
+what action to perform. Target configuration prescribes the interaction with
+given device. One log matching rule might end up in different targets to accommodate
+different device configurations, operating systems, etc. At this moment this
+target-finding only uses source logfile and hostname.
 
-The reason for this logfile → target indirection is to enable to have one logfile
-to trigger different actions if the user so desires. Currently the discrimination
-is only hostname-based, but the mechanism could be extended later.
+The targets are defined as list of hashes, that define number of various options.
+Options `logfile` and `hostmatch` are used when searching for
+a matching target. The first matching target is used and the rest is skipped.
 
 **`id`**  
 Target identification name. Arbitrary string, but you should use something short
@@ -189,10 +193,12 @@ and mnemonic.
 
 **`defgrp`**  
 Default device group, this can be overriden through the device group
-configuration mentioned above.
+configuration mentioned above. Groups are used to separate the configs into
+directories.
 
 **`logfile`**  
 Defines log id as defined in the `logfiles` section. This key is *required* and it is used for matching logfile matches to targets.
+Multiple targets can use the same logfile.
 
 **`hostmatch`**  
 Optional. Enables additional matching by device's hostname (in addition to matching by `logfile`!). Hostmatch is a
@@ -234,12 +240,12 @@ Matching by regular expressions is also available and has the same semantics as 
 Multiple rules can be specified in a `hostmatch` (make it a "ruleset"), though this is probably not very useful. At any rate, ruleset is considered a match when at least one rule is a match. In above example any device that doesn't start with "sw-london" or "sw-paris" is matched, but "sw-london-01" and 'sw-london-01" are exempt from this exclusion and are matched anyway.
 
 **`options`**  
-Define list of options that should be used for the target. Following options are supported:
+Define list of options that should be used for the target. Currently only one option is supported:
 
 * `normeol` this option will make the program to convert retrieved configurations to local end-of-line characters; this is recommended
 
 **`validate`**  
-This specifies list of regular expressions that each must match at least once per configuration file. This can be used to defend against failed downloads. Try to use something that is guaranteed to appear at the end of the configuration. For example Cisco IOS configuration always has `end` as the last line, Nokia 7750SR has final line that starts with `# Finished`, etc. This is highly recommended.
+This specifies list of regular expressions that each must match at least once per configuration file. This can be used to reject failed or corrupted downloads. Try to use something that is guaranteed to appear at the end of the configuration. For example Cisco IOS configuration always has `end` as the last line, Nokia 7750SR has final line that starts with `# Finished`, etc. This is highly recommended.
 
 **`validrange`**  
 This specifies exactly two regular expressions that define the first and last line of the configuration. The lines outside of this range are discarded. This allows one to get rid of the junk that is caused by recording the whole session with the device.
@@ -249,10 +255,10 @@ For example, this works for Cisco IOS:
     "validrange" : [ "^(!|version )", "^end\\s*$" ],
 
 **`filter`**  
-List of regular expressions, all matching lines are discarded from the configuration. This is a complement to the `validrange` option.
+List of regular expressions, all matching lines are discarded from the configuration. This is complements the `validrange` option.
 
 **`ignoreline`**  
-Defines single regular expression that specifies configuration lines that should be ignored when comparing new and old revision of the config. This lets the program ignore certain parts of the configuration that change even when the config actually doesn't (comments, Cisco IOS's `ntp clock-period` etc.)
+Defines single regular expression that specifies configuration lines that should be ignored when comparing new and old revision of the config. This lets the program ignore certain parts of the configuration that change even when the config actually doesn't (comments with timestamps, Cisco IOS's `ntp clock-period` etc.)
 
 **`hostname`**
 Regular expression that tries to extract hostname as defined in the
@@ -264,44 +270,71 @@ example:
     "hostname"   : "^(?:hostname|switchname)\\s([-a-zA-Z0-9]+)",
 
 **`expect.spawn`**  
-Command to be executed to initiate a session with the device. Example for SSH:
+Command to be executed to initiate a session with the device. Example for SSH with disabled host key checking, the %h token is replaced with hostname as it
+is seen in the log (which means it must be something that SSH can connect to):
 
     "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h"
-
-Note, that `%h` is expanded into hostname. Few more replacement tokens is supported, see elsewhere in this documentation.
 
 **`expect.sleep`**  
 Number of seconds to pause between individual commands for the device.
 
-**`expect.chat`** 
-This defines a *chat script*, that will be followed while communicating with the device. Normally the chat is used to log into device and issue a command to list device's configuration, which is recorded and used for the repository. Each line in the chat is an array of at most four items:
+**`expect.chats`**
+
+    "chats": {
+      "login": [
+        [ "(Password|PASSWORD|password):", "%3\r" ],
+        [ "^\\s?(\\S*)#", "term len 0\r", null, "%+0" ],
+      ],
+      "getconfig": [
+        [ "^\\s?%P#", "sh run\r", "%D/%H" ],
+        [ "^\\s?%P#", "sh run\r", "-" ],
+      ],
+      "getconfigall": [
+        [ "^\\s?%P#", "sh run all\r", "%D/%H.all" ],
+        [ "^\\s?%P#", "sh run\r", "-" ],
+      ],
+      "logout": [
+        [ "^\\s?%P#", "exit\r" ],
+      ],
+    },
+
+The `chats` section defines conversation with the device. They work by specifying expected string and response, that is sent when the expected string is seen.
+To make things slightly modular, the complete conversations are split into smaller logical sections. In our example there `login` which defines how to login
+into a device and set up the terminal. `getconfig` makes the device list its config while recording this into a file, `getconfigall` does the same but
+uses command to output config with defaults and finally `logout` defines how to log out of the host. These conversation pieces are put together in the next section
+called `tasks`
+
+Individual lines of the conversations have the following form:
 
     [ EXPECT-STRING, SEND-STRING, OUTPUT-LOG, PROMPT ]
 
-_Expect string_ is regular expression that the program tries to match in the output from the device. It may contain capture groups (only regular capture groups, named caputre groups are not supported, unfortunately). Capture groups are made available to the send strings as `%+0`, `%+1` etc, but note that they do not carry over to the next line of the chat script.
+The first two fields are fairly obvious: the first one is a regex to match the expected input from the device. The regex can use capturing groups which
+are available to further conversation entries as %+0, %+1 etc. When the expect regex is matched, contents of the second field is sent to the device
 
-_Send string_ is simply a string that is sent to the device when the expect string is matched. Replacement tokens can be used, use `\r` to send end-of-line.
+The third field is used to start recording the conversation into a file, so it should specify a filename with path (relative to the `tempdir`.
+This is the filename that will be presented to the RCS repository, so it must be unique to the host and therefore contain "%h" or, better "%H" tokens.
+In the example above we use the simplest filename of "%D/%H" for the plain config and "%D/$H.all" for the full config. If this field contains "-",
+it will stop recording this log. You should always explicitly stop recording, otherwise you will run into issues (esp. when recording multiple files)
 
-_Output log_ is optional. When specified, the output from the device is saved into given filename. This is how the configuration files are retrieved.
+The fourth field allows setting the prompt token %P, which in further conversation can be used to match device prompt. This needed to make the expect
+string specific enough to be useful (just matching "#" or ">" will probably not work). This entry is used in the `login` chat above and it uses
+capturing group in the expect string to set prompt %P for further entries:
 
-_Prompt_ is optional. When it is specified, the contents of the string is stored into special token `%P`. This is useful for establishing device's prompt that you can use in further matches.
+    [ "^\\s?(\\S*)#", "term len 0\r", null, "%+0" ]
+ 
+Further entries then use "^\\s?%P#" to match the real full prompt of the device.
 
-Now let's see how this all comes together -- following script works with Cisco IOS/IOS XR/NX-OS devices:
+**`tasks`**  
+Tasks are groups of conversation fragments defined it `chats` section. For example:
 
-    "chat" : [
-      [ "(Password|PASSWORD|password):", "%3\r" ],
-      [ "^(\\S*)#", "term len 0\r", null, "%+0" ],
-      [ "^%P#", "sh run\r", "%T/%H" ],
-      [ "^%P#", "exit\r" ],
-    ],
-
-The _first line_ waits for password prompt and sends the password (which here is represented by the token %3, which is defined in external file through the `keyring` feature).
-
-The _second line_ waits for the prompt, which is identified as having `#` in it. The regex has capture group that is used in the fourth item to set up the `%P` prompt "variable". When the prompt is seen, output pagination is disabled.
-
-The _third line_ waits for the prompt, now identified in its entirety (matching only `#` can lead to false matches that would truncate the config output) and command to display the configuration is issued and recorded into a file. The file's location is again specified using % tokens: `%T` is directory and `%H` is hostname.
-
-The _fourth line_ then waits for another prompt and finishes the session with a logout.
+    "tasks" : {
+      "config": {
+        "seq": [ "login", "getconfig", "logout" ]
+      },
+      "configall" : {
+        "seq": [ "login", "getconfigall", "logout" ]
+      }
+    }
 
 ## Command-line Options
 
