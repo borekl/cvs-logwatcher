@@ -137,7 +137,7 @@ sub process_host (%arg)
           "[$tag] Failed validation expressions: ",
           join(', ', map { "'$_'" } @failed)
         );
-        return;
+        next;
       }
 
       # extract hostname from the configuration and set the extracted hostname
@@ -159,7 +159,7 @@ sub process_host (%arg)
           $logger->info("[$tag] No change to current revision, but --force in effect");
         } else {
           $logger->info("[$tag] No change to current revision, skipping check-in");
-          return;
+          next;
         }
       }
 
@@ -178,7 +178,7 @@ sub process_host (%arg)
       # specified
       elsif($cmd->nocheckin eq '') {
         $logger->info("[$tag] CVS check-in inhibited, file not saved");
-        return;
+        next;
       }
 
       # command-line option --nocheckin in effect and directory/file specified
