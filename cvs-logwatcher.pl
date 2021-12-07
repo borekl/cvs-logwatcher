@@ -92,101 +92,108 @@ sub process_host (%arg)
   try {
 
     # run default expect chat sequence
-    my ($file) = $target->expect->run_task($host);
-    die sprintf("File %s does not exist", $file->file->stringify)
-    unless $file->file->is_file;
-    $logger->info(sprintf(
-      '[%s] File %s received, %d bytes',
-      $tag, $file->file->stringify, -s $file->file
-    ));
+    my (@files) = $target->expect->run_task($host);
 
-    # load the file into memory and remove it from the disk
-    $file->remove;
+    # if no files received, finish
+    die 'No files received, nothing to do' unless @files;
 
-    # convert line endings to local representation
-    if($cmd->mangle && $target->has_option('normeol')) {
-      $logger->debug(sprintf(
-        '[%s] %d bytes stripped (normeol)', $tag, $file->normalize_eol
+    # iterate over files received
+    foreach my $file (@files) {
+
+      # check for file's existence, abort if it does not exist
+      $logger->info(sprintf(
+        '[%s] File %s received, %d bytes',
+        $tag, $file->file->stringify, -s $file->file
       ));
-    }
 
-    # filter out junk at the start and the end ("validrange" option)
-    if($cmd->mangle && defined (my $diff = $file->validrange)) {
-      $logger->debug(sprintf(
-        '[%s] %d bytes stripped (validrange)', $tag, $diff
-      ))
-    }
+      # load the file into memory and remove it from the disk
+      $file->remove;
 
-    # filter out lines anywhere in the configuration ("filter" option)
-    if($cmd->mangle && defined (my $diff = $file->filter)) {
-      $logger->debug(sprintf(
-        '[%s] %d bytes stripped (filter)', $tag, $diff
-      ))
-    }
+      # convert line endings to local representation
+      if($cmd->mangle && $target->has_option('normeol')) {
+        $logger->debug(sprintf(
+          '[%s] %d bytes stripped (normeol)', $tag, $file->normalize_eol
+        ));
+      }
 
-    # validate the configuration
-    if(my @failed = $file->validate) {
-      $logger->warn("[$tag] Validation required but failed, aborting check in");
-      $logger->debug(
-        "[$tag] Failed validation expressions: ",
-        join(', ', map { "'$_'" } @failed)
-      );
-      return;
-    }
+      # filter out junk at the start and the end ("validrange" option)
+      if($cmd->mangle && defined (my $diff = $file->validrange)) {
+        $logger->debug(sprintf(
+          '[%s] %d bytes stripped (validrange)', $tag, $diff
+        ))
+      }
 
-    # extract hostname from the configuration and set the extracted hostname
-    # as the new filename
-    if(my $confname = $file->extract_hostname) {
-      $host_nodomain = $confname;
-      $tag = "cvs/$confname";
-      $logger->info("[$tag] Changing file name");
-      $file->set_filename($confname);
-    }
+      # filter out lines anywhere in the configuration ("filter" option)
+      if($cmd->mangle && defined (my $diff = $file->filter)) {
+        $logger->debug(sprintf(
+          '[%s] %d bytes stripped (filter)', $tag, $diff
+        ))
+      }
 
-    # compare to the last revision
-    my $repo = CVSLogwatcher::File->new(
-      file => $cfg->repodir->child($group, $file->file->basename . ',v'),
-      target => $target
-    );
-    if(!$file->is_changed($repo)) {
-      if($cmd->force) {
-        $logger->info("[$tag] No change to current revision, but --force in effect");
-      } else {
-        $logger->info("[$tag] No change to current revision, skipping check-in");
+      # validate the configuration
+      if(my @failed = $file->validate) {
+        $logger->warn("[$tag] Validation required but failed, aborting check in");
+        $logger->debug(
+          "[$tag] Failed validation expressions: ",
+          join(', ', map { "'$_'" } @failed)
+        );
         return;
       }
-    }
 
-    # create a new revision
-    if(!defined $cmd->nocheckin) {
-      $file->rcs_check_in(
-        repo => $repo->file->parent,
-        host => $host_nodomain,
-        msg => $msg,
-        who => $who
-      );
-      $logger->info("[$tag] CVS check-in completed successfully");
-    }
-
-    # command-line option --nocheckin in effect, but no directory or file
-    # specified
-    elsif($cmd->nocheckin eq '') {
-      $logger->info("[$tag] CVS check-in inhibited, file not saved");
-      return;
-    }
-
-    # command-line option --nocheckin in effect and directory/file specified
-    else {
-      my $dst = path $cmd->nocheckin;
-      $dst = $cfg->tempdir->child($dst) if $dst->is_relative;
-      if($dst->is_dir) {
-        $dst = $dst->child($host_nodomain);
+      # extract hostname from the configuration and set the extracted hostname
+      # as the new filename
+      if(my $confname = $file->extract_hostname) {
+        $host_nodomain = $confname;
+        $tag = "cvs/$confname";
+        $logger->info("[$tag] Changing file name");
+        $file->set_filename($confname);
       }
-      $file->file($dst);
-      $file->save;
-      $logger->info("[$tag] CVS check-in inhibited, file goes to ", $dst);
-    }
 
+      # compare to the last revision
+      my $repo = CVSLogwatcher::File->new(
+        file => $cfg->repodir->child($group, $file->file->basename . ',v'),
+        target => $target
+      );
+      if(!$file->is_changed($repo)) {
+        if($cmd->force) {
+          $logger->info("[$tag] No change to current revision, but --force in effect");
+        } else {
+          $logger->info("[$tag] No change to current revision, skipping check-in");
+          return;
+        }
+      }
+
+      # create a new revision
+      if(!defined $cmd->nocheckin) {
+        $file->rcs_check_in(
+          repo => $repo->file->parent,
+          host => $host_nodomain,
+          msg => $msg,
+          who => $who
+        );
+        $logger->info("[$tag] CVS check-in completed successfully");
+      }
+
+      # command-line option --nocheckin in effect, but no directory or file
+      # specified
+      elsif($cmd->nocheckin eq '') {
+        $logger->info("[$tag] CVS check-in inhibited, file not saved");
+        return;
+      }
+
+      # command-line option --nocheckin in effect and directory/file specified
+      else {
+        my $dst = path $cmd->nocheckin;
+        $dst = $cfg->tempdir->child($dst) if $dst->is_relative;
+        if($dst->is_dir) {
+          $dst = $dst->child($host_nodomain);
+        }
+        $file->file($dst);
+        $file->save;
+        $logger->info("[$tag] CVS check-in inhibited, file goes to ", $dst);
+      }
+
+    }
   } catch($err) {
     $logger->error("[$tag] Processing failed, ", $err);
   }
