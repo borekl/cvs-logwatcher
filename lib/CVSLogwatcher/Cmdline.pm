@@ -24,6 +24,7 @@ has mangle     =>  ( is => 'rwp', default => 1 );
 has initonly   =>  ( is => 'rwp' );
 has log        =>  ( is => 'rwp' );
 has watchonly  =>  ( is => 'rwp' );
+has task       =>  ( is => 'rwp' );
 
 #-----------------------------------------------------------------------------
 # build function
@@ -42,6 +43,7 @@ sub BUILD ($self, $args)
     'devel'       => sub { $self->_set_debug($_[1]), $self->_set_devel($_[1]) },
     'log=s'       => sub { $self->_set_log($_[1]) },
     'watchonly'   => sub { $self->_set_watchonly($_[1]) },
+    'task=s'      => sub { $self->_set_task($_[1]) },
     'help|?'      => sub { $self->help; exit(0); }
   )) {
     exit(1);

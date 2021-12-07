@@ -92,7 +92,7 @@ sub process_host (%arg)
   try {
 
     # run default expect chat sequence
-    my (@files) = $target->expect->run_task($host);
+    my (@files) = $target->expect->run_task($host, $cmd->task);
 
     # if no files received, finish
     die 'No files received, nothing to do' unless @files;
