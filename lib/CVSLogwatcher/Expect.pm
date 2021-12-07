@@ -73,6 +73,7 @@ sub run_task ($self, $host, $task = undef)
 
   # get sequence of chats to perform
   my ($task_name, $task_def) = $self->get_task($task);
+  die 'Wrong or undefined task' unless $task_def;
   my @chats = $task_def->{seq}->@*;
   my $suffix = $task_def->{suffix} // undef;
 
