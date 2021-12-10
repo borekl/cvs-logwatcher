@@ -9,7 +9,7 @@ use warnings;
 use strict;
 use experimental 'signatures';
 
-use Getopt::Long;
+use Getopt::Long qw(GetOptionsFromString);
 
 # command-line option attributes
 has debug      =>  ( is => 'rwp' );
@@ -30,7 +30,7 @@ has task       =>  ( is => 'rwp' );
 # build function
 sub BUILD ($self, $args)
 {
-  if(!GetOptions(
+  my @options = (
     'trigger=s'   => sub { $self->_set_trigger(lc $_[1]) },
     'host=s'      => sub { $self->_set_host(lc $_[1]) },
     'user=s'      => sub { $self->_set_user($_[1]) },
@@ -45,9 +45,16 @@ sub BUILD ($self, $args)
     'watchonly'   => sub { $self->_set_watchonly($_[1]) },
     'task=s'      => sub { $self->_set_task($_[1]) },
     'help|?'      => sub { $self->help; exit(0); }
-  )) {
-    exit(1);
+  );
+
+  # if invoked with 'cmdline' argument, use the value of that argument to parse
+  # options from; this is useful for tests
+  if(defined $args->{cmdline}) {
+    if(!GetOptionsFromString($args->{cmdline}, @options)) { exit(1) }
   }
+
+  # otherwise parse options from @ARGV as usual
+  elsif(!GetOptions(@options)) { exit(1) }
 }
 
 #-----------------------------------------------------------------------------
