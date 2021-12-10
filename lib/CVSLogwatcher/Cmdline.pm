@@ -100,6 +100,7 @@ sub dump ($self)
   push(@out, sprintf('mangle:    %s', $self->mangle ? 'true' : 'false'));
   push(@out, sprintf('initonly:  %s', $self->initonly ? 'true' : 'false'));
   push(@out, sprintf('log:       %s', $self->log // '--'));
+  push(@out, sprintf('task:      %s', $self->task // '--'));
   push(@out, sprintf('watchonly: %s', $self->watchonly ? 'true' : 'false'));
   push(@out, sprintf('debug:     %s', $self->debug ? 'true' : 'false'));
   push(@out, sprintf('devel:     %s', $self->devel ? 'true' : 'false'));
