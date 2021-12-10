@@ -55,7 +55,7 @@ sub process_host (%arg)
   );
 
   # get logging tag
-  my $tag = sprintf('cvs/%s', $host_nodomain);
+  my $tag = "cvs/$host_nodomain";
 
   # log some basic information
   $logger->info("[$tag] Source host: $host (from syslog)");
@@ -91,7 +91,8 @@ sub process_host (%arg)
 
   try {
 
-    # run default expect chat sequence
+    # run expect chat sequence, either the one specified on the command line
+    # or the default one defined with 'deftask' key
     my (@files) = $target->expect->run_task($host, $cmd->task);
 
     # if no files received, finish
