@@ -11,28 +11,8 @@ use experimental 'signatures';
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw(
-  extract_hostname
   host_strip_domain
 );
-
-#------------------------------------------------------------------------------
-# Try to extract hostname from configuration file; caller must supply a regex
-# for the matching/extraction
-sub extract_hostname ($file, $regex)
-{
-  # read the new file
-  open my $fh, $file or die "Could not open file '$file'";
-  chomp( my @new_file = <$fh> );
-  close $fh;
-
-  # try to find and extract hostname
-  foreach (@new_file) {
-    if(/$regex/) { return $1 }
-  }
-
-  # nothing was found
-  return undef;
-}
 
 #------------------------------------------------------------------------------
 # Return hostname stripped of its domain name
