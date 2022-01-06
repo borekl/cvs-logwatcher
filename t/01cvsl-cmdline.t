@@ -2,83 +2,66 @@
 
 use strict;
 use warnings;
-use Test::More;
+use Test2::V0;
 
 use CVSLogwatcher::Cmdline;
 
-my $cmd = CVSLogwatcher::Cmdline->new;
-
-# creation of an instance works
-
-ok(
-  defined $cmd && ref $cmd && $cmd->isa('CVSLogwatcher::Cmdline'),
-  'instance creation'
-);
+# instance creation
+isa_ok(my $cmd = CVSLogwatcher::Cmdline->new);
 
 # default values are as expected
-
-ok(
-  !defined $cmd->trigger
-  && !defined $cmd->host
-  && !defined $cmd->user
-  && !defined $cmd->msg
-  && !$cmd->force
-  && !defined $cmd->nocheckin
-  && $cmd->mangle
-  && !$cmd->initonly
-  && !defined $cmd->log
-  && !$cmd->watchonly
-  && !$cmd->debug
-  && !$cmd->devel
-  && !defined $cmd->task,
-  'defaults'
-);
+is($cmd, object {
+  call trigger    => U();
+  call host       => U();
+  call user       => U();
+  call msg        => U();
+  call force      => F();
+  call nochecking => U();
+  call mangle     => T();
+  call initonly   => F();
+  call log        => U();
+  call watchonly  => F();
+  call debug      => F();
+  call devel      => F();
+  call task       => U();
+}, 'Default values');
 
 # binary options work
-
-$cmd = CVSLogwatcher::Cmdline->new(
-  cmdline => join(' ',
-    '--force', '--debug', '--devel', '--initonly',
-    '--nocheckin', '--watchonly --nomangle'
-  )
-);
-
-ok(
-  $cmd->force
-  && defined $cmd->nocheckin
-  && !$cmd->mangle
-  && $cmd->initonly
-  && $cmd->watchonly
-  && $cmd->debug
-  && $cmd->devel,
-  'binary options'
-);
+$cmd = CVSLogwatcher::Cmdline->new(cmdline => join(' ',
+  '--force', '--debug', '--devel', '--initonly',
+  '--nocheckin', '--watchonly --nomangle'
+));
+is($cmd, object {
+  call force     => T();
+  call nocheckin => D();
+  call mangle    => F();
+  call initonly  => T();
+  call watchonly => T();
+  call debug     => T();
+  call devel     => T();
+}, 'Binary options');
 
 # options with string values work
-
-$cmd = CVSLogwatcher::Cmdline->new(
-  cmdline => join(' ',
-    '--trigger=MyTriggerValue',
-    '--host=MyHostValue',
-    '--user=MyUserValue',
-    '--msg=MyMsgValue',
-    '--nocheckin=NoCheckInValue',
-    '--task=MyTaskValue'
-  )
-);
-
-is($cmd->trigger, 'mytriggervalue',   '--trigger value');
-is($cmd->host, 'myhostvalue',         '--host value');
-is($cmd->user, 'MyUserValue',         '--user value');
-is($cmd->msg, 'MyMsgValue',           '--msg value');
-is($cmd->nocheckin, 'NoCheckInValue', '--nocheckin value');
-is($cmd->task, 'MyTaskValue',         '--task value');
+$cmd = CVSLogwatcher::Cmdline->new(cmdline => join(' ',
+  '--trigger=MyTriggerValue',
+  '--host=MyHostValue',
+  '--user=MyUserValue',
+  '--msg=MyMsgValue',
+  '--nocheckin=NoCheckInValue',
+  '--task=MyTaskValue'
+));
+is($cmd, object {
+  call trigger   => 'mytriggervalue';
+  call host      => 'myhostvalue';
+  call user      => 'MyUserValue';
+  call msg       => 'MyMsgValue';
+  call nocheckin => 'NoCheckInValue';
+  call task      => 'MyTaskValue';
+}, 'String options');
 
 # --devel enables --debug
-
 $cmd = CVSLogwatcher::Cmdline->new(cmdline => '--devel');
 ok($cmd->debug, '-devel enables --debug');
 
 # finish
-
 done_testing();
