@@ -8,7 +8,7 @@ use Moo;
 use v5.12;
 use warnings;
 use strict;
-use experimental 'signatures';
+use experimental 'signatures', 'postderef';
 
 has values => ( is => 'ro', default => sub { {} } );
 
@@ -50,22 +50,17 @@ sub add_value ($self, %args)
 
 #------------------------------------------------------------------------------
 # Clone this instance
-sub clone ($self)
-{
-  return CVSLogwatcher::Repl->new(
-    %{$self->values}
-  );
-}
+sub clone ($self) { CVSLogwatcher::Repl->new($self->values->%*) }
 
 #------------------------------------------------------------------------------
-# This function adds the list of arguments into %replacements under keys
-# %+0, %+1 etc. It also removes all keys that are in this form (ie. purges
-# previous replacements).
-# This is used to enable using capture groups in expect response strings.
+# This function adds the list of arguments into %replacements under keys %+0,
+# %+1 etc. It also removes all keys that are in this form (ie. purges previous
+# replacements). This is used to enable using capture groups in expect response
+# strings.
 sub add_capture_groups ($self, @g)
 {
   # purge old values
-  for my $key (keys %{$self->values}) {
+  for my $key (keys $self->values->%*) {
     delete $self->values->{$key} if $key =~ /^%\+\d$/;
   }
 
