@@ -9,7 +9,7 @@ with 'MooX::Singleton';
 use warnings;
 use strict;
 use v5.10;
-use experimental 'signatures';
+use experimental 'signatures', 'postderef';
 use JSON;
 use Path::Tiny;
 use Log::Log4perl qw(get_logger);
@@ -139,7 +139,7 @@ sub _build_logfiles ($self)
   my $cfg = $self->config;
   my %logs;
 
-  for my $logid (keys %{$cfg->{logfiles}}) {
+  for my $logid (keys $cfg->{logfiles}->%*) {
     my $log = $cfg->{logfiles}{$logid};
     my $logfile = path $log->{filename};
     # handle relative filenames
@@ -163,7 +163,7 @@ sub _build_targets ($self)
   my $cfg = $self->config;
 
   return [
-    map { CVSLogwatcher::Target->new(config => $_) } @{$cfg->{targets}}
+    map { CVSLogwatcher::Target->new(config => $_) } $cfg->{targets}->@*
   ];
 }
 
@@ -172,7 +172,7 @@ sub _build_targets ($self)
 sub _build_repl ($self)
 {
   CVSLogwatcher::Repl->new(
-    %{$self->keyring},
+    $self->keyring->%*,
     '%D' => $self->tempdir->stringify
   );
 }
@@ -225,40 +225,24 @@ sub ping ($self) { $self->config->{ping} // undef }
 # Return true if the user passed as argument is on the ignore list
 sub is_ignored_user ($self, $u)
 {
-  my $cfg = $self->config;
-
-  if(
-    exists $cfg->{ignoreusers}
-    && ref $cfg->{ignoreusers}
-    && grep { lc eq lc $u } @{$cfg->{ignoreusers}}
-  ) {
-    return 1;
-  }
-
-  return undef;
+  exists $self->config->{ignoreusers}
+  && ref $self->config->{ignoreusers}
+  && grep { lc eq lc $u } $self->config->{ignoreusers}->@*;
 }
 
 #------------------------------------------------------------------------------
 # Return true if the host passed as argument is on the ignore list
 sub is_ignored_host ($self, $h)
 {
-  my $cfg = $self->config;
-
-  if(
-    exists $cfg->{ignorehosts}
-    && ref $cfg->{ignorehosts}
-    && grep { $h =~ /$_/ } @{$cfg->{ignorehosts}}
-  ) {
-    return 1;
-  }
-
-  return undef;
+  exists $self->config->{ignorehosts}
+  && ref $self->config->{ignorehosts}
+  && grep { $h =~ /$_/ } $self->config->{ignorehosts}->@*;
 }
 
 #------------------------------------------------------------------------------
 sub iterate_logfiles ($self, $cb)
 {
-  foreach my $log (keys %{$self->logfiles}) {
+  foreach my $log (keys $self->logfiles->%*) {
     $cb->($self->logfiles->{$log});
   }
 }
@@ -271,7 +255,7 @@ sub find_target ($self, $logid, $host)
   # remove domain from hostname
   $host =~ s/\..*$//g if $host;
 
-  foreach my $target (@{$self->targets}) {
+  foreach my $target ($self->targets->@*) {
     # "logfile" condition
     next if
       exists $target->config->{'logfile'}
@@ -287,7 +271,7 @@ sub find_target ($self, $logid, $host)
 # Return target instance by id
 sub get_target ($self, $id)
 {
-  my ($target) = grep { $_->id eq $id } @{$self->targets};
+  my ($target) = grep { $_->id eq $id } $self->targets->@*;
   return $target;
 }
 
@@ -298,8 +282,8 @@ sub admin_group ($self, $host)
 {
   my $cfg = $self->config;
 
-  for my $grp (keys %{$cfg->{'groups'}}) {
-    for my $re_src (@{$cfg->{'groups'}{$grp}}) {
+  for my $grp (keys $cfg->{'groups'}->%*) {
+    for my $re_src ($cfg->{'groups'}{$grp}->@*) {
       my $re = qr/$re_src/i;
       return $grp if $host =~ /$re/;
     }
