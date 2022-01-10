@@ -76,6 +76,7 @@ Usage: cvs-logwatcher.pl [options]
   --debug            set loglevel to debug
   --devel            development mode, implies --debug
   --initonly         init everything and exit
+  --watchonly        only observe logfiles
   --log=LOGID        only process this log
 
 EOHD
