@@ -186,9 +186,7 @@ sub process_host (%arg)
       else {
         my $dst = path $cmd->nocheckin;
         $dst = $cfg->tempdir->child($dst) if $dst->is_relative;
-        if($dst->is_dir) {
-          $dst = $dst->child($host_nodomain);
-        }
+        $dst = $dst->child($host_nodomain) if $dst->is_dir;
         $file->file($dst);
         $file->save;
         $logger->info("[$tag] CVS check-in inhibited, file goes to ", $dst);
