@@ -246,17 +246,17 @@ if($cmd->trigger) {
   }
 }
 
-#-----------------------------------------------------------------------------
-#--- manual check ------------------------------------------------------------
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+#--- manual check --------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
-# manual run can be executed from the command line by using the
-# --trigger=LOGID option. This might be used for creating the initial commit
-# or for devices that cannot be triggered using logfiles. When using this mode
-# --host=HOST must be used to tell which device(s) to check; --user and --msg
-# should be used to specify commit author and message.
+# manual run can be executed from the command line by using the --trigger=LOGID
+# option. This might be used for creating the initial commit or for devices that
+# cannot be triggered using logfiles. When using this mode --host=HOST must be
+# used to tell which device(s) to check; --user and --msg should be used to
+# specify commit author and message.
 
-if($cmd->trigger) {
+if($cmd->trigger && !$cmd->initonly) {
 
   # give some basic info
   $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd->trigger));
@@ -277,7 +277,9 @@ if($cmd->trigger) {
   for my $host (@hosts) {
     my $target = $cfg->find_target($cmd->trigger, lc($host));
     if(!$target) {
-      $logger->warn("[cvs] No target found for match from '$host' in source '$cmd->trigger'");
+      $logger->warn(
+        "[cvs] No target found for match from '$host' in source '$cmd->trigger'"
+      );
       next;
     }
     process_host(
