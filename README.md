@@ -362,6 +362,12 @@ Do not perform RCS check in after successfully retrieving configuration from a d
 **`--nomangle`**  
 Do not perform configuration file transformations prescribed in the target config.
 
+**`--initonly`**
+Initialize and then exit immediately.
+
+**`--watchonly`**
+Observe logfiles, but do not act upon any triggers.
+
 **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.
 
