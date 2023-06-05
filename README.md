@@ -366,7 +366,9 @@ Do not perform configuration file transformations prescribed in the target confi
 Initialize and then exit immediately.
 
 **`--watchonly`**
-Observe logfiles, but do not act upon any triggers.
+Observe logfiles, log or display all message, but do not act upon any triggers.
+This is most useful with `--devel` to verify that the program is seeing
+log entries coming in.
 
 **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.
