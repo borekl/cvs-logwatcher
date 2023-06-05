@@ -192,19 +192,6 @@ sub _build_logger ($self)
 }
 
 #------------------------------------------------------------------------------
-# File::Tail parameters
-sub tailparam ($self, $p)
-{
-  my $cfg = $self->config;
-
-  if($p eq 'tailmax') { return $cfg->{config}{tailmax} // 3600 }
-  elsif($p eq 'tailint') { return $cfg->{config}{tailint} // 4 }
-  elsif($p eq 'expmax') { return $cfg->{config}{expmax} // 60 }
-
-  die "Invalid tailparam argument '$p'";
-}
-
-#------------------------------------------------------------------------------
 # RCS binaries
 sub rcs ($self, $p)
 {

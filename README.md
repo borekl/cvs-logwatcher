@@ -21,14 +21,10 @@ There's no relation to actual CVS versioning system.
 * Following perl modules: 
   * Expect
   * Log::Log4Perl
-  * File::Tail
+  * IO::Async
   * Moo
   * Feature::Compat::Try
   * Path::Tiny
-
-Please note that File::Tail contains a bug that can interfere with
-cvs-logwatcher's function. See [this](https://rt.cpan.org/Public/Bug/Display.html?id=107522)
-bug report for the fix.
 
 
 ## How It Works
@@ -103,15 +99,6 @@ defines temporary directory that is used to store configurations received from d
 
 **`keyring`**  
 defines the keyring file
-
-**`tailint`**  
-defines how often the logfiles are checked for new lines
-(in seconds), this basically defines maximum reaction delay
-
-**`tailmax`**  
-defines how long (in seconds) will the program wait for
-new lines to appear in a logfile; after this time the logfile will be closed
-and reopened.
 
 **`expmax`**  
 defines the default expect timeout for interacting with

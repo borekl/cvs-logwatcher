@@ -136,7 +136,7 @@ sub run_task ($self, $host, $task = undef)
           $h, $line_count, $repl->replace($look)
         ));
         $exh->expect(
-          $cfg->tailparam('expmax') // 300, '-re', $repl->replace($look)
+          $cfg->config->{config}{expmax} // 300, '-re', $repl->replace($look)
         ) or die;
         my @g = $exh->matchlist;
         $logger->debug(sprintf(

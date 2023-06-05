@@ -19,7 +19,8 @@
 use strict;
 use warnings;
 use experimental 'signatures';
-use File::Tail;
+use IO::Async::Loop;
+use IO::Async::FileStream;
 use Feature::Compat::Try;
 use Path::Tiny;
 use FindBin qw($Bin);
@@ -296,40 +297,76 @@ if($cmd->trigger && !$cmd->initonly) {
   exit(0);
 }
 
-#-----------------------------------------------------------------------------
-#--- logfiles handling -------------------------------------------------------
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+#--- logfiles handling ---------------------------------------------------------
+#-------------------------------------------------------------------------------
 
-# array of File::Tail filehandles
-my @logfiles;
+# create event loop
+my $ioloop = IO::Async::Loop->new;
 
-# loop over all configured logfiles
-$cfg->iterate_logfiles(sub {
-  my $log = shift;
+# iterate configured files
+$cfg->iterate_logfiles(sub ($log) {
+  my $logid = $log->id;
 
   # check if we are suppressing this logfile
-  if(defined $cmd->log && $cmd->log ne $log->id) {
-    $logger->info(sprintf('[cvs] Suppressing %s (%s)', $log->file, $log->id));
+  if(defined $cmd->log && $cmd->log ne $logid) {
+    $logger->info(sprintf('[cvs] Suppressing %s (%s)', $log->file, $logid));
     return;
   }
 
-  # start watching the logfile
-  my $h = File::Tail->new(
-    name => $log->file,
-    maxinterval => $cfg->tailparam('tailint')
-  );
-  $h->{'cvslogwatch.logid'} = $log->id;
-  push(@logfiles, $h);
+  # open logfile for reading
+  open my $logh,  '<', $log->file or die "Cannot open logfile '$logid' ($!)";
 
+  # create new FileStream instance, attach handler code
+  my $fs = IO::Async::FileStream->new(
+
+    read_handle => $logh,
+
+    on_initial => sub {
+      my ($self) = @_;
+      $self->seek_to_last( "\n" );
+    },
+
+    on_read => sub {
+      my ($self, $buffref) = @_;
+      while( $$buffref =~ s/^(.*\n)// ) {
+        my $l = $1;
+        # if --watchonly is active, display the line
+        $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
+        # match line
+        my ($host, $user, $msg) = $log->match($l);
+        next unless $host;
+        # find target
+        my $target = $cfg->find_target($logid, $host);
+        if(!$target) {
+          $logger->warn(
+            "[cvs] No target found for match from '$host' in source '$logid'"
+          );
+          next;
+        }
+        # finish if --watchonly
+        next if $cmd->watchonly;
+        # start processing
+        process_host(
+          target => $target,
+          host => $host,
+          msg => $msg,
+          who => $user ? $user : 'unknown',
+          cmd => $cmd,
+        );
+      }
+      return 0;
+    }
+
+  );
+
+  # register FileStream with the main event loop
+  $ioloop->add($fs);
   $logger->info(
-    sprintf('[cvs] Started observing %s (%s)', $log->file, $log->id)
+    sprintf('[cvs] Started observing %s (%s)', $log->file, $logid)
   );
-});
 
-if(scalar(@logfiles) == 0) {
-  $logger->fatal(qq{[cvs] No valid logfiles defined, aborting});
-  die;
-}
+});
 
 # if user specifies --initonly, do not enter the main loop, this is for testing
 # purposes only
@@ -338,64 +375,6 @@ if($cmd->initonly) {
   exit(0);
 }
 
-# main loop
-$logger->debug('[cvs] Entering main loop');
-while (1) {
-
-  # wait for new data becoming available in any of the watched logs
-  my ($nfound, $timeleft, @pending) = File::Tail::select(
-    undef, undef, undef,
-    $cfg->tailparam('tailmax'),
-    @logfiles
-  );
-
-  # timeout reached without any data arriving
-  if(!$nfound) {
-    $logger->info('[cvs] Heartbeat');
-    next;
-  }
-
-  # processing data
-  foreach(@pending) {
-    my $tid;
-
-    # get next available line
-    my $l = $_->read();
-    chomp($l);
-
-    # get filename of the file the line is from
-    my $logid = $_->{'cvslogwatch.logid'};
-    die 'Assertion failed, logid missing in File::Tail handle' if !$logid;
-    my $log = $cfg->logfiles->{$logid};
-
-    # if --watchonly is active, display the line
-    $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
-
-    # match the line
-    my ($host, $user, $msg) = $log->match($l);
-    next unless $host;
-
-    # find target
-    my $target = $cfg->find_target($logid, $host);
-
-    if(!$target) {
-      $logger->warn(
-        "[cvs] No target found for match from '$host' in source '$logid'"
-      );
-      next;
-    }
-
-    # finish if --watchonly
-    next if $cmd->watchonly;
-
-    # start processing
-    process_host(
-      target => $target,
-      host => $host,
-      msg => $msg,
-      who => $user ? $user : 'unknown',
-      cmd => $cmd,
-    );
-
-  }
-}
+# run event loop
+$logger->debug('[cvs] Starting main loop');
+$ioloop->run;

@@ -40,16 +40,6 @@
 
     "keyring"   : "keyring.json",
 
-    #--- how often is the script checking the logfiles
-
-    "tailint"   : 4,
-
-    #--- how long will the script wait for output to arrive in a logfile;
-    #--- if this time expires, the logfile will be reopened and message is
-    #--- written into the log
-
-    "tailmax"   : 3600,
-
     #--- expect timeout; this defines how long will the expect scripts wait
     #--- for input
 
