@@ -21,6 +21,7 @@ use warnings;
 use experimental 'signatures';
 use IO::Async::Loop;
 use IO::Async::FileStream;
+use IO::Async::Signal;
 use Feature::Compat::Try;
 use Path::Tiny;
 use FindBin qw($Bin);
@@ -374,6 +375,20 @@ if($cmd->initonly) {
   $logger->info(qq{[cvs] Init completed, exiting});
   exit(0);
 }
+
+# signal handling
+$ioloop->add(IO::Async::Signal->new(
+  name => 'INT', on_receipt => sub {
+    $logger->info('[cvs] SIGINT received, terminating');
+    $ioloop->stop;
+  }
+));
+$ioloop->add(IO::Async::Signal->new(
+  name => 'TERM', on_receipt => sub {
+    $logger->info('[cvs] SIGTERM received, terminating');
+    $ioloop->stop;
+  }
+));
 
 # run event loop
 $logger->debug('[cvs] Starting main loop');
