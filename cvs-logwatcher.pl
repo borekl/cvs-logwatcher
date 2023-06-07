@@ -22,6 +22,7 @@ use experimental 'signatures';
 use IO::Async::Loop;
 use IO::Async::FileStream;
 use IO::Async::Signal;
+use IO::Async::Timer::Periodic;
 use Feature::Compat::Try;
 use Path::Tiny;
 use FindBin qw($Bin);
@@ -391,6 +392,14 @@ $ioloop->add(IO::Async::Signal->new(
     $ioloop->stop;
   }
 ));
+
+# heartbeat timer
+if($cmd->heartbeat) {
+  $ioloop->add(IO::Async::Timer::Periodic->new(
+    interval => $cmd->heartbeat,
+    on_tick => sub { $logger->info('[cvs] Heartbeat') }
+  )->start);
+}
 
 # run event loop
 $logger->debug('[cvs] Starting main loop');

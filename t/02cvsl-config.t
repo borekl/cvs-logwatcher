@@ -100,7 +100,7 @@ ok($cfg_example->is_file, 'Example configuration file exists');
     field 'alu' => object {
       prop blessed => 'CVSLogwatcher::Logfile';
       call id => 'alu';
-      call file => '/var/log/cpn_change.log';
+      call file => '/var/log/network/cpn/change.log';
       call matchre => T();
       end();
     };

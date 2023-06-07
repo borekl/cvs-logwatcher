@@ -24,6 +24,8 @@ is($cmd, object {
   call debug      => F();
   call devel      => F();
   call task       => U();
+  call onlyuser   => U();
+  call hearbeat   => U();
 }, 'Default values');
 
 # binary options work
@@ -48,7 +50,8 @@ $cmd = CVSLogwatcher::Cmdline->new(cmdline => join(' ',
   '--user=MyUserValue',
   '--msg=MyMsgValue',
   '--nocheckin=NoCheckInValue',
-  '--task=MyTaskValue'
+  '--task=MyTaskValue',
+  '--onlyuser=OnlyUser'
 ));
 is($cmd, object {
   call trigger   => 'mytriggervalue';
@@ -57,7 +60,14 @@ is($cmd, object {
   call msg       => 'MyMsgValue';
   call nocheckin => 'NoCheckInValue';
   call task      => 'MyTaskValue';
+  call onlyuser  => 'OnlyUser';
 }, 'String options');
+
+# --heartbeat
+$cmd = CVSLogwatcher::Cmdline->new(cmdline => '--heartbeat');
+is($cmd, object { call heartbeat => 300; }, '--heartbeat default' );
+$cmd = CVSLogwatcher::Cmdline->new(cmdline => '--heartbeat=123');
+is($cmd, object { call heartbeat => 123; }, '--heartbeat non-default' );
 
 # --devel enables --debug
 $cmd = CVSLogwatcher::Cmdline->new(cmdline => '--devel');

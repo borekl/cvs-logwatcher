@@ -361,6 +361,10 @@ log entries coming in.
 Process only changes done by specified user, everything else will be ignored.
 This is intended for troubleshooting.
 
+**`--heartbeat[=SECONDS]`**
+Enable heartbeat message logging. Default period is 300 seconds, different
+number can be specified. Disabled by default.
+
 **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.
 

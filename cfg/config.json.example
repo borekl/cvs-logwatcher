@@ -129,7 +129,7 @@
       "match" :    "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\\w+).*)\\s*$",
     },
     "alu" :   {
-      "filename" : "/var/log/cpn_change.log",
+      "filename" : "/var/log/network/cpn/change.log",
       "match" :    "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*cli_user_logout.* (?<msg>\\[(?<user>[\\w\\d]+)\\]:\\s+.*)\\s*$",
     },
     "juniper" : {
