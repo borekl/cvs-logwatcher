@@ -25,6 +25,7 @@ has initonly   =>  ( is => 'rwp' );
 has log        =>  ( is => 'rwp' );
 has watchonly  =>  ( is => 'rwp' );
 has task       =>  ( is => 'rwp' );
+has onlyuser   =>  ( is => 'rwp' );
 
 #-----------------------------------------------------------------------------
 # build function
@@ -44,6 +45,7 @@ sub BUILD ($self, $args)
     'log=s'       => sub { $self->_set_log($_[1]) },
     'watchonly'   => sub { $self->_set_watchonly($_[1]) },
     'task=s'      => sub { $self->_set_task($_[1]) },
+    'onlyuser=s'  => sub { $self->_set_onlyuser($_[1]) },
     'help|?'      => sub { $self->help; exit(0); }
   );
 
@@ -77,6 +79,7 @@ Usage: cvs-logwatcher.pl [options]
   --devel            development mode, implies --debug
   --initonly         init everything and exit
   --watchonly        only observe logfiles
+  --onlyuser=USER    only changes by specified user are processed
   --log=LOGID        only process this log
 
 EOHD

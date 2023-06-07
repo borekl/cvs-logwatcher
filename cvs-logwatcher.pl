@@ -347,6 +347,8 @@ $cfg->iterate_logfiles(sub ($log) {
         }
         # finish if --watchonly
         next if $cmd->watchonly;
+        # finish when --onlyuser specified and not matched
+        next if $cmd->onlyuser && $cmd->onlyuser ne $user;
         # start processing
         process_host(
           target => $target,

@@ -357,6 +357,10 @@ Observe logfiles, log or display all message, but do not act upon any triggers.
 This is most useful with `--devel` to verify that the program is seeing
 log entries coming in.
 
+**`--onlyuser=USER`**
+Process only changes done by specified user, everything else will be ignored.
+This is intended for troubleshooting.
+
 **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.
 
