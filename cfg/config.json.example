@@ -252,6 +252,7 @@
       "validrange" : [ "^# TiMOS", "^# Finished" ],
       "validate"   : [ "^# Finished" ],
       "ignoreline" : "^#",
+      "rcsfile"    : "uppercase",
       "expect" : {
         "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h",
         "sleep" : 1,

@@ -153,6 +153,10 @@ sub process_host (%arg)
         $file->set_filename($confname);
       }
 
+      # filename transform, user configurable filename transformation (currently
+      # only uppercasing or lowercasing)
+      $file->set_filename($target->mangle_hostname($file->file->basename));
+
       # compare to the last revision
       my $repo = CVSLogwatcher::File->new(
         file => $cfg->repodir->child($group, $file->file->basename . ',v'),

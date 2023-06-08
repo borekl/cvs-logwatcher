@@ -196,4 +196,16 @@ sub is_ignored ($self, $l)
   return undef;
 }
 
+#------------------------------------------------------------------------------
+# Method for configurable hostname transformations (currently only upper/
+# lowercasing)
+sub mangle_hostname ($self, $hostname)
+{
+  if($self->config->{rcsfile}) {
+    return uc($hostname) if $self->config->{rcsfile} eq 'uppercase';
+    return lc($hostname) if $self->config->{rcsfile} eq 'lowercase';
+  }
+  return $hostname;
+}
+
 1;
