@@ -327,6 +327,7 @@ $cfg->iterate_logfiles(sub ($log) {
   my $fs = IO::Async::FileStream->new(
 
     read_handle => $logh,
+    filename => $log->file,
 
     on_initial => sub {
       my ($self) = @_;
