@@ -354,7 +354,10 @@ $cfg->iterate_logfiles(sub ($log) {
         # finish if --watchonly
         next if $cmd->watchonly;
         # finish when --onlyuser specified and not matched
-        next if $cmd->onlyuser && $cmd->onlyuser ne $user;
+        if($cmd->onlyuser && $cmd->onlyuser ne $user) {
+          $logger->info("[cvs/$logid] Skipping user $user\@$host (--onlyuser)");
+          next;
+        }
         # start processing
         process_host(
           target => $target,
