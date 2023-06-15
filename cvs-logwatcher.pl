@@ -385,18 +385,14 @@ if($cmd->initonly) {
 }
 
 # signal handling
-$ioloop->add(IO::Async::Signal->new(
-  name => 'INT', on_receipt => sub {
-    $logger->info('[cvs] SIGINT received, terminating');
-    $ioloop->stop;
-  }
-));
-$ioloop->add(IO::Async::Signal->new(
-  name => 'TERM', on_receipt => sub {
-    $logger->info('[cvs] SIGTERM received, terminating');
-    $ioloop->stop;
-  }
-));
+foreach my $sig (qw(INT TERM)) {
+  $ioloop->add(IO::Async::Signal->new(
+    name => $sig, on_receipt => sub {
+      $logger->info("[cvs] SIG$sig received, terminating");
+      $ioloop->stop;
+    }
+  ));
+}
 
 # heartbeat timer
 if($cmd->heartbeat) {
