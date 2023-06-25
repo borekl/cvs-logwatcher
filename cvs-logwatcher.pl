@@ -14,7 +14,6 @@ use strict;
 use warnings;
 use experimental 'signatures';
 use IO::Async::Loop;
-use IO::Async::FileStream;
 use IO::Async::Signal;
 use IO::Async::Timer::Periodic;
 use Feature::Compat::Try;
@@ -130,64 +129,8 @@ $cfg->iterate_logfiles(sub ($log) {
     return;
   }
 
-  # open logfile for reading
-  open my $logh,  '<', $log->file or die "Cannot open logfile '$logid' ($!)";
-
-  # create new FileStream instance, attach handler code
-  my $fs = IO::Async::FileStream->new(
-
-    read_handle => $logh,
-    filename => $log->file,
-
-    on_initial => sub {
-      my ($self) = @_;
-      $self->seek_to_last( "\n" );
-    },
-
-    on_read => sub {
-      my ($self, $buffref) = @_;
-      while( $$buffref =~ s/^(.*\n)// ) {
-        my $l = $1;
-        # if --watchonly is active, display the line
-        $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
-        # match line
-        my ($host, $user, $msg) = $log->match($l);
-        next unless $host;
-        # find target
-        my $target = $cfg->find_target($logid, $host);
-        if(!$target) {
-          $logger->warn(
-            "[cvs] No target found for match from '$host' in source '$logid'"
-          );
-          next;
-        }
-        # finish if --watchonly
-        next if $cmd->watchonly;
-        # finish when --onlyuser specified and not matched
-        if($cmd->onlyuser && $cmd->onlyuser ne $user) {
-          $logger->info("[cvs/$logid] Skipping user $user\@$host (--onlyuser)");
-          next;
-        }
-        # start processing
-        CVSLogwatcher::Host->new(
-          target => $target,
-          name => $host,
-          msg => $msg,
-          who => $user ? $user : 'unknown',
-          cmd => $cmd,
-        )->process;
-      }
-      return 0;
-    }
-
-  );
-
-  # register FileStream with the main event loop
-  $ioloop->add($fs);
-  $logger->info(
-    sprintf('[cvs] Started observing %s (%s)', $log->file, $logid)
-  );
-
+  # start watching
+  $log->watch($ioloop, $cmd);
 });
 
 # if user specifies --initonly, do not enter the main loop, this is for testing
