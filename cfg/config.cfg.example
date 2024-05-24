@@ -1,0 +1,286 @@
+#=============================================================================
+# cvs-logwatcher.pl configuration file
+# """""""""""""""""
+# note: This file is a perl script, so the perl syntax applies.
+#
+# This file configures the configuration of the cvs-logwatcher.pl script. The
+# configuration is deep and involved. Please read carefully the information
+# in the comments before making changes, also see README for detailed
+# description.
+#
+# In certain strings, following tokens can be used:
+#
+# %D - temporary directory
+# %h - device hostname as gleaned given in the monitored logfile
+# %H - same as %h but without domain
+# %P - prompt, this can be set within a chat script and used to match system
+#      prompt
+#=============================================================================
+
+{
+
+#=============================================================================
+# CONFIG section
+#=============================================================================
+
+  config => {
+
+    # path to logfiles, no trailing slash, better be absolute
+    logprefix => '/var/log',
+
+    # temporary directory for receiving files from devices (other than over
+    # TFTP); if this is not specified, current directory is used
+    tempdir => 'temp',
+
+    # defines external file that may be used to define passwords; this allows to
+    # separate the secrets away from this configuration file
+    keyring => 'keyring.cfg',
+
+    # expect timeout; this defines how long will the expect scripts wait for
+    # input
+    expmax => 120,
+
+  },
+
+#=============================================================================
+# RCS section
+#=============================================================================
+
+  rcs => {
+
+    # subdirectory of the scripts main directory where the RCS repository will
+    # be located
+    rcsrepo => 'data',
+
+    # location of RCS binaries
+    rcsctl => '/usr/bin/rcs',
+    rcsci => '/usr/bin/ci',
+    rcsco => '/usr/bin/co',
+
+  },
+
+#=============================================================================
+# PING section
+#=============================================================================
+
+  # define the ping command used to ascertain that target is alive
+
+  ping => 'ping -c 1 -W 2 %h >/dev/null 2>&1',
+
+#=============================================================================
+# GROUPS section
+#
+# This assigns hosts (ie. network devices we are getting the configs off) into
+# groups. These groups are stored separately in the RCS repository, so that,
+# for example, different teams may have different directories etc. The
+# assignments are done by matching a set of regular expressions that are
+# defined in this section.
+#=============================================================================
+
+  groups => {
+    nsu => [
+      qr/^(bsc|rnc|bud|sitR|sitS|gtsR|bce|sitnb|strnb).+$/,
+      qr/^rcnR0[45]m$/
+    ],
+    infserv => [
+      qr/^(vinPE02|sitPE0[23].*|A[123456]|CA|DCN|.*INFSERV.*)$/
+    ]
+  },
+
+#=============================================================================
+# IGNORE USERS section
+#
+# This defines a list of usernames who won't trigger action by cvs-logwatcher
+# when they make config change; this is useful for other system tools that
+# might trigger unwanted repository check-ins.
+#=============================================================================
+
+  ignoreusers => [ 'cvs', 'alu-stats', 'account_stat' ],
+
+#=============================================================================
+# IGNORE HOSTS section
+#
+# This defines a list of regex matches of hostnames (as received from logfile)
+# that cause processing to abort.
+#=============================================================================
+
+  ignorehosts => [],
+
+#=============================================================================
+# LOGFILES section
+#
+# This defines logfiles that will be opened and watched. The match regex must
+# provide 'host' named capture group; 'user' and 'msg' are optional and will
+# be used when available.
+#=============================================================================
+
+  logfiles => {
+    cisco => {
+      filename => '/var/log/cisco/cisco.log',
+      match => qr/^.*\s+\d+\s+[0-9:]+\s+(?<host>[-\w\d.]+)\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$/,
+    },
+    alu => {
+      filename => '/var/log/network/cpn/change_new.log',
+      match => qr/^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+(?<host>[-\w\d.]+)\s+-\s-\s-\s-\s\d+\s\S+\sUSER-MINOR-cli_user_logout-\d+\s(?<msg>\[(?<user>[\w\d]+)\]:\s+.*)\s*$/
+    },
+    juniper => {
+      filename => '/var/log/network/fw.log',
+      match => qr/^.*\s+\d+\s+[0-9:]+\s+(?<host>[-\w\d.]+)\s+.*(?<msg>UI_COMMIT_PROGRESS: Commit operation in progress: commit complete)\s*$/,
+    },
+  },
+
+#=============================================================================
+# TARGETS section
+#
+# This is the most complex and most involved section. Each item under "targets"
+# defines one target and its handling. Note, that "cisco" target has some
+# special options and handling hardcoded for it (this should be regularized).
+# Apart from this, the keys can be named freely. Please see README for detailed
+# description.
+#=============================================================================
+
+  targets => [
+
+    # definition for Cisco IOS/NX-OS/IOS XR over SSH; some Nexus switches seem
+    # to print additional CR before the prompt, so we match that by '\s?' regex.
+    {
+      id         => 'cisco-ssh',
+      defgrp     => 'netit',
+      logfile    => 'cisco',
+      # hostmatch => [
+      #   { excludelist => [ 'nars00c' ] },
+      # ],
+      validrange => [ qr/^(!|version )/, qr/^end\s*$/ ],
+      filter => [
+        qr/^Connection to \S+ closed/,
+        qr/# exit\s*$/,
+        qr/^\w+#\s*$/
+      ],
+      validate => [ qr/^end\s*$/ ],
+      ignoreline => qr/^(!|ntp clock-period)/,
+      hostname => qr/^(?:hostname|switchname)\s([-a-zA-Z0-9]+)/,
+      options => [ 'normeol' ],
+      expect => {
+        spawn => '/usr/bin/ssh -T -o KexAlgorithms=diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h',
+        'sleep' => 1,
+        deftask => 'config',
+        chats => {
+          login => [
+            [ '(Password|PASSWORD|password):', "%3\r" ],
+            [ '^\s?(\S*)#', "term len 0\r", undef, '%+0' ],
+          ],
+          getconfig => [
+            [ '^\s?%P#', "sh run\r", '%D/%H' ],
+            [ '^\s?%P#', "sh run\r", '-' ],
+          ],
+          getconfigall => [
+            [ '^\s?%P#', "sh run all\r", '%D/%H.all' ],
+            [ '^\s?%P#', "sh run\r", '-' ],
+          ],
+          logout => [
+            [ '^\s?%P#', "exit\r" ],
+          ],
+        },
+        tasks => {
+          test => { seq => [ 'test' ] },
+          config => {
+            seq => [ 'login', 'getconfig', 'logout' ]
+          },
+        },
+      }
+    },
+
+    # Nokia 7750SR, uses static user 'cvs' that needs privilege to issue the
+    # commands used in the chat script ("environment more", "admin
+    # display-config")
+
+    {
+      id => 'alu',
+      defgrp => 'nsu',
+      logfile => 'alu',
+      validrange => [ qr/^# TiMOS/, qr/^# Finished/ ],
+      validate => [ qr/^# Finished/ ],
+      ignoreline => qr/^#/,
+      rcsfile => 'uppercase',
+      expect => {
+        spawn => '/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h',
+        sleep => 1,
+        deftask => 'config',
+        chats => {
+          login => [
+            [ 'password:', "%4\r" ],
+            [ '^(\S*)#', "environment no more\r", undef, '%+0' ],
+          ],
+          getconfig => [
+            [ '%P#', "admin display-config\r", '%D/%H' ],
+            [ '%P#', "\r", '-' ],
+          ],
+          getconfigall => [
+            [ '%P#', "admin display-config detail\r", '%D/%H.all' ],
+            [ '%P#', "\r", '-' ],
+          ],
+          logout => [
+            [ '%P#', "logout\r" ]
+          ]
+        },
+        tasks => {
+          config => {
+            seq => [ 'login', 'getconfig', 'logout' ]
+          },
+          configall => {
+            seq => [ 'login', 'getconfigall', 'logout' ]
+          },
+        },
+      }
+    },
+
+    # definition for a Juniper device; the configuration is retrieved by issuing
+    # "show configuration" command and then recording the session; note the
+    # third field added to the expect/send pairs: it is a file where the session
+    # is to be recorded
+
+    {
+      id => 'juniper',
+      defgrp => 'secit',
+      logfile => 'juniper',
+      validrange => [ qr/^set version/, undef ],
+      ignoreline => qr/^#/,
+      options => [ 'normeol' ],
+      expect => {
+        spawn => '/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l tufin %h',
+        sleep => 1,
+        chats => {
+          login => [
+            [ '[Pp]assword:', "%5\r" ],
+          ],
+          getconfig => [
+            [ '^tufin@.*> $', "show configuration | display set | no-more\r", '%D/%H' ],
+            [ '^tufin@.*> $', "\r", '-' ],
+          ],
+          logout => [
+            [ '^tufin@.*> $', "exit\r" ]
+          ],
+        },
+        tasks => {
+          config => [ 'login', 'getconfig', 'logout' ],
+        }
+      }
+    },
+
+  ],
+
+#=============================================================================
+# DEVICE GROUPS section
+#
+# These groups allow manual polling of a group of hosts using the
+# --host=@group command-line option.
+#=============================================================================
+
+  devgroups => {
+    nxosswitches => [
+      'strs38', 'strs39', 'strs90', 'strs91', 'rcns17', 'rcns18', 'rcns19',
+      'rcns20'
+    ]
+  }
+
+}

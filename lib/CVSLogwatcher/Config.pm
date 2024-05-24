@@ -10,7 +10,7 @@ use warnings;
 use strict;
 use v5.10;
 use experimental 'signatures', 'postderef';
-use JSON;
+use Carp;
 use Path::Tiny;
 use Log::Log4perl qw(get_logger);
 
@@ -62,12 +62,24 @@ has repl => ( is => 'lazy' );
 # Log4Perl logger instance
 has logger => ( is => 'lazy' );
 
+#-------------------------------------------------------------------------------
+# run a perl script and return is return value while handling errors
+sub _do_script ($file)
+{
+  my $result = do(path($file)->absolute);
+  unless ($result) {
+    croak "couldn't parse $file: $@" if $@;
+    croak "couldn't do $file: $!"    unless defined $result;
+    croak "couldn't run $file"       unless $result;
+  }
+  return $result;
+}
+
 #------------------------------------------------------------------------------
 # load and parse configuration
 sub _build_config ($self)
 {
-  my $file = $self->config_file;
-  return JSON->new->relaxed(1)->decode(path($file)->slurp);
+  return _do_script($self->config_file);
 }
 
 #------------------------------------------------------------------------------
@@ -75,12 +87,12 @@ sub _build_config ($self)
 sub _build_keyring ($self)
 {
   my $cfg = $self->config;
-  my $krg_file = $cfg->{config}{keyring} // undef;
+  my $file = $cfg->{config}{keyring} // undef;
 
-  if($krg_file) {
-    $krg_file = $self->_config_dir->child($krg_file);
-    die "Cannot find or access keyring file $krg_file" unless -r $krg_file;
-    return JSON->new->relaxed(1)->decode(path($krg_file)->slurp);
+  if($file) {
+    $file = $self->_config_dir->child($file);
+    die "Cannot find or access keyring file $file" unless -r $file;
+    return _do_script($file);
   }
 
   return {};

@@ -31,7 +31,7 @@ my $cmd = CVSLogwatcher::Cmdline->new;
 # read configuration
 my $cfg = CVSLogwatcher::Config->instance(
   basedir => path("$Bin"),
-  config_file => "$Bin/cfg/config.json"
+  config_file => "$Bin/cfg/config.cfg"
 );
 
 # logging setup according to command-line

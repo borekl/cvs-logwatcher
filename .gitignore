@@ -2,6 +2,7 @@
 .cvs_*
 data/
 cfg/*.json
+cfg/*.cfg
 cfg/*.conf
 *.log
 t.pl
