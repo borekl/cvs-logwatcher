@@ -120,7 +120,7 @@
       match => qr/^.*\s+\d+\s+[0-9:]+\s+(?<host>[-\w\d.]+)\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$/,
     },
     alu => {
-      filename => '/var/log/network/cpn/change_new.log',
+      filename => '/var/log/network/cpn/change.log',
       match => qr/^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+(?<host>[-\w\d.]+)\s+-\s-\s-\s-\s\d+\s\S+\sUSER-MINOR-cli_user_logout-\d+\s(?<msg>\[(?<user>[\w\d]+)\]:\s+.*)\s*$/
     },
     juniper => {

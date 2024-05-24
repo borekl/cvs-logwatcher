@@ -5,7 +5,7 @@
 # """""""""""""""
 # Script to pull configuration log out of a network device after detecting
 # change by observing the device's logfile. The details of operation are
-# configured in cfg/config.json file.
+# configured in cfg/config.cfg file.
 #
 # See README.md for more details.
 #=============================================================================

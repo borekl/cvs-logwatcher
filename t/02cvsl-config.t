@@ -10,11 +10,11 @@ use CVSLogwatcher::Config;
 
 # temporary configuration file
 my $tempdir = Path::Tiny->tempdir;
-my $config_file = $tempdir->child('config.json');
+my $config_file = $tempdir->child('config.cfg');
 $config_file->spew_utf8('{}');
 
 # configuration example
-my $cfg_example = cwd->child('cfg/config.json.example');
+my $cfg_example = cwd->child('cfg/config.cfg.example');
 ok($cfg_example->is_file, 'Example configuration file exists');
 
 {
@@ -24,7 +24,7 @@ ok($cfg_example->is_file, 'Example configuration file exists');
   ), 'CVSLogwatcher::Config');
 
   # tempdir non-existent dir
-  $config_file->spew_utf8(qq[{ "config":{"tempdir": "${tempdir}_$$" }}]);
+  $config_file->spew_utf8(qq[{ config => { tempdir => "${tempdir}_$$" }}]);
   $cfg = CVSLogwatcher::Config->new(
     basedir => $tempdir,
     config_file => $config_file
@@ -38,7 +38,7 @@ ok($cfg_example->is_file, 'Example configuration file exists');
 
 {
   # tempdir existing dir
-  $config_file->spew_utf8(qq[{ "config":{"tempdir": "$tempdir" }}]);
+  $config_file->spew_utf8(qq[{ config => { tempdir => "$tempdir" }}]);
   my $cfg = CVSLogwatcher::Config->new(
     basedir => $tempdir, config_file => $config_file
   );
