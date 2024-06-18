@@ -52,7 +52,7 @@ $logger->debug(qq{[cvs] Repository directory is }, $cfg->repodir);
 if($cmd->trigger) {
   if(!exists $cfg->logfiles->{$cmd->trigger}) {
     $logger->fatal(
-      '[cvs] Option --trigger refers to non-existent logfile id, aborting'
+      '[cvs] Option --trigger refers to non-existent match id, aborting'
     );
     exit(1);
   }
@@ -66,11 +66,11 @@ if($cmd->trigger) {
 #--- manual check --------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-# manual run can be executed from the command line by using the --trigger=LOGID
-# option. This might be used for creating the initial commit or for devices that
-# cannot be triggered using logfiles. When using this mode --host=HOST must be
-# used to tell which device(s) to check; --user and --msg should be used to
-# specify commit author and message.
+# manual run can be executed from the command line by using the
+# --trigger=MATCHID option. This might be used for creating the initial commit
+# or for devices that cannot be triggered using logfiles. When using this mode
+# --host=HOST must be used to tell which device(s) to check; --user and --msg
+# should be used to specify commit author and message.
 
 if($cmd->trigger && !$cmd->initonly) {
 
@@ -122,16 +122,19 @@ if($cmd->trigger && !$cmd->initonly) {
 # logfile configuration
 
 if($cmd->match) {
-  $cfg->iterate_logfiles(sub ($l) {
+  $cfg->iterate_matches(sub ($l, $match_id) {
     return if $cmd->log && $cmd->log ne $l->id;
-    my @result = $l->match($cmd->match);
+    my @result = $l->match($cmd->match, $match_id);
     if(@result) {
-      printf("--- MATCH (logid=%s) ---\n", $l->id);
+      my $target = $cfg->find_target($match_id, $result[0]);
+      my $tid = $target->id // 'n/a';
+      printf("--- MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
       printf("host:     %s\n", $result[0]);
       printf("user:     %s\n", $result[1]);
       printf("message:  %s\n", $result[2]);
+      printf("target:   %s\n", $tid);
     } else {
-      printf("--- NO MATCH (logid=%s) ---\n", $l->id);
+      printf("--- NO MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
     }
   });
   $logger->info('[cvs] Finishing');
@@ -145,8 +148,8 @@ if($cmd->match) {
 # create event loop
 my $ioloop = IO::Async::Loop->new;
 
-# iterate configured files
-$cfg->iterate_logfiles(sub ($log) {
+# iterate configured files and their matches
+$cfg->iterate_matches(sub ($log, $matchid) {
   my $logid = $log->id;
 
   # check if we are suppressing this logfile

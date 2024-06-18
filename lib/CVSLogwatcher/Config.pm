@@ -239,15 +239,17 @@ sub is_ignored_host ($self, $h)
 }
 
 #------------------------------------------------------------------------------
-sub iterate_logfiles ($self, $cb)
+sub iterate_matches ($self, $cb)
 {
-  foreach my $log (keys $self->logfiles->%*) {
-    $cb->($self->logfiles->{$log});
+  foreach my $logid (sort keys $self->logfiles->%*) {
+    foreach my $matchid (sort keys $self->logfiles->{$logid}->matchre->%*) {
+      $cb->($self->logfiles->{$logid}, $matchid);
+    }
   }
 }
 
 #------------------------------------------------------------------------------
-sub find_target ($self, $logid, $host)
+sub find_target ($self, $matchid, $host)
 {
   my $cfg = $self->config;
 
@@ -257,8 +259,8 @@ sub find_target ($self, $logid, $host)
   foreach my $target ($self->targets->@*) {
     # "logfile" condition
     next if
-      exists $target->config->{'logfile'}
-      && $target->config->{'logfile'} ne $logid;
+      exists $target->config->{'matchid'}
+      && $target->config->{'matchid'} ne $matchid;
     # "hostmatch" condition
     next if $host && !$target->match_hostname($host);
     # no mismatch, target found

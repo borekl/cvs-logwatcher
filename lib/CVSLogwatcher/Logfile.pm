@@ -15,9 +15,9 @@ has id => ( is => 'ro', required => 1 );
 has file => ( is => 'ro', required => 1 );
 has matchre => ( is => 'ro', required => 1 );
 
-sub match ($self, $l)
+sub match ($self, $l, $matchid)
 {
-  my $re = $self->matchre;
+  my $re = $self->matchre->{$matchid};
   if($l =~ /$re/) {
     return ($+{host}, $+{user}, $+{msg});
   } else {
@@ -50,34 +50,44 @@ sub watch ($self, $loop, $cmd)
       my ($self2, $buffref) = @_;
       while( $$buffref =~ s/^(.*\n)// ) {
         my $l = $1;
+
         # if --watchonly is active, display the line
         $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
-        # match line
-        my ($host, $user, $msg) = $self->match($l);
-        next unless $host;
-        # find target
-        my $target = $cfg->find_target($logid, $host);
-        if(!$target) {
-          $logger->warn(
-            "[cvs] No target found for match from '$host' in source '$logid'"
-          );
-          next;
+
+        # iterate over possible matches
+        for my $match_id (keys $self->matchre->%*) {
+
+          # match line
+          my ($host, $user, $msg) = $self->match($l, $match_id);
+          next unless $host;
+
+          # find target
+          my $target = $cfg->find_target($match_id, $host);
+          if(!$target) {
+            $logger->warn(
+              "[cvs] No target found for match from '$host' in source '$logid/$match_id'"
+            );
+            next;
+          }
+
+          # finish if --watchonly
+          next if $cmd->watchonly;
+
+          # finish when --onlyuser specified and not matched
+          if($cmd->onlyuser && $cmd->onlyuser ne $user) {
+            $logger->info("[cvs/$logid] Skipping user $user\@$host (--onlyuser)");
+            next;
+          }
+
+          # start processing
+          CVSLogwatcher::Host->new(
+            target => $target,
+            name => $host,
+            msg => $msg,
+            who => $user ? $user : 'unknown',
+            cmd => $cmd,
+          )->process;
         }
-        # finish if --watchonly
-        next if $cmd->watchonly;
-        # finish when --onlyuser specified and not matched
-        if($cmd->onlyuser && $cmd->onlyuser ne $user) {
-          $logger->info("[cvs/$logid] Skipping user $user\@$host (--onlyuser)");
-          next;
-        }
-        # start processing
-        CVSLogwatcher::Host->new(
-          target => $target,
-          name => $host,
-          msg => $msg,
-          who => $user ? $user : 'unknown',
-          cmd => $cmd,
-        )->process;
       }
       return 0;
     }

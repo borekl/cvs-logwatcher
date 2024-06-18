@@ -72,7 +72,7 @@ sub help
 Usage: cvs-logwatcher.pl [options]
 
   --help             get this information text
-  --trigger=LOGID    trigger processing as if LOGID matched
+  --trigger=MATCHID  trigger processing as if MATCHID matched
   --host=HOST        define host for --trigger or limit processing to it
   --user=USER        define user for --trigger
   --msg=MSG          define message for --trigger

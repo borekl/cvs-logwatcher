@@ -139,26 +139,51 @@ is an array that lists regexes; if a match is found, the host is ignored and wil
 
 #### Logfiles configuration
 
-This section lists logfiles that the program will observe for configuration
-events. When the defined regex matches, the "Targets" list will be searched
-for a match based on the log id and hostname. The first match is used and
-terminates further search. Here is example for Cisco devices (IOS, NXOS):
+This section defines logfiles that the program will observer for configuration
+events. Each log has a user defined LOGID, which can be referenced by some
+of the command-line options. The general format is as follows:
 
-    "logfiles" : {
-      "cisco" : {
-        "filename" : "/var/log/cisco/cisco.log",
-        "match" :    "^.*\\s+\\d+\\s+[0-9:]+\\s+(?<host>[\\w\\d.]+)\\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\\w+).*)\\s*$",
+    logfiles => {
+      LOGID1 => { log configuration ... },
+      LOGID2 => { log configuration ... },
+      ...
+    }
+
+Each log is configured with a hash that contains two keys `filename` and `match`.
+The `filename` should be fairly self-explanatory and defines the log to open
+and observe as either absolute or relative pathname. If it is relative,
+`config.logprefix` is prepended to it. The `match` key defines one or more
+regular expressions which the program matches against every new line received
+from the log. Each regex has its own MATCHID, which again is used to reference
+it later. The general format is as follows:
+
+    LOGID => {
+      filename => '/var/log/somefile.log',
+      match => {
+        MATCHID1 => 'regex1',
+        MATCHID2 => 'regex2',
+        ...
       }
     }
 
-**`filename`**
-is either absolute or relative pathname; if it is relative, `config.logprefix` is prepended to it.
+The regular expression must define at least named capture group `host`.
+Capture groups `user` and `msg` are optional.
 
-**`match`**
-specifies regular expression that when matched in
-the logfile will trigger further processing. The regex *must* contain named
-capture group `host` that matches source hostname; capture groups
-`user` and `msg` are optional, but desirable.
+After a match, the matched log line is thus associated with LOGID, MATCHID
+and a host. These values are used to select a _target_, which defines
+the action that should be performed.
+
+Example log configuration for a CISCO IOS network device with only one
+MATCHID:
+
+    logfiles => {
+      cisco => {
+        filename => '/var/log/cisco/cisco.log',
+        match => {
+           cisco => '^.*\s+\d+\s+[0-9:]+\s+(?<host>[\w\d.]+)\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$',
+        }
+      }
+    }
 
 #### Targets configuration
 
