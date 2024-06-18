@@ -9,6 +9,7 @@ use warnings;
 use strict;
 use experimental 'signatures';
 
+use Path::Tiny qw(path);
 use Feature::Compat::Try;
 use CVSLogwatcher::File;
 use CVSLogwatcher::Misc;
