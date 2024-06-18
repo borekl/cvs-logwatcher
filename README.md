@@ -123,10 +123,10 @@ defines device groups, that are used to store their config in separate
 subdirectories in the main repository directory. The key is a hash of group
 names that in turn are arrays of regexes used match hostnames. For example:
 
-    "groups" : {
-       "routers" : [ "^router", "^bsc", "^cisco" ],
-       "dcswitches" : [ "^dc.*s$", "^sw" ],
-       "lanswitches" : [ "^lan" ],
+    groups => {
+       routers => [ '^router', '^bsc', '^cisco' ],
+       dcswitches => [ '^dc.*s$', '^sw' ],
+       lanswitches => [ '^lan' ],
     }
 
 #### Ignored users and hosts configuration
@@ -234,8 +234,8 @@ This rule will match anything but the two devices in the list.
 You can combine the two filters into one rule -- both must match at the same time. That means, that in above example router00 and router01 will not be matched by this (the results of the two matches are AND'ed together, so router01 will pass the `includelist`, but not the `excludelist`. The switch01 will be matched just fine, however.
 
     {
-      "includere" : [ "^router-" ],
-      "excludere" : [ "^router-wy-", "^router-ak-" ],
+      includere => [ '^router-' ],
+      excludere => [ '^router-wy-', '^router-ak-' ],
     }
 
 Matching by regular expressions is also available and has the same semantics as the `lst` matches. Above example will match all devices that start with "router-" except those that start with "router-wy-" and "router-ak-".
