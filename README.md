@@ -181,29 +181,29 @@ Default device group, this can be overriden through the device group
 configuration mentioned above. Groups are used to separate the configs into
 directories.
 
-**`logfile`**
-Defines log id as defined in the `logfiles` section. This key is *required* and it is used for matching logfile matches to targets.
-Multiple targets can use the same logfile.
+**`matchid`**
+Defines MATCHID as defined in the `logfiles` section. This key is *required* and it is used for matching logfile matches to targets.
+Multiple targets can use the same MATCHID.
 
 **`hostmatch`**
 Optional. Enables additional matching by device's hostname (in addition to matching by `logfile`!). Hostmatch is a
 list of rules, where every rule can have one to four matching conditions: `includelist` and `excludelist` exactly (but case-insensitively) match lists of hostnames. `includere` and `excludere` match hostnames by one or more regular expressions. For example:
 
     {
-      "includelist" : [ "router01", "router02", "switch01" ]
+      includelist => [ 'router01', 'router02', 'switch01' ]
     }
 
 This will simply match the three devices in the list.
 
     {
-      "excludelist" : [ "router01", "router02" ],
+      excludelist => [ 'router01', 'router02' ],
     }
 
 This rule will match anything but the two devices in the list.
 
     {
-      "includelist" : [ "router01", "router02", "switch01" ],
-      "excludelist" : [ "router01", "router02" ],
+      includelist => [ 'router01', 'router02', 'switch01' ],
+      excludelist => [ 'router01', 'router02' ],
     }
 
 You can combine the two filters into one rule -- both must match at the same time. That means, that in above example router00 and router01 will not be matched by this (the results of the two matches are AND'ed together, so router01 will pass the `includelist`, but not the `excludelist`. The switch01 will be matched just fine, however.
@@ -216,10 +216,10 @@ You can combine the two filters into one rule -- both must match at the same tim
 Matching by regular expressions is also available and has the same semantics as the `lst` matches. Above example will match all devices that start with "router-" except those that start with "router-wy-" and "router-ak-".
 
     {
-      "excludere" : [ "^sw-(london|paris)" ],
+      excludere => [ '^sw-(london|paris)' ],
     },
     {
-      "includelst" : [ "sw-london-01", "sw-paris-01" ],
+      includelst => [ 'sw-london-01', 'sw-paris-01' ],
     }
 
 Multiple rules can be specified in a `hostmatch` (make it a "ruleset"), though this is probably not very useful. At any rate, ruleset is considered a match when at least one rule is a match. In above example any device that doesn't start with "sw-london" or "sw-paris" is matched, but "sw-london-01" and 'sw-london-01" are exempt from this exclusion and are matched anyway.
@@ -237,7 +237,7 @@ This specifies exactly two regular expressions that define the first and last li
 
 For example, this works for Cisco IOS:
 
-    "validrange" : [ "^(!|version )", "^end\\s*$" ],
+    validrange => [ '^(!|version )', '^end\\s*$' ],
 
 **`filter`**
 List of regular expressions, all matching lines are discarded from the configuration. This is complements the `validrange` option.
@@ -252,34 +252,34 @@ they appear in syslog (usually taken from DNS). The regex must have single
 capturing group that is taken as containing the hostname. Cisco devices
 example:
 
-    "hostname"   : "^(?:hostname|switchname)\\s([-a-zA-Z0-9]+)",
+    hostname => '^(?:hostname|switchname)\\s([-a-zA-Z0-9]+)',
 
 **`expect.spawn`**
 Command to be executed to initiate a session with the device. Example for SSH with disabled host key checking, the %h token is replaced with hostname as it
 is seen in the log (which means it must be something that SSH can connect to):
 
-    "spawn" : "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h"
+    spawn => '/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h'
 
 **`expect.sleep`**
 Number of seconds to pause between individual commands for the device.
 
 **`expect.chats`**
 
-    "chats": {
-      "login": [
-        [ "(Password|PASSWORD|password):", "%3\r" ],
-        [ "^\\s?(\\S*)#", "term len 0\r", null, "%+0" ],
+    chats => {
+      login: [
+        [ '(Password|PASSWORD|password):', '%3\r' ],
+        [ '^\\s?(\\S*)#', 'term len 0\r', null, '%+0' ],
       ],
-      "getconfig": [
-        [ "^\\s?%P#", "sh run\r", "%D/%H" ],
-        [ "^\\s?%P#", "sh run\r", "-" ],
+      getconfig => [
+        [ '^\\s?%P#', 'sh run\r', '%D/%H' ],
+        [ '^\\s?%P#', 'sh run\r', '-' ],
       ],
-      "getconfigall": [
-        [ "^\\s?%P#", "sh run all\r", "%D/%H.all" ],
-        [ "^\\s?%P#", "sh run\r", "-" ],
+      getconfigall => [
+        [ '^\\s?%P#', 'sh run all\r', '%D/%H.all' ],
+        [ '^\\s?%P#', 'sh run\r', '-' ],
       ],
-      "logout": [
-        [ "^\\s?%P#", "exit\r" ],
+      logout => [
+        [ '^\\s?%P#', 'exit\r' ],
       ],
     },
 
@@ -312,12 +312,12 @@ Further entries then use "^\\s?%P#" to match the real full prompt of the device.
 **`tasks`**
 Tasks are groups of conversation fragments defined it `chats` section. For example:
 
-    "tasks" : {
-      "config": {
-        "seq": [ "login", "getconfig", "logout" ]
+    tasks => {
+      config => {
+        seq => [ 'login', 'getconfig', 'logout' ]
       },
-      "configall" : {
-        "seq": [ "login", "getconfigall", "logout" ]
+      configall => {
+        seq => [ 'login', 'getconfigall', 'logout' ]
       }
     }
 
@@ -326,8 +326,8 @@ Tasks are groups of conversation fragments defined it `chats` section. For examp
 **`--help`**
 Display command-line options summary.
 
-**`--trigger=LOGID`**
-Manually trigger event with source LOGID as defined in the `logfiles` configuration section. You must provide at least the source hostname using the `--host` option.
+**`--trigger=MATCHID`**
+Manually trigger event with MATCHID as defined in the `logfiles` configuration section. You must provide at least the source hostname using the `--host` option.
 
 **`--host=HOST`**
 Provides source hostname of a manually triggered event.
