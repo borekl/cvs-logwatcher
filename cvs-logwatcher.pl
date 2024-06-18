@@ -113,6 +113,32 @@ if($cmd->trigger && !$cmd->initonly) {
 }
 
 #-------------------------------------------------------------------------------
+#--- match check ---------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+# for debugging purposes it is possible to give the program a string to try
+# to match against configured regular expression and it will return the match
+# result; optionally, --log can be defined to constrain matching only to one
+# logfile configuration
+
+if($cmd->match) {
+  $cfg->iterate_logfiles(sub ($l) {
+    return if $cmd->log && $cmd->log ne $l->id;
+    my @result = $l->match($cmd->match);
+    if(@result) {
+      printf("--- MATCH (logid=%s) ---\n", $l->id);
+      printf("host:     %s\n", $result[0]);
+      printf("user:     %s\n", $result[1]);
+      printf("message:  %s\n", $result[2]);
+    } else {
+      printf("--- NO MATCH (logid=%s) ---\n", $l->id);
+    }
+  });
+  $logger->info('[cvs] Finishing');
+  exit(0);
+}
+
+#-------------------------------------------------------------------------------
 #--- logfiles handling ---------------------------------------------------------
 #-------------------------------------------------------------------------------
 

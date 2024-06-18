@@ -18,8 +18,11 @@ has matchre => ( is => 'ro', required => 1 );
 sub match ($self, $l)
 {
   my $re = $self->matchre;
-  $l =~ /$re/;
-  return ($+{host}, $+{user}, $+{msg});
+  if($l =~ /$re/) {
+    return ($+{host}, $+{user}, $+{msg});
+  } else {
+    return ();
+  }
 }
 
 # attach a logfile watcher to an IO::Async event loop (supplied in the argument)
