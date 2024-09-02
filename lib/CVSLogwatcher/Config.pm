@@ -157,7 +157,12 @@ sub _build_logfiles ($self)
     # handle relative filenames
     $logfile = $cfg->basedir->child($logfile) if substr($logfile, 0, 1) ne '/';
     # ignore unreadable logfiles
-    next if !-r $logfile;
+    if(!-r $logfile) {
+      $self->logger->warn(
+        sprintf('[cvs] Logfile %s not found or unreadable', $logfile)
+      );
+      next;
+    }
     # instantiate a logfile
     $logs{$logid} = CVSLogwatcher::Logfile->new(
       id => $logid,

@@ -48,6 +48,12 @@ $logger->debug(qq{[cvs] Log directory is }, $cfg->logprefix);
 $logger->debug(qq{[cvs] Scratch directory is }, $cfg->tempdir);
 $logger->debug(qq{[cvs] Repository directory is }, $cfg->repodir);
 
+# verify that logfiles are configured
+unless(keys $cfg->logfiles->%*) {
+  $logger->fatal('[cvs] No valid logfiles configured, aborting');
+  exit(1);
+}
+
 # verify command-line parameters
 if($cmd->trigger) {
   if(!exists $cfg->logfiles->{$cmd->trigger}) {
