@@ -155,18 +155,18 @@ if($cmd->match) {
 my $ioloop = IO::Async::Loop->new;
 
 # iterate configured files and their matches
-$cfg->iterate_matches(sub ($log, $matchid) {
+foreach my $log (values $cfg->logfiles->%*) {
   my $logid = $log->id;
 
   # check if we are suppressing this logfile
   if(defined $cmd->log && $cmd->log ne $logid) {
     $logger->info(sprintf('[cvs] Suppressing %s (%s)', $log->file, $logid));
-    return;
+    next;
   }
 
   # start watching
   $log->watch($ioloop, $cmd);
-});
+}
 
 # if user specifies --initonly, do not enter the main loop, this is for testing
 # purposes only
