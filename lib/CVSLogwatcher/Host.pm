@@ -93,6 +93,9 @@ sub process ($self)
     # or the default one defined with 'deftask' key
     my (@files) = $target->expect->run_task($host, $cmd->task);
 
+    # add explicitly defined files
+    $target->add_files(\@files);
+
     # if no files received, finish
     die 'No files received, nothing to do' unless @files;
 

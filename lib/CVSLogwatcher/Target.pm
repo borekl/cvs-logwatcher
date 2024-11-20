@@ -10,6 +10,7 @@ use warnings;
 use strict;
 use experimental 'signatures', 'postderef';
 use CVSLogwatcher::Expect;
+use CVSLogwatcher::File;
 
 # full config as parsed from the config file
 has config => ( is => 'ro', required => 1 );
@@ -206,6 +207,24 @@ sub mangle_hostname ($self, $hostname)
     return lc($hostname) if $self->config->{rcsfile} eq 'lowercase';
   }
   return $hostname;
+}
+
+#------------------------------------------------------------------------------
+# Add explicitly defined files, if they exist
+sub add_files ($self, $files)
+{
+  my $tcfg = $self->config;
+  my $cfg = CVSLogwatcher::Config->instance;
+
+  if(exists $tcfg->{files} && $tcfg->{files}->@*) {
+    foreach my $file ($tcfg->{files}->@*) {
+      my $rfile = $cfg->repl->replace($file);
+      print("adding ", $rfile, "\n");
+      push(
+        @$files, CVSLogwatcher::File->new(file => $rfile, target => $self)
+      ) if -r $rfile;
+    }
+  }
 }
 
 1;
