@@ -63,15 +63,25 @@ sub watch ($self, $loop, $cmd)
 
           # find target
           my $target = $cfg->find_target($match_id, $host);
+
+          # log info when watching and then finish
+          if($cmd->watchonly) {
+            $logger->info(sprintf('[cvs/%s] | host: %s', $logid, $host ));
+            $logger->info(sprintf('[cvs/%s] | user: %s', $logid, $user // '-' ));
+            $logger->info(sprintf('[cvs/%s] | mesg: %s', $logid, $msg // '-' ));
+            $logger->info(sprintf(
+              '[cvs/%s] | target: %s, match_id: %s', $logid, $target->id, $match_id
+            )) if $target;
+            next;
+          }
+
+          # finish if no target
           if(!$target) {
             $logger->warn(
               "[cvs] No target found for match from '$host' in source '$logid/$match_id'"
             );
             next;
           }
-
-          # finish if --watchonly
-          next if $cmd->watchonly;
 
           # finish when --onlyuser specified and not matched
           if($cmd->onlyuser && $cmd->onlyuser ne $user) {
