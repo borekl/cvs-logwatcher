@@ -63,7 +63,7 @@ has repl => ( is => 'lazy' );
 has logger => ( is => 'lazy' );
 
 #-------------------------------------------------------------------------------
-# run a perl script and return is return value while handling errors
+# run a perl script and return its return value while handling errors
 sub _do_script ($file)
 {
   my $result = do(path($file)->absolute);
