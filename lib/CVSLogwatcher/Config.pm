@@ -297,4 +297,19 @@ sub admin_group ($self, $host)
   return undef;
 }
 
+#------------------------------------------------------------------------------
+# Verify that a match id exists, this is only used to validate command-line
+sub exists_matchid ($self, $matchid)
+{
+  my $cfg = $self->config;
+
+  foreach my $logfile (keys $cfg->{logfiles}->%*) {
+    foreach my $mid (keys $cfg->{logfiles}{$logfile}{match}->%*) {
+      return 1 if $mid eq $matchid;
+    }
+  }
+
+  return 0;
+}
+
 1;

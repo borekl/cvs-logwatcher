@@ -56,10 +56,11 @@ unless(keys $cfg->logfiles->%*) {
 
 # verify command-line parameters
 if($cmd->trigger) {
-  if(!exists $cfg->logfiles->{$cmd->trigger}) {
-    $logger->fatal(
-      '[cvs] Option --trigger refers to non-existent match id, aborting'
-    );
+  if(!$cfg->exists_matchid($cmd->trigger)) {
+    $logger->fatal(sprintf(
+      q{[cvs] Option --trigger refers to non-existent match id '%s', aborting},
+      $cmd->trigger
+    ));
     exit(1);
   }
   if(!$cmd->host) {
