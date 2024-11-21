@@ -15,14 +15,18 @@ has id => ( is => 'ro', required => 1 );
 has file => ( is => 'ro', required => 1 );
 has matchre => ( is => 'ro', required => 1 );
 
+#-------------------------------------------------------------------------------
+# Match a single log line against a regular expression specified by match id and
+# return a hash reference to named capture groups that matched. The 'host' key
+# is mandatory: the caller should consider the match valid only if it is
+# present. Other keys are optional.
 sub match ($self, $l, $matchid)
 {
-  my $re = $self->matchre->{$matchid};
-  if($l =~ /$re/) {
-    return ($+{host}, $+{user}, $+{msg});
-  } else {
-    return ();
-  }
+  my %re;
+  my $regex = $self->matchre->{$matchid};
+
+  if($l =~ /$regex/) { $re{$_} =$+{$_} foreach (keys %+) }
+  return \%re;
 }
 
 # attach a logfile watcher to an IO::Async event loop (supplied in the argument)
@@ -58,8 +62,11 @@ sub watch ($self, $loop, $cmd)
         for my $match_id (keys $self->matchre->%*) {
 
           # match line
-          my ($host, $user, $msg) = $self->match($l, $match_id);
-          next unless $host;
+          my $match = $self->match($l, $match_id);
+          next unless $match->{host};
+          my $host = $match->{host};
+          my $user = $match->{user} // undef;
+          my $msg = $match->{msg} // undef;
 
           # find target
           my $target = $cfg->find_target($match_id, $host);
@@ -93,8 +100,8 @@ sub watch ($self, $loop, $cmd)
           CVSLogwatcher::Host->new(
             target => $target,
             name => $host,
-            msg => $msg,
-            who => $user ? $user : 'unknown',
+            msg => $msg // undef,
+            who => $user // 'unknown',
             cmd => $cmd,
           )->process;
         }

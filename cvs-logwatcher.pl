@@ -131,15 +131,13 @@ if($cmd->trigger && !$cmd->initonly) {
 if($cmd->match) {
   $cfg->iterate_matches(sub ($l, $match_id) {
     return if $cmd->log && $cmd->log ne $l->id;
-    my @result = $l->match($cmd->match, $match_id);
-    if(@result) {
-      my $target = $cfg->find_target($match_id, $result[0]);
+    my $result = $l->match($cmd->match, $match_id);
+    if(%$result && $result->{host}) {
+      my $target = $cfg->find_target($match_id, $result->{host});
       my $tid = $target->id // 'n/a';
       printf("--- MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
-      printf("host:     %s\n", $result[0]);
-      printf("user:     %s\n", $result[1]);
-      printf("message:  %s\n", $result[2]);
       printf("target:   %s\n", $tid);
+      printf("%-8s: %s\n", $_, $result->{$_}) foreach (keys %$result)
     } else {
       printf("--- NO MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
     }
