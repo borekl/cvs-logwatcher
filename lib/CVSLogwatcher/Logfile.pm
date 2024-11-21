@@ -71,6 +71,16 @@ sub watch ($self, $loop, $cmd)
           # find target
           my $target = $cfg->find_target($match_id, $host);
 
+          # invoke callback for 'user' and 'msg' fields, if defined
+          if($target && $target->config->{commit}) {
+            if($target->config->{commit}{user}) {
+              $user = $target->config->{commit}{user}->()
+            }
+            if($target->config->{commit}{msg}) {
+              $msg = $target->config->{commit}{msg}->()
+            }
+          }
+
           # log info when watching and then finish
           if($cmd->watchonly) {
             $logger->info(sprintf('[cvs/%s] | host: %s', $logid, $host ));
