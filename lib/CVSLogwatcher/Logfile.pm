@@ -29,6 +29,7 @@ sub match ($self, $l, $matchid)
   return \%re;
 }
 
+#-------------------------------------------------------------------------------
 # attach a logfile watcher to an IO::Async event loop (supplied in the argument)
 sub watch ($self, $loop, $cmd)
 {
@@ -72,12 +73,13 @@ sub watch ($self, $loop, $cmd)
           my $target = $cfg->find_target($match_id, $host);
 
           # invoke callback for 'user' and 'msg' fields, if defined
+          my $stash = CVSLogwatcher::Stash->instance->host($host);
           if($target && $target->config->{commit}) {
             if($target->config->{commit}{user}) {
-              $user = $target->config->{commit}{user}->()
+              $user = $target->config->{commit}{user}->($stash, $match)
             }
             if($target->config->{commit}{msg}) {
-              $msg = $target->config->{commit}{msg}->()
+              $msg = $target->config->{commit}{msg}->($stash, $match)
             }
           }
 
@@ -113,6 +115,7 @@ sub watch ($self, $loop, $cmd)
             msg => $msg // undef,
             who => $user // 'unknown',
             cmd => $cmd,
+            data => $match,
           )->process;
         }
       }

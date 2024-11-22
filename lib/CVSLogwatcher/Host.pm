@@ -13,6 +13,7 @@ use Path::Tiny qw(path);
 use Feature::Compat::Try;
 use CVSLogwatcher::File;
 use CVSLogwatcher::Misc;
+use CVSLogwatcher::Stash;
 
 # hostname
 has name => ( required => 1, is => 'ro' );
@@ -27,10 +28,14 @@ has msg => ( is => 'lazy', default => sub ($s) { $s->cmd->msg // '' } );
 # target
 has target => ( required => 1, is => 'ro' );
 
+# additional data, this contains %+, ie. named capture groups matched via regexp
+# from log entries
+has data => ( is => 'ro', required => 1 );
+
 #-----------------------------------------------------------------------------
 # This method encapsulates all of the processing of a single host. It
 # downloads a config from a host, processes it and checks it into
-# a repository. Arguments: target, host, msg, who, cmd.
+# a repository.
 sub process ($self)
 {
   # shortcut variables
@@ -71,6 +76,19 @@ sub process ($self)
     $logger->info(qq{[$tag] Ignored host, skipping processing});
     return;
   }
+
+  # if custom action is configured, perform it
+  if($target->config->{action}) {
+    $logger->debug(qq{[$tag] Invoking action callback});
+    $target->config->{action}->(
+      CVSLogwatcher::Stash->instance->host($self->name),
+      $self->data
+    );
+  }
+
+  # following code is only relevant for targets with 'expect' configuration,
+  # ie. those that perform actual configuration retrieval
+  return unless exists $target->config->{expect};
 
   # get admin group
   my $group = $cfg->admin_group($host_nodomain) // $target->defgroup;
