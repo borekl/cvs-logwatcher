@@ -219,7 +219,6 @@ sub add_files ($self, $files)
   if(exists $tcfg->{files} && $tcfg->{files}->@*) {
     foreach my $file ($tcfg->{files}->@*) {
       my $rfile = $cfg->repl->replace($file);
-      print("adding ", $rfile, "\n");
       push(
         @$files, CVSLogwatcher::File->new(file => $rfile, target => $self)
       ) if -r $rfile;
