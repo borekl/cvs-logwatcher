@@ -110,7 +110,8 @@ if($cmd->trigger && !$cmd->initonly) {
       name => $host,
       msg => $cmd->msg,
       who => $cmd->user,
-      cmd => $cmd
+      cmd => $cmd,
+      data => {},
     )->process;
   }
 
