@@ -86,13 +86,19 @@ sub size_change ($self) { return $self->prev_size - $self->size }
 # Extract hostname if regex defined, otherwise return undef;
 sub extract_hostname ($self)
 {
-  # get extraction regex
-  my $re = $self->target->config->{hostname} // undef;
-  return undef unless $re;
+  # get extraction regex(es), quit if undefined
+  my $regexes = $self->target->config->{hostname} // undef;
+  return undef unless $regexes;
+
+  # convert scalar to arrayref, quit if empty
+  $regexes = [ $regexes ] unless ref $regexes;
+  return undef unless @$regexes;
 
   # try to find and extract hostname
-  foreach (@{$self->content}) {
-    if(/$re/) { return $1 }
+  foreach my $re (@$regexes) {
+    foreach (@{$self->content}) {
+      if(/$re/) { return $1 }
+    }
   }
 
   # nothing was found

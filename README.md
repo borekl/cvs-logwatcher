@@ -322,13 +322,15 @@ config actually doesn't (comments with timestamps, Cisco IOS's `ntp
 clock-period` etc.)
 
 **`hostname`**
-Regular expression that tries to extract hostname as defined in the
-configuration. This is useful when you do not want to rely on hostnames as
-they appear in syslog (usually taken from DNS). The regex must have single
-capturing group that is taken as containing the hostname. Cisco devices
-example given below. Note how the first pattern group is made non-capturing with
-(?:...) to not interfere with the actual group we are trying to capture and
-which must be the first one.
+
+Regular expression or a list of regular expressions that try to extract
+hostname as defined in the configuration.  This is useful when you do not
+want to rely on hostnames as they appear in syslog (usually taken from DNS).
+The regex must have single capturing group that is taken as containing the
+hostname.  First matching regex is used.  Cisco devices example given below.
+Note how the first pattern group is made non-capturing with (?:...) to not
+interfere with the actual group we are trying to capture and which must be
+the first one.
 
     hostname => '^(?:hostname|switchname)\\s([-a-zA-Z0-9]+)',
 
