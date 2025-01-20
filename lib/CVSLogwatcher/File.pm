@@ -291,7 +291,7 @@ sub rcs_check_in ($self, %arg)
       '-q', '-U',
       $repo->stringify
     );
-    $logger->debug("[cvs/$tid] Cmd: ", join(' ', @exec));
+    $logger->debug("[cvs/$arg{host}] Cmd: ", join(' ', @exec));
     $rv = system(@exec);
     die "Failed to set RCS locking mode ($rv)" if $rv;
   }
