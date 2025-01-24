@@ -322,7 +322,6 @@ config actually doesn't (comments with timestamps, Cisco IOS's `ntp
 clock-period` etc.)
 
 **`hostname`**
-
 Regular expression or a list of regular expressions that try to extract
 hostname as defined in the configuration.  This is useful when you do not
 want to rely on hostnames as they appear in syslog (usually taken from DNS).
