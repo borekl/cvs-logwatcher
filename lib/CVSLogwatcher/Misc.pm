@@ -15,7 +15,16 @@ our @EXPORT = qw(
 );
 
 #------------------------------------------------------------------------------
-# Return hostname stripped of its domain name
-sub host_strip_domain ($host) { $host =~ s/\..*$//gr }
+# Return hostname stripped of its domain name; if the supplied hostname looks
+# like a decimal IP address, convert it into a form with dashes instead of dots
+sub host_strip_domain ($host)
+{
+  my @ip = grep { /\d+/ } split(/\./, $host);
+  if(@ip == 4) {
+    $host = join('-', @ip);
+  } else {
+    $host =~ s/\..*$//gr
+  }
+}
 
 1;
