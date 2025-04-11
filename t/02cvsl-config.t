@@ -100,14 +100,14 @@ ok($cfg_example->is_file, 'Example configuration file exists');
     field 'alu' => object {
       prop blessed => 'CVSLogwatcher::Logfile';
       call id => 'alu';
-      call file => '/var/log/network/cpn/change.log';
+      call file => '/var/log/network/cpn/change_new.log';
       call matchre => T();
       end();
     };
     field 'juniper' => object {
       prop blessed => 'CVSLogwatcher::Logfile';
       call id => 'juniper';
-      call file => '/var/log/network/fw.log';
+      call file => '/var/log/network/juniper.log';
       call matchre => T();
       end();
     };
@@ -126,8 +126,7 @@ ok($cfg_example->is_file, 'Example configuration file exists');
     prop blessed => 'CVSLogwatcher::Target';
     call 'id' => 'cisco-ssh';
     call 'defgroup' => 'netit';
-    call 'filter' => array { item $_ => T() foreach (0..2) };
-    call 'validate' => array { item 0 => T(); end; };
+    call 'filter' => array { item $_ => T() foreach (0, 1) };
     call 'expect' => object {
       prop blessed => 'CVSLogwatcher::Expect';
     };

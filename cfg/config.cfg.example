@@ -1,7 +1,6 @@
 #=============================================================================
 # cvs-logwatcher.pl configuration file
 # """""""""""""""""
-# note: This file is a perl script, so the perl syntax applies.
 #
 # This file configures the configuration of the cvs-logwatcher.pl script. The
 # configuration is deep and involved. Please read carefully the information
@@ -10,7 +9,7 @@
 #
 # In certain strings, following tokens can be used:
 #
-# %D - temporary directory
+# %D - temporary directory received files
 # %h - device hostname as gleaned given in the monitored logfile
 # %H - same as %h but without domain
 # %P - prompt, this can be set within a chat script and used to match system
@@ -28,16 +27,16 @@
     # path to logfiles, no trailing slash, better be absolute
     logprefix => '/var/log',
 
-    # temporary directory for receiving files from devices (other than over
-    # TFTP); if this is not specified, current directory is used
+    # temporary directory for receiving files from devices (other than
+    # over TFTP); if this is not specified, current directory is used
     tempdir => 'temp',
 
-    # defines external file that may be used to define passwords; this allows to
-    # separate the secrets away from this configuration file
+    # defines external file that may be used to define passwords; this
+    # allows to separate the secrets away from this configuration file
     keyring => 'keyring.cfg',
 
-    # expect timeout; this defines how long will the expect scripts wait for
-    # input
+    # expect timeout; this defines how long will the expect scripts wait
+    # for input
     expmax => 120,
 
   },
@@ -48,15 +47,36 @@
 
   rcs => {
 
-    # subdirectory of the scripts main directory where the RCS repository will
-    # be located
+    # subdirectory of the scripts main directory where the RCS repository
+    # will be located
     rcsrepo => 'data',
 
     # location of RCS binaries
     rcsctl => '/usr/bin/rcs',
     rcsci => '/usr/bin/ci',
     rcsco => '/usr/bin/co',
+  },
 
+#=============================================================================
+# MIB section
+#=============================================================================
+
+  mib => {
+    writeNet => '.1.3.6.1.4.1.9.2.1.55',
+    hostName => '.1.3.6.1.4.1.9.2.1.3.0',
+    sysName => '.1.3.6.1.2.1.1.5.0',
+    sysDescr => '.1.3.6.1.2.1.1.1.0',
+  },
+
+#=============================================================================
+# SNMP UTILS section
+#=============================================================================
+
+  snmp => {
+
+    # define location of snmpget and snmpset
+    get => '/usr/bin/snmpget',
+    set => '/usr/bin/snmpset',
   },
 
 #=============================================================================
@@ -64,7 +84,6 @@
 #=============================================================================
 
   # define the ping command used to ascertain that target is alive
-
   ping => 'ping -c 1 -W 2 %h >/dev/null 2>&1',
 
 #=============================================================================
@@ -78,12 +97,18 @@
 #=============================================================================
 
   groups => {
+    netit => [
+      'ob00$', '^papce'
+    ],
     nsu => [
-      qr/^(bsc|rnc|bud|sitR|sitS|gtsR|bce|sitnb|strnb).+$/,
-      qr/^rcnR0[45]m$/
+      '^(bsc|rnc|sitR|sitS|gtsR|bcepe|sitnb|strnb|hkvpe|pappe).+$',
+      '^rcnR0[45]m$',
     ],
     infserv => [
-      qr/^(vinPE02|sitPE0[23].*|A[123456]|CA|DCN|.*INFSERV.*)$/
+      '^(vinPE02|sitPE0[23].*|A[123456]|CA|DCN|.*INFSERV.*)$'
+    ],
+    pbx => [
+      '^CZPBX'
     ]
   },
 
@@ -95,74 +120,115 @@
 # might trigger unwanted repository check-ins.
 #=============================================================================
 
-  ignoreusers => [ 'cvs', 'alu-stats', 'account_stat' ],
-
-#=============================================================================
-# IGNORE HOSTS section
-#
-# This defines a list of regex matches of hostnames (as received from logfile)
-# that cause processing to abort.
-#=============================================================================
-
-  ignorehosts => [],
+  ignoreusers => [ qw(cvs cvs1 alu-stats account_stat) ],
 
 #=============================================================================
 # LOGFILES section
 #
 # This defines logfiles that will be opened and watched. The match regex must
 # provide 'host' named capture group; 'user' and 'msg' are optional and will
-# be used when available.
+# be used when available. Multiple possible matches per log are possible
+# useful for aggregate logs from multiple different platforms.
 #=============================================================================
 
   logfiles => {
     cisco => {
       filename => '/var/log/cisco/cisco.log',
-      match => qr/^.*\s+\d+\s+[0-9:]+\s+(?<host>[-\w\d.]+)\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$/,
+      match => {
+        cisco => '^.*\s+\d+\s+[0-9:.]+\s+(?<host>[-\w\d.]+)\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$',
+      }
     },
     alu => {
-      filename => '/var/log/network/cpn/change.log',
-      match => qr/^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+(?<host>[-\w\d.]+)\s+-\s-\s-\s-\s\d+\s\S+\sUSER-MINOR-cli_user_logout-\d+\s(?<msg>\[(?<user>[\w\d]+)\]:\s+.*)\s*$/
+      #filename => '/opt/cvs/dev/juniper.log',
+      filename => '/var/log/network/cpn/change_new.log',
+      match => {
+        cpnnokia => '^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+(?<host>[-\w\d.]+)\s+-\s-\s-\s-\s\d+\s\S+\sUSER-MINOR-cli_user_logout-\d+\s(?<msg>\[(?<user>[\w\d]+)\]:\s+.*)\s*$',
+        cpnjuniper => '^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+(?<host>[-\w\d.]+)\s.*mgd\[(?<index>\d+)\]:\s%INTERACT-4-UI_COMMIT_COMPLETED',
+        cpnjunuser => q{^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+(?<host>[-\w\d.]+)\s.*mgd\[(?<index>\d+)\]:\s%INTERACT-5-UI_COMMIT: User '(?<user>\w+)'.*\s+\(comment:\s+(?<comment>.*)\)},
+      }
     },
     juniper => {
-      filename => '/var/log/network/fw.log',
-      match => qr/^.*\s+\d+\s+[0-9:]+\s+(?<host>[-\w\d.]+)\s+.*(?<msg>UI_COMMIT_PROGRESS: Commit operation in progress: commit complete)\s*$/,
+      filename => '/var/log/network/juniper.log',
+      match => {
+        juniper => '^.*\s+\d+\s+[0-9:]+\s+(?<host>[-\w\d.]+)\s+.*(?<msg>UI_COMMIT_PROGRESS: Commit operation in progress: commit complete)\s*$',
+      }
     },
   },
 
 #=============================================================================
 # TARGETS section
 #
-# This is the most complex and most involved section. Each item under "targets"
-# defines one target and its handling. Note, that "cisco" target has some
-# special options and handling hardcoded for it (this should be regularized).
-# Apart from this, the keys can be named freely. Please see README for detailed
-# description.
+# This is the most complex and most involved section. Each item under
+# "targets" defines one target and its handling. Note, that "cisco" target has
+# some special options and handling hardcoded for it (this should be
+# regularized). Apart from this, the keys can be named freely. Please see
+# README for detailed description.
 #=============================================================================
 
   targets => [
 
-    # definition for Cisco IOS/NX-OS/IOS XR over SSH; some Nexus switches seem
-    # to print additional CR before the prompt, so we match that by '\s?' regex.
     {
-      id         => 'cisco-ssh',
-      defgrp     => 'netit',
-      logfile    => 'cisco',
-      # hostmatch => [
-      #   { excludelist => [ 'nars00c' ] },
-      # ],
-      validrange => [ qr/^(!|version )/, qr/^end\s*$/ ],
-      filter => [
-        qr/^Connection to \S+ closed/,
-        qr/# exit\s*$/,
-        qr/^\w+#\s*$/
-      ],
-      validate => [ qr/^end\s*$/ ],
-      ignoreline => qr/^(!|ntp clock-period)/,
-      hostname => qr/^(?:hostname|switchname)\s([-a-zA-Z0-9]+)/,
-      options => [ 'normeol' ],
-      expect => {
-        spawn => '/usr/bin/ssh -T -o KexAlgorithms=diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h',
-        'sleep' => 1,
+      id           => 'juniper-usr',
+      matchid      => 'cpnjunuser',
+      action       => sub {
+                        my ($stash, $data) = @_;
+                        my $idx = $data->{index};
+                        $stash->{$idx}{user} = $data->{user};
+                        $stash->{$idx}{comment} = $data->{comment};
+                      },
+    },
+
+    {
+      id           => 'juniper-scp',
+      defgrp       => 'nsu',
+      matchid      => 'cpnjuniper',
+      hostname     => [ 'host-name\s([-a-zA-Z0-9]+)-re\d', 'host-name\s([-a-zA-Z0-9]+);' ],
+      files        => [ '%D/%H' ],
+      commit       => {
+        msg        => sub {
+                        my ($stash, $data) = @_;
+                        my $idx = $data->{index};
+                        sprintf(
+                          'Commited by %s (comment: %s)',
+                          $stash->{$idx}{user}, $stash->{$idx}{comment}
+                        );
+                      },
+        user       => sub {
+                        my ($stash, $data) = @_;
+                        my $idx = $data->{index};
+                        $stash->{$idx}{user};
+                      },
+      },
+      expect       => {
+        spawn => '/usr/bin/scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no cvs1@%h:/config/juniper.conf %D/%H',
+        deftask => 'main',
+        chats => {
+          login => [
+            [ '(Password|PASSWORD|password):', "%3\r" ],
+          ]
+        },
+        tasks => {
+          main => { seq => [ 'login' ] }
+        }
+      }
+    },
+
+    # definition for Cisco IOS/NX-OS/IOS XR over SSH; some Nexus switches
+    # seem to print additional CR before the prompt, so we match that by
+    # '\s?' regex.
+
+    {
+      id           => 'cisco-ssh',
+      defgrp       => 'netit',
+      matchid      => 'cisco',
+      validrange   => [ '^(!|version )', '^end\s*$' ],
+      filter       => [ '^Connection to \S+ closed', '# exit\s*$' ],
+      ignoreline   => '^(!|ntp clock-period)',
+      hostname     => '^(?:hostname|switchname)\s([-a-zA-Z0-9]+)',
+      options      => [ "snmphost", "normeol" ],
+      expect       => {
+        spawn => '/usr/bin/ssh -o KexAlgorithms=diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h',
+        sleep => 1,
         deftask => 'config',
         chats => {
           login => [
@@ -174,7 +240,7 @@
             [ '^\s?%P#', "sh run\r", '-' ],
           ],
           getconfigall => [
-            [ '^\s?%P#', "sh run all\r", '%D/%H.all' ],
+            [ '^\s?%P#', "sh run all\r", "%D/%H.all" ],
             [ '^\s?%P#', "sh run\r", '-' ],
           ],
           logout => [
@@ -182,26 +248,24 @@
           ],
         },
         tasks => {
-          test => { seq => [ 'test' ] },
-          config => {
-            seq => [ 'login', 'getconfig', 'logout' ]
-          },
+          config => { seq => [ qw(login getconfig logout) ] },
+          configall => { seq => [ qw(login getconfigall logout) ] },
         },
       }
     },
 
-    # Nokia 7750SR, uses static user 'cvs' that needs privilege to issue the
-    # commands used in the chat script ("environment more", "admin
-    # display-config")
+    # Alcatel-Lucent 7750SR, uses static user 'cvs' that needs privilege
+    # to issue the commands used in the chat script ("environment more",
+    # "admin display-config")
 
     {
-      id => 'alu',
-      defgrp => 'nsu',
-      logfile => 'alu',
-      validrange => [ qr/^# TiMOS/, qr/^# Finished/ ],
-      validate => [ qr/^# Finished/ ],
-      ignoreline => qr/^#/,
-      rcsfile => 'uppercase',
+      id         => 'alu',
+      defgrp     => 'nsu',
+      matchid    => 'cpnnokia',
+      validrange => [ '^# TiMOS', '^# Finished' ],
+      validate   => [ '^# Finished' ],
+      ignoreline => '^#',
+      rcsfile    => 'uppercase',
       expect => {
         spawn => '/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h',
         sleep => 1,
@@ -224,45 +288,37 @@
           ]
         },
         tasks => {
-          config => {
-            seq => [ 'login', 'getconfig', 'logout' ]
-          },
-          configall => {
-            seq => [ 'login', 'getconfigall', 'logout' ]
-          },
+          config => { seq => [ qw(login getconfig logout) ] },
+          configall => { seq => [ qw(login getconfigall logout) ] },
         },
       }
     },
 
-    # definition for a Juniper device; the configuration is retrieved by issuing
-    # "show configuration" command and then recording the session; note the
-    # third field added to the expect/send pairs: it is a file where the session
-    # is to be recorded
+    # definition for a Juniper device; the configuration is retrieved by
+    # issuing "show configuration" command and then recording the session;
+    # note the third field added to the expect/send pairs: it is a file
+    # where the session is to be recorded
 
     {
-      id => 'juniper',
-      defgrp => 'secit',
-      logfile => 'juniper',
-      validrange => [ qr/^set version/, undef ],
-      ignoreline => qr/^#/,
-      options => [ 'normeol' ],
+      id         => juniper,
+      defgrp     => secit,
+      matchid    => juniper,
+      validrange => [ '^set version', undef ],
+      ignoreline => '^#',
+      options    => [ 'normeol' ],
       expect => {
         spawn => '/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l tufin %h',
         sleep => 1,
+        deftask => 'config',
         chats => {
-          login => [
+          config => [
             [ '[Pp]assword:', "%5\r" ],
-          ],
-          getconfig => [
             [ '^tufin@.*> $', "show configuration | display set | no-more\r", '%D/%H' ],
-            [ '^tufin@.*> $', "\r", '-' ],
-          ],
-          logout => [
             [ '^tufin@.*> $', "exit\r" ]
-          ],
+          ]
         },
         tasks => {
-          config => [ 'login', 'getconfig', 'logout' ],
+          config => { seq => [ 'config' ] }
         }
       }
     },
