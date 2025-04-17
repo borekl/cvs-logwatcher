@@ -87,7 +87,8 @@ if($cmd->trigger && !$cmd->initonly) {
   $logger->info(sprintf('[cvs] Explicit user is %s', $cmd->user)) if $cmd->user;
   $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd->msg)) if $cmd->msg;
 
-  # get list of hosts to process
+  # get list of hosts to process; the following section implements expansion
+  # of a host group specificed as '--host=@hostgroup' into list of hosts
   my @hosts;
   if($cmd->host =~ /^@(.*)$/) {
     my $group = $1;
