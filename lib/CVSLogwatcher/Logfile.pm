@@ -31,7 +31,7 @@ sub match ($self, $l, $matchid)
 
 #-------------------------------------------------------------------------------
 # attach a logfile watcher to an IO::Async event loop (supplied in the argument)
-sub watch ($self, $loop, $cmd)
+sub watch ($self, $loop, $cmd, $callback)
 {
   my $logid = $self->id;
   my $cfg = CVSLogwatcher::Config->instance;
@@ -108,15 +108,17 @@ sub watch ($self, $loop, $cmd)
             next;
           }
 
-          # start processing
-          CVSLogwatcher::Host->new(
-            target => $target,
-            name => $host,
-            msg => $msg // undef,
-            who => $user // 'unknown',
-            cmd => $cmd,
-            data => $match,
-          )->process;
+          # invoke callback with Host instance
+          $callback->(
+            CVSLogwatcher::Host->new(
+              target => $target,
+              name => $host,
+              msg => $msg // undef,
+              who => $user // 'unknown',
+              cmd => $cmd,
+              data => $match,
+            )
+          );
         }
       }
       return 0;

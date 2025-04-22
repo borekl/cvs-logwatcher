@@ -166,7 +166,9 @@ foreach my $log (values $cfg->logfiles->%*) {
   }
 
   # start watching
-  $log->watch($ioloop, $cmd);
+  $log->watch($ioloop, $cmd, sub ($host) {
+    $host->process;
+  });
 }
 
 # if user specifies --initonly, do not enter the main loop, this is for testing
