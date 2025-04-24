@@ -106,14 +106,20 @@ if($cmd->trigger && !$cmd->initonly) {
       );
       next;
     }
-    CVSLogwatcher::Host->new(
-      target => $target,
-      name => $host,
-      msg => $cmd->msg,
-      who => $cmd->user,
-      cmd => $cmd,
-      data => {},
-    )->process;
+    try {
+      my $fg = CVSLogwatcher::Host->new(
+        target => $target,
+        name => $host,
+        msg => $cmd->msg,
+        who => $cmd->user,
+        cmd => $cmd,
+        tag => sprintf('cvs/%s@%s', $target->id, $host),
+        data => {},
+      )->process;
+      $fg->process;
+    } catch ($err) {
+      $logger->error("[cvs/$host] Failed to process host ($err)");
+    }
   }
 
   # exit
@@ -167,7 +173,55 @@ foreach my $log (values $cfg->logfiles->%*) {
 
   # start watching
   $log->watch($ioloop, $cmd, sub ($host) {
-    $host->process;
+
+    # get logging tag
+    my $tag = $host->tag;
+
+    try {
+
+      #--- processing ----------------------------------------------------------
+
+      # log some basic information
+      my ($h, $msg, $who) = ($host->name, $host->msg, $host->who);
+      $logger->info("[$tag] Source host: $h (from syslog)");
+      $logger->info("[$tag] Message:     ", $msg // '-');
+      $logger->info("[$tag] User:        ", $who // '-');
+
+      # skip if ignored user
+      if($who && $cfg->is_ignored_user($who)) {
+        $logger->info(qq{[$tag] Ignored user, skipping processing});
+        return;
+      }
+
+      # skip if ignored host
+      if($cfg->is_ignored_host($host->host_nodomain)) {
+        $logger->info(qq{[$tag] Ignored host, skipping processing});
+        return;
+      }
+
+      # get admin group
+      my $group = $host->admin_group;
+      if($group) {
+        $logger->info(qq{[$tag] Admin group: $group});
+      } else {
+        $logger->error(sprintf(
+          qq{[%s] No admin group for %s, skipping}, $tag, $host->host_nodomain
+        ));
+        return;
+      }
+
+      # retrieve files from remote devices or invoke preconfigure custom actions
+      my $fg = $host->process;
+
+      # process files
+      $fg->process;
+
+    } catch ($err) {
+      $logger->error("[$tag] Failed to process host ($err)");
+    }
+
+    #--- end of processing -----------------------------------------------------
+
   });
 }
 

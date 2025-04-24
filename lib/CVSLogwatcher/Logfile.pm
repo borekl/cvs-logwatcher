@@ -25,7 +25,7 @@ sub match ($self, $l, $matchid)
   my %re;
   my $regex = $self->matchre->{$matchid};
 
-  if($l =~ /$regex/) { $re{$_} =$+{$_} foreach (keys %+) }
+  if($l =~ /$regex/) { $re{$_} = $+{$_} foreach (keys %+) }
   return \%re;
 }
 
@@ -72,6 +72,20 @@ sub watch ($self, $loop, $cmd, $callback)
           # find target
           my $target = $cfg->find_target($match_id, $host);
 
+          # assign logging tag
+          my $tag = "cvs/$host";
+
+          # log match information
+          $logger->debug(sprintf(
+            '[%s] --- Match on logfile=%s, match id=%s, target=%s',
+            $tag, $logid, $match_id, $target->id // '?'
+          ));
+
+          $logger->debug(sprintf(
+            '[%s] Capture groups: %s', $tag,
+            join(', ', map {sprintf('%s=%s', $_, $match->{$_}) } keys %$match)
+          ));
+
           # invoke callback for 'user' and 'msg' fields, if defined
           my $stash = CVSLogwatcher::Stash->instance->host($host);
           if($target && $target->config->{commit}) {
@@ -85,12 +99,9 @@ sub watch ($self, $loop, $cmd, $callback)
 
           # log info when watching and then finish
           if($cmd->watchonly) {
-            $logger->info(sprintf('[cvs/%s] | host: %s', $logid, $host ));
-            $logger->info(sprintf('[cvs/%s] | user: %s', $logid, $user // '-' ));
-            $logger->info(sprintf('[cvs/%s] | mesg: %s', $logid, $msg // '-' ));
-            $logger->info(sprintf(
-              '[cvs/%s] | target: %s, match_id: %s', $logid, $target->id, $match_id
-            )) if $target;
+            $logger->info(sprintf('[%s] | host: %s', $tag, $host ));
+            $logger->info(sprintf('[%s] | user: %s', $tag, $user // '-' ));
+            $logger->info(sprintf('[%s] | mesg: %s', $tag, $msg // '-' ));
             next;
           }
 
@@ -117,6 +128,7 @@ sub watch ($self, $loop, $cmd, $callback)
               who => $user // 'unknown',
               cmd => $cmd,
               data => $match,
+              tag => $tag,
             )
           );
         }

@@ -1,5 +1,7 @@
 #=============================================================================
-# File operations
+# File operations // This module loads given text file into memory upon
+# instantiation and then offers a set of operations that can be performed on the
+# file.
 #=============================================================================
 
 package CVSLogwatcher::File;

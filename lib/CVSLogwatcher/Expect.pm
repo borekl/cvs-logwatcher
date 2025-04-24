@@ -56,13 +56,13 @@ sub get_task ($self, $task = undef)
 sub run_task ($self, $host, $task = undef)
 {
   my $cfg = CVSLogwatcher::Config->instance;
-  my $h = host_strip_domain($host);
   my @files;
+  my $tag = $host->tag;
 
   # create local Repl instance
   my $repl = $cfg->repl->clone->add_value(
-    '%H' => $h,
-    '%h' => $host
+    '%H' => $host->host_nodomain,
+    '%h' => $host->name
   );
 
   # get logger
@@ -79,24 +79,24 @@ sub run_task ($self, $host, $task = undef)
 
   if(@chats) {
     $cfg->logger->info(sprintf(
-      '[cvs/%s] Running task "%s" with %d chats', $h, $task_name, scalar(@chats)
+      '[%s] Running task "%s" with %d chats', $tag, $task_name, scalar(@chats)
     ));
     $cfg->logger->debug(sprintf(
-      '[cvs/%s] Chats: %s', $h, join(', ', @chats)
+      '[%s] Chats: %s', $tag, join(', ', @chats)
     ));
   } else {
     $cfg->logger->fatal(
-      sprintf('[cvs/%s] Task "%s" has no chats, aborting', $h)
+      sprintf('[%s] Task "%s" has no chats, aborting', $tag, $task_name)
     );
     return ();
   }
 
   # establish a connection with the remote host
   $cfg->logger->debug(
-    sprintf('[cvs/%s] Spawning Expect instance (%s)', $h, $spawn)
+    sprintf('[%s] Spawning Expect instance (%s)', $tag, $spawn)
   );
   my $exh = Expect->spawn($spawn) or do {
-    $logger->fatal("[cvs/$h] Failed to spawn Expect instance");
+    $logger->fatal("[$tag] Failed to spawn Expect instance");
     return ();
   };
   $exh->log_stdout(0);
@@ -114,7 +114,7 @@ sub run_task ($self, $host, $task = undef)
       foreach my $chline (@$chat) {
         my ($look, $resp, $log, $prompt) = @$chline;
         $cfg->logger->debug(sprintf(
-          '[cvs/%s] Chat %s %d/%d', $h, $chid, $line_count, scalar(@$chat)
+          '[%s] Chat %s %d/%d', $tag, $chid, $line_count, scalar(@$chat)
         ));
 
         # hide passwords, make CR visible
@@ -127,28 +127,28 @@ sub run_task ($self, $host, $task = undef)
           $log = $repl->replace($log);
           $exh->log_file($log, 'w') or die "Failed to open file '$log'";
           push(@files, $log);
-          $logger->info("[cvs/$h] Logfile opened: ", $log);
+          $logger->info("[$tag] Logfile opened: ", $log);
         }
 
         # wait for expected string to arrive from remote
         $logger->debug(sprintf(
-          '[cvs/%s] Expect string(%d): %s',
-          $h, $line_count, $repl->replace($look)
+          '[%s] Expect string(%d): %s',
+          $tag, $line_count, $repl->replace($look)
         ));
         $exh->expect(
           $cfg->config->{config}{expmax} // 300, '-re', $repl->replace($look)
         ) or die;
         my @g = $exh->matchlist;
         $logger->debug(sprintf(
-          '[cvs/%s] Expect receive(%d): %s', $h, $line_count, $exh->match()
+          '[%s] Expect receive(%d): %s', $tag, $line_count, $exh->match()
         ));
         $logger->debug(sprintf(
-          '[cvs/%s] Expect groups(%d): %s', $h, $line_count, join(',', @g)
+          '[%s] Expect groups(%d): %s', $tag, $line_count, join(',', @g)
         )) if @g;
 
         # close log if the log filename is '-'
         if($log && $log eq '-') {
-          $logger->info("[cvs/$h] Closing logfile");
+          $logger->info("[$tag] Closing logfile");
           $exh->log_file(undef);
         }
 
@@ -164,8 +164,8 @@ sub run_task ($self, $host, $task = undef)
 
         # send response
         $logger->debug(sprintf(
-          '[cvs/%s] Expect send(%d): %s',
-          $h, $line_count, $repl->replace($resp_cloaked)
+          '[%s] Expect send(%d): %s',
+          $tag, $line_count, $repl->replace($resp_cloaked)
         ));
         $exh->print($repl->replace($resp));
 
@@ -175,8 +175,8 @@ sub run_task ($self, $host, $task = undef)
     }
 
   } catch ($e) {
-    $logger->error("[cvs/$h] Expect failed for host $host");
-    $logger->debug("[cvs/$h] Failure reason is: ", $e);
+    $logger->error("[$tag] Expect failed");
+    $logger->debug("[$tag] Failure reason is: ", $e);
   }
 
   sleep($self->sleep) if $self->sleep;
