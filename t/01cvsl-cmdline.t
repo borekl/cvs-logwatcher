@@ -15,6 +15,7 @@ is($cmd, object {
   call host       => U();
   call user       => U();
   call msg        => U();
+  call file       => U();
   call force      => F();
   call nochecking => U();
   call mangle     => T();
@@ -49,6 +50,7 @@ $cmd = CVSLogwatcher::Cmdline->new(cmdline => join(' ',
   '--host=MyHostValue',
   '--user=MyUserValue',
   '--msg=MyMsgValue',
+  '--file=MyFileValue',
   '--nocheckin=NoCheckInValue',
   '--task=MyTaskValue',
   '--onlyuser=OnlyUser'
@@ -58,6 +60,7 @@ is($cmd, object {
   call host      => 'myhostvalue';
   call user      => 'MyUserValue';
   call msg       => 'MyMsgValue';
+  call file      => 'MyFileValue';
   call nocheckin => 'NoCheckInValue';
   call task      => 'MyTaskValue';
   call onlyuser  => 'OnlyUser';

@@ -18,6 +18,7 @@ has trigger    =>  ( is => 'rwp' );
 has host       =>  ( is => 'rwp' );
 has user       =>  ( is => 'rwp' );
 has msg        =>  ( is => 'rwp' );
+has file       =>  ( is => 'rwp' );
 has force      =>  ( is => 'rwp', default => 0 );
 has nocheckin  =>  ( is => 'rwp' );
 has mangle     =>  ( is => 'rwp', default => 1 );
@@ -38,6 +39,7 @@ sub BUILD ($self, $args)
     'host=s'      => sub { $self->_set_host(lc $_[1]) },
     'user=s'      => sub { $self->_set_user($_[1]) },
     'msg=s'       => sub { $self->_set_msg($_[1]) },
+    'file=s'      => sub { $self->_set_file($_[1]) },
     'force'       => sub { $self->_set_force($_[1]) },
     'nocheckin:s' => sub { $self->_set_nocheckin($_[1]) },
     'mangle!'     => sub { $self->_set_mangle($_[1]) },
@@ -76,6 +78,7 @@ Usage: cvs-logwatcher.pl [options]
   --host=HOST        define host for --trigger or limit processing to it
   --user=USER        define user for --trigger
   --msg=MSG          define message for --trigger
+  --file=FILE        check-in supplied file
   --force            force check-in when using --trigger
   --nocheckin[=FILE] do not perform RCS repository check in with --trigger
   --nomangle         do not perform config text transformations
@@ -101,6 +104,7 @@ sub dump ($self)
   push(@out, sprintf('host:      %s', $self->host // '--'));
   push(@out, sprintf('user:      %s', $self->user // '--'));
   push(@out, sprintf('msg:       %s', $self->msg // '--'));
+  push(@out, sprintf('file:      %s', $self->file // '--'));
   push(@out, sprintf('force:     %s', $self->force ? 'true' : 'false'));
   if(defined $self->nocheckin) {
     push(@out, sprintf('nocheckin: %s', $self->nocheckin ? $self->nocheckin : 'true' ));

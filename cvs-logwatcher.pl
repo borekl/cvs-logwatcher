@@ -70,6 +70,46 @@ if($cmd->trigger) {
 }
 
 #-------------------------------------------------------------------------------
+#--- commit local file ---------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+# manually commit a local file // this section is triggered by the --file=FILE
+# command-line option; --host and --trigger must be specified, --msg and --user
+# are optional; note, that all other file semantics apply, including automatic
+# hostname discovery, file mangling and change detection
+
+if($cmd->file) {
+
+  # give some basic info
+  $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd->trigger));
+  $logger->info(sprintf('[cvs] Explicit host is %s', $cmd->host));
+  $logger->info(sprintf('[cvs] Explicit user is %s', $cmd->user)) if $cmd->user;
+  $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd->msg)) if $cmd->msg;
+  $logger->info(sprintf('[cvs] Explicit file is %s', $cmd->file));
+
+  # make sure there's associated target
+  my $target = $cfg->find_target($cmd->trigger, lc($cmd->host));
+  if(!$target) {
+    $logger->warn(sprintf(
+      "[cvs] No target found for match from '%s' in source '%s'",
+      $cmd->host, $cmd->trigger
+    ));
+    exit(1);
+  }
+
+  # initialize required instances
+  my $host = CVSLogwatcher::Host->new(
+    name => $cmd->host, cmd => $cmd, who => $cmd->user, msg => $cmd->msg,
+    target => $target, tag => ('cvs/' . $cmd->host), data => {},
+  );
+  my $file = CVSLogwatcher::File->new(file => $cmd->file, target => $target);
+  my $fg = CVSLogwatcher::FileGroup->new(host => $host, files => [ $file ]);
+  $fg->process;
+
+  exit(0);
+}
+
+#-------------------------------------------------------------------------------
 #--- manual check --------------------------------------------------------------
 #-------------------------------------------------------------------------------
 

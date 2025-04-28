@@ -505,6 +505,12 @@ Provides username for a manually triggered event. Can be omitted, in that case
 **`--msg=MESSAGE`**
 Provides commit message for a manually triggered event.
 
+**`--file=FILE`**
+Instead of going to a host specified with `--host` option, check-in supplied
+file. You still need to specify both `--trigger` and `--host` so that the
+application knows how to process the file. This is primarily intended for
+development and troubleshooting.
+
 **`--force`**
 Force RCS commit even when there's no change in the configuration (after
 filtering using the `ignoreline` target option). Note that when old and new
