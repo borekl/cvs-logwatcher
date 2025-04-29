@@ -12,6 +12,7 @@ use strict;
 use experimental 'signatures', 'postderef';
 
 use Path::Tiny qw(path tempdir);
+use Git::Raw;
 
 # file to be handled; either Path::Tiny instance or scalar pathname that gets
 # converted into Path::Tiny instance
@@ -31,24 +32,35 @@ has content => ( is => 'rwp', lazy => 1, builder => 1 );
 has prev_size => ( is => 'rwp', default => 0 );
 
 #------------------------------------------------------------------------------
-# Load file content into memory. If the file is RCS file, the head is checked
-# out and read instead of just reading it
+# Load file content into memory. If the file is RCS/git file, the head is
+# checked out and read instead of just reading it
 sub _build_content ($self)
 {
   my $cfg = CVSLogwatcher::Config->instance;
   my $f = $self->file->stringify;
-  my $fh;
+  my @fc;
 
+  # RCS file
   if($self->is_rcs_file) {
     my $exec = sprintf('%s -q -p %s', $cfg->rcs('rcsco'), $f);
-    open($fh, '-|', "$exec 2>/dev/null")
+    open(my $fh, '-|', "$exec 2>/dev/null")
     or die "Could not get latest revision from '$exec'";
-  } else {
-    open($fh, '<', $f) or die "Could not open file '$f'"
-    or die "Could not open file '$f'";
+    @fc = <$fh>;
+    close($fh);
   }
-  my @fc = <$fh>;
-  close($fh);
+
+  # git-tracked file
+  if(my $git_blob = $self->is_git_file) {
+    @fc = split(/\n/, $git_blob->content);
+  }
+
+  # plain file
+  else {
+    open(my $fh, '<', $f) or die "Could not open file '$f'"
+    or die "Could not open file '$f'";
+    @fc = <$fh>;
+    close($fh);
+  }
 
   return \@fc;
 }
@@ -63,6 +75,24 @@ sub set_filename ($self, $filename)
 #------------------------------------------------------------------------------
 # Return true if our file is an RCS file
 sub is_rcs_file ($self) { $self->file->basename =~ /,v$/ }
+
+#------------------------------------------------------------------------------
+# If specified file is tracked by git, then return Git::Raw::Blob instance,
+# otherwise undef
+sub is_git_file ($self)
+{
+  my $cfg = CVSLogwatcher::Config->instance;
+  my $repo = Git::Raw::Repository->open($cfg->repodir('git'));
+  my ($commit) = $repo->revparse('HEAD');
+  my $tree = $commit->tree;
+  my $entry = $tree->entry_bypath($self->file) || return undef;
+  my $object = $entry->object;
+  if($object && $object->is_blob) {
+    return $object;
+  } else {
+    return undef;
+  }
+}
 
 #------------------------------------------------------------------------------
 # Return number of lines of text in the file
