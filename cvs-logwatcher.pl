@@ -46,7 +46,7 @@ $logger->info(qq{[cvs] Mode is }, $cmd->devel ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging enabled}) if $cmd->debug;
 $logger->debug(qq{[cvs] Log directory is }, $cfg->logprefix);
 $logger->debug(qq{[cvs] Scratch directory is }, $cfg->tempdir);
-$logger->debug(qq{[cvs] Repository directory is }, $cfg->repodir);
+$logger->debug(qq{[cvs] Repository directory is }, $cfg->repodir('rcs'));
 
 # verify that logfiles are configured
 unless(keys $cfg->logfiles->%*) {

@@ -87,7 +87,7 @@ sub process ($self)
 
     # compare to the last revision
     my $repo = CVSLogwatcher::File->new(
-      file => $cfg->repodir->child($self->host->admin_group, $file->file->basename . ',v'),
+      file => $cfg->repodir('rcs')->child($self->host->admin_group, $file->file->basename . ',v'),
       target => $target
     );
     if(!$file->is_changed($repo)) {
@@ -99,7 +99,7 @@ sub process ($self)
       }
     }
 
-    # create a new revision
+    # create a new revision (RCS)
     if(!defined $cmd->nocheckin) {
       $file->rcs_check_in(
         repo => $repo->file->parent,

@@ -47,9 +47,6 @@ has tempdir => ( is => 'lazy' );
 # log directory
 has logprefix => ( is => 'lazy' );
 
-# repository base dir
-has repodir => ( is => 'lazy' );
-
 # logfiles
 has logfiles => ( is => 'lazy' );
 
@@ -134,11 +131,12 @@ sub _build_logprefix ($self)
 }
 
 #------------------------------------------------------------------------------
-# Repository base dir
-sub _build_repodir ($self)
+# Repository base dir, type is either 'rcs' or 'git'. If no value is configured
+# default of 'data' is used (which might not exist anyway)
+sub repodir ($self, $type)
 {
   my $cfg = $self->config;
-  my $dir = path($cfg->{rcs}{rcsrepo} // 'data');
+  my $dir = path($cfg->{$type}{repo} // 'data');
 
   $dir = $self->basedir->child($dir) unless $dir->is_absolute;
 

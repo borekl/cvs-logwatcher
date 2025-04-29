@@ -49,7 +49,7 @@
 
     # subdirectory of the scripts main directory where the RCS repository
     # will be located
-    rcsrepo => 'data',
+    repo => 'data',
 
     # location of RCS binaries
     rcsctl => '/usr/bin/rcs',
