@@ -50,13 +50,13 @@ sub _build_content ($self)
   }
 
   # git-tracked file
-  if(my $git_blob = $self->is_git_file) {
+  elsif(my $git_blob = $self->is_git_file) {
     @fc = split(/\n/, $git_blob->content);
   }
 
   # plain file
   else {
-    open(my $fh, '<', $f) or die "Could not open file '$f'"
+    open(my $fh, '<', $f) or die "Could not read plain file '$f'"
     or die "Could not open file '$f'";
     @fc = <$fh>;
     close($fh);
