@@ -33,7 +33,7 @@ has prev_size => ( is => 'rwp', default => 0 );
 
 #------------------------------------------------------------------------------
 # Load file content into memory. If the file is RCS/git file, the head is
-# checked out and read instead of just reading it
+# checked out and read instead of just reading it.
 sub _build_content ($self)
 {
   my $cfg = CVSLogwatcher::Config->instance;
@@ -54,10 +54,16 @@ sub _build_content ($self)
     @fc = split(/\n/, $git_blob->content);
   }
 
+  # plain gzipped file
+  elsif($self->is_gzip_file) {
+    open(my $fh, '-|', "gzip -cdk $f") or die "Could not read gzipped file '$f' ($!)";
+    @fc = <$fh>;
+    close($fh);
+  }
+
   # plain file
   else {
-    open(my $fh, '<', $f) or die "Could not read plain file '$f'"
-    or die "Could not open file '$f'";
+    open(my $fh, '<', $f) or die "Could not read plain file '$f' ($!)";
     @fc = <$fh>;
     close($fh);
   }
@@ -75,6 +81,10 @@ sub set_filename ($self, $filename)
 #------------------------------------------------------------------------------
 # Return true if our file is an RCS file
 sub is_rcs_file ($self) { $self->file->basename =~ /,v$/ }
+
+#------------------------------------------------------------------------------
+# Return true if our file is a GZIP
+sub is_gzip_file ($self) { $self->file->basename =~ /\.gz$/ }
 
 #------------------------------------------------------------------------------
 # If specified file is tracked by git, then return Git::Raw::Blob instance,
