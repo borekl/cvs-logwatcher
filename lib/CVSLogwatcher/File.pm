@@ -11,6 +11,7 @@ use warnings;
 use strict;
 use experimental 'signatures', 'postderef';
 
+use Feature::Compat::Try;
 use Path::Tiny qw(path tempdir);
 use Git::Raw;
 
@@ -22,7 +23,7 @@ has file => (
 );
 
 # CVSLogwatcher::Target instance
-has target => ( is => 'ro', required => 1 );
+has target => ( is => 'ro' );
 
 # contents of the file as an array of text lines, this will be automatically
 # lazy-loaded from the specified file
@@ -91,15 +92,30 @@ sub is_gzip_file ($self) { $self->file->basename =~ /\.gz$/ }
 # otherwise undef
 sub is_git_file ($self)
 {
+  # return false when git repository directory does not exist
   my $cfg = CVSLogwatcher::Config->instance;
-  my $repo = Git::Raw::Repository->open($cfg->repodir('git'));
-  my ($commit) = $repo->revparse('HEAD');
-  my $tree = $commit->tree;
-  my $entry = $tree->entry_bypath($self->file) || return undef;
-  my $object = $entry->object;
-  if($object && $object->is_blob) {
-    return $object;
-  } else {
+  my $repodir = $cfg->repodir('git');
+  return 0 unless -d $repodir;
+
+  # return false when file's directory is not subsumed in the repo directory
+  return 0 unless $repodir->subsumes($self->file);
+
+  # get path relative
+  my $relfile = $self->file->relative($repodir);
+
+  try {
+    my $cfg = CVSLogwatcher::Config->instance;
+    my $repo = Git::Raw::Repository->open($repodir);
+    my ($commit) = $repo->revparse('HEAD');
+    my $tree = $commit->tree;
+    my $entry = $tree->entry_bypath($relfile) || return undef;
+    my $object = $entry->object;
+    if($object && $object->is_blob) {
+      return $object;
+    } else {
+      return undef;
+    }
+  } catch ($e) {
     return undef;
   }
 }

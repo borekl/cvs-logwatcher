@@ -132,14 +132,20 @@ sub _build_logprefix ($self)
 
 #------------------------------------------------------------------------------
 # Repository base dir, type is either 'rcs' or 'git'. If no value is configured
-# default of 'data' is used (which might not exist anyway)
-sub repodir ($self, $type)
+# default of 'data' is used (which might not exist anyway). There's also third
+# argument that allows to set repository dir, but it is intended for testing
+# only
+sub repodir ($self, $type, $value=undef)
 {
   my $cfg = $self->config;
+
+  if($value) {
+    die "Non-existent repository path '$value'" unless -d $value;
+    $cfg->{$type}{repo} = path($value);
+  }
+
   my $dir = path($cfg->{$type}{repo} // 'data');
-
   $dir = $self->basedir->child($dir) unless $dir->is_absolute;
-
   return $dir;
 }
 
