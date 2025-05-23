@@ -263,8 +263,14 @@ sub content_iter_factory ($self)
     return undef unless $i < $self->content->@*;
     # skip ignored lines
     $i++ while
-      $i < $self->content->@*
-      && $self->target->is_ignored($self->content->[$i]);
+      (
+        $i < $self->content->@*
+        && $self->target
+        && $self->target->is_ignored($self->content->[$i])
+      ) || (
+        $i < $self->content->@*
+        && !$self->target
+      );
     # return non-ignored line
     return $self->content->[$i++];
   }
