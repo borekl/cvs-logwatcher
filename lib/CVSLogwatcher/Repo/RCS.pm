@@ -1,0 +1,117 @@
+package CVSLogwatcher::Repo::RCS;
+
+# handling RCS repositories; note that RCS repository is simply a directory of
+# individual RCS files, RCS doesn't really have a concept of repository, that's
+# what CVS is for
+
+use Moo;
+extends 'CVSLogwatcher::Repo';
+use experimental 'signatures';
+
+use Path::Tiny;
+
+#-------------------------------------------------------------------------------
+# this returns "canonic" from of the file supplied, if the file is a repository
+# file, that is it is under the repository base directory and a file with the
+# RCS suffix ',v' is present; the file can be referenced both with or without
+# the suffix, but the method always returns the form without it
+sub is_repo_file ($self, $file)
+{
+  # regularize the 'file' argument so that it's a Path::Tiny instance without
+  # the RCS suffix
+  $file = $file->file if $file->isa('CVSLogwatcher::File');
+  $file = path($file);
+  $file = $file->sibling($file->basename(',v'));
+
+  # evaluate
+  my $file_rcs = $file->sibling($file->basename . ',v');
+  return undef unless $file_rcs->is_file;
+  return undef unless $self->subsumes($file);
+  return $file;
+}
+
+#-------------------------------------------------------------------------------
+# commit supplied file (must be CVSL::File instance) to the repository;
+# target_dir must be a relative directory and is where the file is put; 'host'
+# 'msg' and 'who' arguments must be provided
+#
+sub commit_file ($self, $file, $target_dir, %arg)
+{
+  my $cfg = CVSLogwatcher::Config->instance;
+  my $is_new = $self->is_repo_file($file);
+
+  # supplied file must be CVSLogwatcher::File instance
+  die 'Argument to commit_file must be a CVSL::File instance'
+    unless $file->isa('CVSLogwatcher::File');
+  my $file_target = $file->file;
+
+  # verify validity of target_dir
+  $target_dir = path($target_dir);
+  die "Target dir must be relative"
+    unless $target_dir->is_relative;
+  die "Target dir '$target_dir' not found in '" . $self->base . "'"
+    unless $self->base->child($target_dir)->is_dir;
+
+  # ensure the commited file is supplied as absolute pathname
+  die 'Commited file must have absolute pathname'
+    unless $file->file->is_absolute;
+
+  # get bare filename
+  my $base = $file->file->basename(',v');
+
+  # get temporary file (in temporary directory) since rcs cannot commit from
+  # pipe or memory buffer
+  my $tempdir = Path::Tiny->tempdir;
+  my $tempfile = $tempdir->child($base);
+  $tempfile->spew_raw($file->content->@*);
+
+  # target file, ie. the file in the repository
+  $file_target = $self->base->child($target_dir, $base);
+
+  # execute RCS ci to check-in new commit
+  my @exec = (
+    $cfg->rcs('rcsci'),
+    '-q',                  # quiet mode
+    '-w' . $arg{who},      # commiter name
+    '-m' . $arg{msg},      # commit message
+    '-t-' . $arg{host},    # "descriptive text"
+    $tempfile,             # source file
+    $file_target . ',v'    # RCS file
+  );
+  my $rv = system(@exec);
+  die "RCS check-in failed ($rv)" if $rv;
+
+  # set soft-locking mode if the file is new (initial commit)
+  if($is_new) {
+    @exec = (
+      $cfg->rcs('rcsctl'),
+      '-q', '-U',
+      $file_target
+    );
+    $rv = system(@exec);
+    die "Failed to set RCS locking mode ($rv)" if $rv;
+  }
+}
+
+#-------------------------------------------------------------------------------
+# check out a file from the repo; returns a CVSLogwatcher::File instance; the
+# 'file' can be relative pathname, in which case it is taken to be relative to
+# the repository base path
+sub checkout_file($self, $file)
+{
+  my $cfg = CVSLogwatcher::Config->instance;
+
+  # verify
+  die "'$file' not a repository file, cannot check out"
+    unless $self->is_repo_file($file);
+
+  # perform checkout
+  my $exec = sprintf('%s -q -p %s', $cfg->rcs('rcsco'), $file);
+  open(my $fh, '-|', "$exec 2>/dev/null")
+  or die "Could not get latest revision from '$exec'";
+  my @fc = <$fh>;
+  close($fh);
+  return CVSLogwatcher::File->new(file => $file, content => \@fc);
+}
+
+1;
