@@ -1,5 +1,7 @@
 package CVSLogwatcher::Repo;
 
+# base class for implementing actual repository types
+
 use Moo;
 use warnings;
 use strict;

@@ -11,23 +11,19 @@ use experimental 'signatures';
 use Path::Tiny;
 
 #-------------------------------------------------------------------------------
-# this returns "canonic" from of the file supplied, if the file is a repository
-# file, that is it is under the repository base directory and a file with the
-# RCS suffix ',v' is present; the file can be referenced both with or without
-# the suffix, but the method always returns the form without it
-sub is_repo_file ($self, $file)
+# returns true when 'file' exists in directory specified by 'dir_in_repo'; only
+# filename is used from 'file', any path is ignored
+sub is_repo_file ($self, $file, $dir_in_repo='.')
 {
-  # regularize the 'file' argument so that it's a Path::Tiny instance without
-  # the RCS suffix
+  # process arguments
   $file = $file->file if $file->isa('CVSLogwatcher::File');
-  $file = path($file);
-  $file = $file->sibling($file->basename(',v'));
+  $file = path($file)->basename(',v');
+  $dir_in_repo = $self->get_relative($dir_in_repo);
 
   # evaluate
-  my $file_rcs = $file->sibling($file->basename . ',v');
+  my $file_rcs = $self->base->child($dir_in_repo, $file . ',v');
   return undef unless $file_rcs->is_file;
-  return undef unless $self->subsumes($file);
-  return $file;
+  return 1;
 }
 
 #-------------------------------------------------------------------------------
@@ -38,7 +34,7 @@ sub is_repo_file ($self, $file)
 sub commit_file ($self, $file, $target_dir, %arg)
 {
   my $cfg = CVSLogwatcher::Config->instance;
-  my $is_new = $self->is_repo_file($file);
+  my $is_new = $self->is_repo_file($file, $target_dir);
 
   # supplied file must be CVSLogwatcher::File instance
   die 'Argument to commit_file must be a CVSL::File instance'
@@ -97,16 +93,17 @@ sub commit_file ($self, $file, $target_dir, %arg)
 # check out a file from the repo; returns a CVSLogwatcher::File instance; the
 # 'file' can be relative pathname, in which case it is taken to be relative to
 # the repository base path
-sub checkout_file($self, $file)
+sub checkout_file($self, $file, $dir_in_repo='.')
 {
   my $cfg = CVSLogwatcher::Config->instance;
 
   # verify
   die "'$file' not a repository file, cannot check out"
-    unless $self->is_repo_file($file);
+    unless $self->is_repo_file($file, $dir_in_repo);
 
   # perform checkout
-  my $exec = sprintf('%s -q -p %s', $cfg->rcs('rcsco'), $file);
+  my $file_rcs = $self->base->child($dir_in_repo, $file->basename);
+  my $exec = sprintf('%s -q -p %s', $cfg->rcs('rcsco'), $file_rcs);
   open(my $fh, '-|', "$exec 2>/dev/null")
   or die "Could not get latest revision from '$exec'";
   my @fc = <$fh>;
