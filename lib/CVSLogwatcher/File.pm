@@ -13,20 +13,17 @@ use experimental 'signatures', 'postderef';
 
 use Feature::Compat::Try;
 use Path::Tiny qw(path tempdir);
-use Git::Raw;
 
 # file to be handled; either Path::Tiny instance or scalar pathname that gets
 # converted into Path::Tiny instance
 has file => (
   is => 'rw', required => 1,
-  coerce => sub ($f) { ref $f ? $f : path $f },
+  coerce => sub ($f) { ref $f ? $f : path($f) },
 );
 
-# CVSLogwatcher::Target instance
-has target => ( is => 'ro' );
-
 # contents of the file as an array of text lines, this will be automatically
-# lazy-loaded from the specified file
+# lazy-loaded from the specified file; this automatic load can be inhibited
+# by specifying the content explicitly
 has content => ( is => 'rwp', lazy => 1, builder => 1 );
 
 # size of the file before any of the transform operations
@@ -41,22 +38,8 @@ sub _build_content ($self)
   my $f = $self->file->stringify;
   my @fc;
 
-  # RCS file
-  if($self->is_rcs_file) {
-    my $exec = sprintf('%s -q -p %s', $cfg->rcs('rcsco'), $f);
-    open(my $fh, '-|', "$exec 2>/dev/null")
-    or die "Could not get latest revision from '$exec'";
-    @fc = <$fh>;
-    close($fh);
-  }
-
-  # git-tracked file
-  elsif(my $git_blob = $self->is_git_file) {
-    @fc = split(/\n/, $git_blob->content);
-  }
-
   # plain gzipped file
-  elsif($self->is_gzip_file) {
+  if($self->is_gzip_file) {
     open(my $fh, '-|', "gzip -cdk $f") or die "Could not read gzipped file '$f' ($!)";
     @fc = <$fh>;
     close($fh);
@@ -76,48 +59,26 @@ sub _build_content ($self)
 # Set new filename (only filename, not path)
 sub set_filename ($self, $filename)
 {
+  $filename = path($filename)->basename;
   $self->file($self->file->sibling($filename));
 }
 
 #------------------------------------------------------------------------------
-# Return true if our file is an RCS file
-sub is_rcs_file ($self) { $self->file->basename =~ /,v$/ }
+# Set location of the file (filename itself remains unchanged); this function
+# is complementary to set_filename.
+sub set_path ($self, $path)
+{
+  $self->file(
+    path($path)->child($self->file->basename)
+  );
+}
 
 #------------------------------------------------------------------------------
 # Return true if our file is a GZIP
-sub is_gzip_file ($self) { $self->file->basename =~ /\.gz$/ }
-
-#------------------------------------------------------------------------------
-# If specified file is tracked by git, then return Git::Raw::Blob instance,
-# otherwise undef
-sub is_git_file ($self)
+sub is_gzip_file ($self)
 {
-  # return false when git repository directory does not exist
-  my $cfg = CVSLogwatcher::Config->instance;
-  my $repodir = $cfg->repodir('git');
-  return 0 unless -d $repodir;
-
-  # return false when file's directory is not subsumed in the repo directory
-  return 0 unless $repodir->subsumes($self->file);
-
-  # get path relative
-  my $relfile = $self->file->relative($repodir);
-
-  try {
-    my $cfg = CVSLogwatcher::Config->instance;
-    my $repo = Git::Raw::Repository->open($repodir);
-    my ($commit) = $repo->revparse('HEAD');
-    my $tree = $commit->tree;
-    my $entry = $tree->entry_bypath($relfile) || return undef;
-    my $object = $entry->object;
-    if($object && $object->is_blob) {
-      return $object;
-    } else {
-      return undef;
-    }
-  } catch ($e) {
-    return undef;
-  }
+  return undef if !$self->file;
+  $self->file->basename =~ /\.gz$/;
 }
 
 #------------------------------------------------------------------------------
@@ -142,24 +103,13 @@ sub size_change ($self) { return $self->prev_size - $self->size }
 
 #------------------------------------------------------------------------------
 # Extract hostname if regex defined, otherwise return undef;
-sub extract_hostname ($self)
+sub extract_hostname ($self, @regexes)
 {
-  # get extraction regex(es), quit if undefined
-  my $regexes = $self->target->config->{hostname} // undef;
-  return undef unless $regexes;
-
-  # convert scalar to arrayref, quit if empty
-  $regexes = [ $regexes ] unless ref $regexes;
-  return undef unless @$regexes;
-
-  # try to find and extract hostname
-  foreach my $re (@$regexes) {
+  foreach my $re (@regexes) {
     foreach (@{$self->content}) {
       if(/$re/) { return $1 }
     }
   }
-
-  # nothing was found
   return undef;
 }
 
@@ -176,16 +126,12 @@ sub normalize_eol ($self)
 }
 
 #------------------------------------------------------------------------------
-# Implement 'validrange' option, that is strip junk outside of a range of
-# two regexes.
-sub validrange ($self)
+# implement 'validrange' option, that is strip junk outside of a range of
+# two regexes; the matching lines themselves are not removed
+sub validrange ($self, $in, $out=undef)
 {
-  # do nothing unless 'validrange' option is properly specified
-  return undef unless $self->target->has_validrange;
-
   # initialize
   my @new;
-  my ($in, $out) = @{$self->target->config->{validrange}};
   my $in_range = defined $in ? 0 : 1;
   $self->size(1);
 
@@ -204,17 +150,11 @@ sub validrange ($self)
 #------------------------------------------------------------------------------
 # This function implements the 'filter' option, which throws out any line that
 # matches any of the list of regexes
-sub filter ($self)
+sub filter ($self, @filters)
 {
-  # do nothing unless 'filter' option is properly specified
-  return undef unless $self->target->has_filter;
-
   # init
   my @new;
   $self->size(1);
-
-  # filter list
-  my @filters = $self->target->filter->@*;
 
   # iterate over lines of content
   foreach my $l ($self->content->@*) {
@@ -230,31 +170,25 @@ sub filter ($self)
 # This function implements the 'validate' option and returns true only when
 # each of the regexes in the list are matched at least once. If the list is
 # not defined or empty, this function returns true as well.
-sub validate ($self)
+sub validate ($self, @regexes)
 {
-  # implicit success if 'validate' option is not properly specified
-  return () unless
-    exists $self->target->config->{validate}
-    && ref $self->target->config->{validate}
-    && $self->target->config->{validate}->@*;
+  # implicitly valid: return true when the list is empty
+  return 1 if !@regexes;
 
-  # list of validation regexes
-  my @regexes = $self->target->config->{validate}->@*;
-
-  # iterate over lines of content
+  # match every line against all prefixes, remove from the list on match;
   foreach my $l ($self->content->@*) {
     @regexes = grep { $l !~ /$_/ } @regexes;
     last if !@regexes;
   }
 
   # finish
-  return @regexes;
+  return !@regexes;
 }
 
-#------------------------------------------------------------------------------
-# Content iterator factory for the purpose of comparison of contents. It honors
-# the 'ignoreline' argument and skips ignored lines
-sub content_iter_factory ($self)
+#-------------------------------------------------------------------------------
+# content iterator factory for the purpose of comparison of contents; it accepts
+# callback which can be used to exclude certain lines from comparison
+sub content_iter_factory ($self, $ignore_cb=undef)
 {
   my $i = 0;
 
@@ -263,14 +197,15 @@ sub content_iter_factory ($self)
     return undef unless $i < $self->content->@*;
     # skip ignored lines
     $i++ while
-      (
-        $i < $self->content->@*
-        && $self->target
-        && $self->target->is_ignored($self->content->[$i])
-      ) || (
-        $i < $self->content->@*
-        && !$self->target
-      );
+    (
+      $i < $self->content->@*
+      && $ignore_cb
+      && $ignore_cb->($self->content->[$i])
+    );
+
+    # if the while loop skipped all the way to the end
+    return undef unless $i < $self->content->@*;
+
     # return non-ignored line
     return $self->content->[$i++];
   }
@@ -303,8 +238,8 @@ sub is_changed ($this_file, $other_file)
 # files, not RCS repositories; use 'check_in' method instead.
 sub save ($self, $dest_file = undef)
 {
-  # not valid for RCS files
-  die 'Cannot save into RCS repostiory' if $self->is_rcs_file;
+  # no gzip files at the moment
+  die 'Gzip files not supported for saving' if $self->is_gzip_file;
 
   # get the destination file
   $dest_file = $dest_file ? path $dest_file : $self->file;
@@ -316,55 +251,6 @@ sub save ($self, $dest_file = undef)
   close($fh);
   rename("$dest_file.$$", $dest_file)
   or "die Failed to rename file $dest_file";
-}
-
-#------------------------------------------------------------------------------
-# Check the curent file into an RCS file. Since RCS does not allow us take the
-# input file from stdin, we must go through a file in temporary directory.
-# Arguments: repo, host, who, msg.
-sub rcs_check_in ($self, %arg)
-{
-  my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = $cfg->logger;
-  my $tid = $self->target->id;
-
-  # get base filename
-  my $base = $self->file->basename(',v');
-
-  # get temporary file (in temporary directory)
-  my $tempdir = tempdir;
-  my $tempfile = $tempdir->child($base);
-  $tempfile->spew_raw($self->content->@*);
-
-  # get repo filename
-  my $repo = $arg{repo}->child($base . ',v');
-  my $is_new = !$repo->exists;
-
-  # execute RCS ci to check-in new commit
-  my @exec = (
-    $cfg->rcs('rcsci'),
-    '-q',                  # quiet mode
-    '-w' . $arg{who},      # commiter name
-    '-m' . $arg{msg},      # commit message
-    '-t-' . $arg{host},    # "descriptive text"
-    $tempfile->stringify,  # source file
-    $repo->stringify       # RCS file
-  );
-  $logger->debug("[cvs/$arg{host}] Cmd: ", join(' ', @exec));
-  my $rv = system(@exec);
-  die "RCS check-in failed ($rv)" if $rv;
-
-  # set soft-locking mode if the file is new (initial commit)
-  if($is_new) {
-    @exec = (
-      $cfg->rcs('rcsctl'),
-      '-q', '-U',
-      $repo->stringify
-    );
-    $logger->debug("[cvs/$arg{host}] Cmd: ", join(' ', @exec));
-    $rv = system(@exec);
-    die "Failed to set RCS locking mode ($rv)" if $rv;
-  }
 }
 
 #------------------------------------------------------------------------------
