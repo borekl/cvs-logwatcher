@@ -17,6 +17,8 @@ use Log::Log4perl qw(get_logger);
 use CVSLogwatcher::Logfile;
 use CVSLogwatcher::Target;
 use CVSLogwatcher::Repl;
+use CVSLogwatcher::Repo::RCS;
+use CVSLogwatcher::Repo::Git;
 
 # base directory
 has basedir => ( is => 'ro', required => 1, coerce => sub ($b) { path $b } );
@@ -58,6 +60,9 @@ has repl => ( is => 'lazy' );
 
 # Log4Perl logger instance
 has logger => ( is => 'lazy' );
+
+# configuration repositories
+has repos => ( is => 'lazy' );
 
 #-------------------------------------------------------------------------------
 # run a perl script and return its return value while handling errors
@@ -131,25 +136,6 @@ sub _build_logprefix ($self)
 }
 
 #------------------------------------------------------------------------------
-# Repository base dir, type is either 'rcs' or 'git'. If no value is configured
-# default of 'data' is used (which might not exist anyway). There's also third
-# argument that allows to set repository dir, but it is intended for testing
-# only
-sub repodir ($self, $type, $value=undef)
-{
-  my $cfg = $self->config;
-
-  if($value) {
-    die "Non-existent repository path '$value'" unless -d $value;
-    $cfg->{$type}{repo} = path($value);
-  }
-
-  my $dir = path($cfg->{$type}{repo} // 'data');
-  $dir = $self->basedir->child($dir) unless $dir->is_absolute;
-  return $dir;
-}
-
-#------------------------------------------------------------------------------
 sub _build_logfiles ($self)
 {
   my $cfg = $self->config;
@@ -210,6 +196,33 @@ sub _build_logger ($self)
   Log::Log4perl->init_and_watch("cfg/logging.conf", 60);
   my $logger = get_logger('CVS::Main');
   return $logger;
+}
+
+#-------------------------------------------------------------------------------
+# create Repo instances, that represent individual repositories that the
+# application shall be storing files into
+sub _build_repos ($self)
+{
+  my @repos;
+
+  foreach my $r ($self->config->{repos}->@*) {
+    my $type = delete $r->{type};
+    # adapt the base to be an absolute path
+    $r->{base} = path($r->{base});
+    if($r->{base}->is_relative) {
+      $r->{base} = $self->basedir->child($r->{base});
+    }
+    # instantiate the repositories
+    if($type eq 'Git') {
+      push(@repos, CVSLogwatcher::Repo::Git->new(%$r));
+    } elsif($type eq 'RCS') {
+      push(@repos, CVSLogwatcher::Repo::RCS->new(%$r));
+    } else {
+      die "Unsupported repository type '" . $type . "'";
+    }
+  }
+
+  return \@repos;
 }
 
 #------------------------------------------------------------------------------
