@@ -125,8 +125,9 @@ sub checkout_file($self, $file, $dir_in_repo='.')
   my $git_blob = $self->is_repo_file($file, $dir_in_repo);
   die "'$file' is not a git repository file" unless $git_blob;
 
-  # perform checkout
-  my @fc = split(/\n/, $git_blob->content);
+  # perform checkout, the regex splits the content into lines without gobbling
+  # up the EOL markers
+  my @fc = split(/(?<=\R)/, $git_blob->content);
   return CVSLogwatcher::File->new(content => \@fc, file => $file);
 }
 
