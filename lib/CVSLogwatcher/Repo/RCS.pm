@@ -48,10 +48,6 @@ sub commit_file ($self, $file, $target_dir, %arg)
   die "Target dir '$target_dir' not found in '" . $self->base . "'"
     unless $self->base->child($target_dir)->is_dir;
 
-  # ensure the commited file is supplied as absolute pathname
-  die 'Commited file must have absolute pathname'
-    unless $file->file->is_absolute;
-
   # get bare filename
   my $base = $file->file->basename(',v');
 
