@@ -11,9 +11,12 @@ use warnings;
 use strict;
 use experimental 'signatures', 'postderef';
 
+use Path::Tiny;
+
 # attributes
 has files => ( is => 'ro', required => 1 );
 has host => ( is => 'ro', required => 1 );
+has target => ( is => 'ro', required => 1 );
 
 #-------------------------------------------------------------------------------
 # return number of files associated with this instance
@@ -35,6 +38,8 @@ sub process ($self)
   # iterate over the files
   foreach my $file ($self->files->@*) {
 
+    $logger->debug(sprintf('[%s] Processing %s', $tag, $file->file));
+
     # basic info
     $logger->info(sprintf(
       '[%s] File %s received, %d bytes',
@@ -49,83 +54,93 @@ sub process ($self)
     }
 
     # filter out junk at the start and the end ("validrange" option)
-    if($cmd->mangle && defined (my $diff = $file->validrange)) {
+    if(
+      $cmd->mangle
+      && $target->config->{validrange}
+      && defined (my $diff = $file->validrange($target->config->{validrange}->@*))
+    ) {
       $logger->debug(sprintf(
         '[%s] %d bytes stripped (validrange)', $tag, $diff
       ))
     }
 
     # filter out lines anywhere in the configuration ("filter" option)
-    if($cmd->mangle && defined (my $diff = $file->filter)) {
+    if($cmd->mangle && defined (my $diff = $file->filter($target->config->{filter}->@*))) {
       $logger->debug(sprintf(
         '[%s] %d bytes stripped (filter)', $tag, $diff
       ))
     }
 
     # validate the configuration
-    if(my @failed = $file->validate) {
-      $logger->warn("[$tag] Validation required but failed, aborting check in");
-      $logger->debug(
-        "[$tag] Failed validation expressions: ",
-        join(', ', map { "'$_'" } @failed)
-      );
-      next;
+    if($target->config->{validate}) {
+      if(my @failed = $file->validate($target->config->{validate}->@*)) {
+        $logger->warn("[$tag] Validation required but failed, aborting check in");
+        $logger->debug(
+          "[$tag] Failed validation expressions: ",
+          join(', ', map { "'$_'" } @failed)
+        );
+        next;
+      }
     }
 
     # extract hostname from the configuration and set the extracted hostname
     # as the new filename
-    if(my $confname = $file->extract_hostname) {
-      $host_nodomain =  $confname;
-      $tag = "cvs/$confname";
-      $logger->info("[$tag] Changing file name");
-      $file->set_filename($confname);
+    if($target->config->{hostname}) {
+      my $regex = $target->config->{hostname};
+      $regex = [ $regex ] unless ref $regex;
+      if(my $confname = $file->extract_hostname(@$regex)) {
+        $host_nodomain = $confname;
+        $logger->info("[$tag] Changing file name to " . $confname);
+        $file->set_filename($confname);
+      }
     }
 
     # filename transform, user configurable filename transformation (currently
     # only uppercasing or lowercasing)
     $file->set_filename($target->mangle_hostname($file->file->basename));
 
-    # compare to the last revision
-    my $repo = CVSLogwatcher::File->new(
-      file => $cfg->repodir('rcs')->child($self->host->admin_group, $file->file->basename . ',v'),
-      target => $target
-    );
-    if(!$file->is_changed($repo)) {
-      if($cmd->force) {
-        $logger->info("[$tag] No change to current revision, but --force in effect");
+    foreach my $repo ($cfg->repos->@*) {
+      my $group = $self->host->admin_group;
+      $logger->debug("[$tag] Processing repo type " . ref($repo));
+      $logger->debug("[$tag] Target file is " . $repo->base->child($group, $file->file->basename));
+
+      # see if the file exists in the repository already
+      if($repo->is_repo_file($file, $group)) {
+        $logger->debug("[$tag] File exists in repository");
+        my $repo_file = $repo->checkout_file($file, $group);
+        if($repo_file && $repo_file->is_changed($file)) {
+          $logger->debug("[$tag] File changed, commiting");
+          $repo->commit_file(
+            $file, $group,
+            host => $host_nodomain,
+            msg => $self->host->msg,
+            who => $self->host->who,
+          );
+        } else {
+          if($cmd->force) {
+            $logger->debug("[$tag] File did not change but --force in effect");
+            $repo->commit_file(
+              $file, $group,
+              host => $host_nodomain,
+              msg => $self->host->msg,
+              who => $self->host->who,
+            );
+          } else {
+            $logger->debug("[$tag] File did not change");
+          }
+        }
       } else {
-        $logger->info("[$tag] No change to current revision, skipping check-in");
-        next;
+        $logger->debug("[$tag] File is new in repository");
+        $repo->commit_file(
+          $file, $group,
+          host => $host_nodomain,
+          msg => $self->host->msg,
+          who => $self->host->who,
+        );
       }
     }
 
-    # create a new revision (RCS)
-    if(!defined $cmd->nocheckin) {
-      $file->rcs_check_in(
-        repo => $repo->file->parent,
-        host => $host_nodomain,
-        msg => $self->host->msg,
-        who => $self->host->who
-      );
-      $logger->info("[$tag] CVS check-in completed successfully");
-    }
-
-    # command-line option --nocheckin in effect, but no directory or file
-    # specified
-    elsif($cmd->nocheckin eq '') {
-      $logger->info("[$tag] CVS check-in inhibited, file not saved");
-      next;
-    }
-
-    # command-line option --nocheckin in effect and directory/file specified
-    else {
-      my $dst = path $cmd->nocheckin;
-      $dst = $cfg->tempdir->child($dst) if $dst->is_relative;
-      $dst = $dst->child($host_nodomain) if $dst->is_dir;
-      $file->file($dst);
-      $file->save;
-      $logger->info("[$tag] CVS check-in inhibited, file goes to ", $dst);
-    }
+    # FIXME: Implement --nocheckin option
 
   }
 }
