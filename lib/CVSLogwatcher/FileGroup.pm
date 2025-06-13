@@ -108,7 +108,10 @@ sub process ($self)
       if($repo->is_repo_file($file, $group)) {
         $logger->debug("[$tag] File exists in repository");
         my $repo_file = $repo->checkout_file($file, $group);
-        if($repo_file && $repo_file->is_changed($file)) {
+        if(
+          $repo_file
+          && $repo_file->is_changed($file, sub ($l) { $target->is_ignored($l) })
+        ) {
           $logger->debug("[$tag] File changed, commiting");
           $repo->commit_file(
             $file, $group,
