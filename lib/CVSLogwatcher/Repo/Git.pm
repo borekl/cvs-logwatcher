@@ -96,6 +96,13 @@ sub commit_file ($self, $file, $target_dir, %arg)
   my $target_in_repo = $target_dir->child($base);
   $target_file->spew($file->content->@*);
 
+  # get commit message
+  my $commit_message = sprintf(
+    '%s: %s',
+    $arg{host} // 'no host',
+    $arg{msg} // 'no message'
+  );
+
   # perform git commit
   my $index = $self->git->index;
   $index->add($target_in_repo->stringify);
@@ -104,7 +111,9 @@ sub commit_file ($self, $file, $target_dir, %arg)
   my $tree = $self->git->lookup($tree_id);
   my $me = Git::Raw::Signature->now($self->name, $self->email);
   my @parents = $self->git->head->target if !$self->git->is_empty;
-  my $commit = $self->git->commit('Test commit', $me, $me, \@parents, $tree);
+  my $commit = $self->git->commit(
+    $commit_message, $me, $me, \@parents, $tree
+  );
 }
 
 #-------------------------------------------------------------------------------
