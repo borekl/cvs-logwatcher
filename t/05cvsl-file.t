@@ -153,9 +153,11 @@ $temp_plain->spew(join("\n", (1..10)));
     'eL++qANUcwnb6tnrCP',
   ];
   my $file = CVSLogwatcher::File->new(file => 'some.file', content => $content);
-  ok($file->validate, 'Validate, implicit pass (1)');
-  ok($file->validate(qr/MINNIE/i, 'winnie', 'loonie'), 'Validate, explicit pass (2)');
-  ok(!$file->validate(qr/MINNIE/, 'winnie', 'loonie'), 'Validate, explicit deny (3)');
+  ok(!$file->validate, 'Validate, implicit pass (1)');
+  ok(!$file->validate(qr/MINNIE/i, 'winnie', 'loonie'), 'Validate, explicit pass (2)');
+  ok($file->validate(qr/MINNIE/, 'winnie', 'loonie'), 'Validate, explicit deny (3)');
+  my @r = $file->validate(qr/MINNIE/, 'winnie', 'loonie');
+  is(\@r, array { item qr/MINNIE/; end(); }, 'Validate, return unmatched (4)');
 }
 
 { # content_iter_factory

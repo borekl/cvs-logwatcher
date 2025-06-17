@@ -167,22 +167,16 @@ sub filter ($self, @filters)
 }
 
 #------------------------------------------------------------------------------
-# This function implements the 'validate' option and returns true only when
-# each of the regexes in the list are matched at least once. If the list is
-# not defined or empty, this function returns true as well.
+# This function implements the 'validate' option and returns list of unmatched
+# regular expressions; that means when all regexes are matched, the result is
+# an empty list
 sub validate ($self, @regexes)
 {
-  # implicitly valid: return true when the list is empty
-  return 1 if !@regexes;
-
-  # match every line against all prefixes, remove from the list on match;
   foreach my $l ($self->content->@*) {
     @regexes = grep { $l !~ /$_/ } @regexes;
     last if !@regexes;
   }
-
-  # finish
-  return !@regexes;
+  return @regexes;
 }
 
 #-------------------------------------------------------------------------------
