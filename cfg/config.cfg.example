@@ -50,6 +50,12 @@
       type => 'RCS',
       base => 'data',
     },
+    {
+      type => 'Git',
+      base => '/opt/cvs/data-dev-git',
+      email => 'some@email.com',
+      name => 'Some Username',
+    },
   ],
 
 #=============================================================================
@@ -58,24 +64,11 @@
 
   rcs => {
 
-    # subdirectory of the scripts main directory where the RCS repository
-    # will be located
-    repo => 'data',
-
     # location of RCS binaries
     rcsctl => '/usr/bin/rcs',
     rcsci => '/usr/bin/ci',
     rcsco => '/usr/bin/co',
   },
-
-#=============================================================================
-# git section
-#=============================================================================
-
-  git => {
-    repo => '/opt/cvs/data-dev-git',
-  },
-
 
 #=============================================================================
 # MIB section

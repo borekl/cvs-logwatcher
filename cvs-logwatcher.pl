@@ -46,7 +46,13 @@ $logger->info(qq{[cvs] Mode is }, $cmd->devel ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging enabled}) if $cmd->debug;
 $logger->debug(qq{[cvs] Log directory is }, $cfg->logprefix);
 $logger->debug(qq{[cvs] Scratch directory is }, $cfg->tempdir);
-$logger->debug(qq{[cvs] Repository directory is }, $cfg->repodir('rcs'));
+foreach my $repo ($cfg->repos->@*) {
+  my $type = ref($repo);
+  $type =~ s/.*:://;
+  $logger->debug(
+    sprintf(qq{[cvs] Repository %s -> %s }, $type, $repo->base)
+  );
+}
 
 # verify that logfiles are configured
 unless(keys $cfg->logfiles->%*) {
@@ -102,8 +108,10 @@ if($cmd->file) {
     name => $cmd->host, cmd => $cmd, who => $cmd->user, msg => $cmd->msg,
     target => $target, tag => ('cvs/' . $cmd->host), data => {},
   );
-  my $file = CVSLogwatcher::File->new(file => $cmd->file, target => $target);
-  my $fg = CVSLogwatcher::FileGroup->new(host => $host, files => [ $file ]);
+  my $file = CVSLogwatcher::File->new(file => $cmd->file);
+  my $fg = CVSLogwatcher::FileGroup->new(
+    host => $host, files => [ $file ], target => $target
+  );
   $fg->process;
 
   exit(0);

@@ -66,7 +66,9 @@ sub process ($self)
   my $host = $self->name;
   my $target = $self->target;
   my $cmd = $self->cmd;
-  my $empty = CVSLogwatcher::FileGroup->new(files => [], host => $self);
+  my $empty = CVSLogwatcher::FileGroup->new(
+    files => [], host => $self, target => $target
+  );
 
   # get base hostname (without domain name) and set up % tokens
   my $host_nodomain = $self->host_nodomain;
@@ -118,6 +120,7 @@ sub process ($self)
   return CVSLogwatcher::FileGroup->new(
     files => \@files,
     host => $self,
+    target => $target,
   );
 }
 
