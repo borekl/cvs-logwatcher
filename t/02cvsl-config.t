@@ -81,7 +81,6 @@ ok($cfg_example->is_file, 'Example configuration file exists');
 
   # config.rcs
   is($cfg->config->{rcs}, hash {
-    field 'repo' => 'data';
     field 'rcsctl' => '/usr/bin/rcs';
     field 'rcsci' => '/usr/bin/ci';
     field 'rcsco' => '/usr/bin/co';
