@@ -102,7 +102,10 @@ sub process ($self)
     foreach my $repo ($cfg->repos->@*) {
       my $group = $self->host->admin_group;
       $logger->debug("[$tag] Processing repo type " . ref($repo));
-      $logger->debug("[$tag] Target file is " . $repo->base->child($group, $file->file->basename));
+      $logger->debug(
+        "[$tag] Target file is "
+        . $repo->base->child($group, $file->file->basename)
+      );
 
       # see if the file exists in the repository already
       if($repo->is_repo_file($file, $group)) {
