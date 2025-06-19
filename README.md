@@ -517,11 +517,11 @@ filtering using the `ignoreline` target option). Note that when old and new
 revision are *exactly* the same, no commit is created by RCS.
 
 **`--nocheckin[=PATHNAME]`**
-Do not perform RCS check in after successfully retrieving configuration from a
-device. When no PATHNAME is defined, the file is just left in the directory it
-was downloaded to. When directory is specified, the file is moved there. When
-filename is specified, the file is renamed into it. This should only be used
-when manually triggering with the `--trigger` option.
+Do not perform repository check in after successfully retrieving configuration
+from a device. When no PATHNAME is defined, the file is dropped, which is
+probably not very useful. When directory is specified, the file is moved there.
+When filename is specified, the file is renamed into it. This should only be
+used when manually triggering with the `--trigger` option.
 
 **`--nomangle`**
 Do not perform configuration file transformations prescribed in the target

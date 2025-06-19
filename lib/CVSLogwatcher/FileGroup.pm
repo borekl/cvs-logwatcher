@@ -17,6 +17,7 @@ use Path::Tiny;
 has files => ( is => 'ro', required => 1 );
 has host => ( is => 'ro', required => 1 );
 has target => ( is => 'ro', required => 1 );
+has cmd => ( is => 'ro' );
 
 #-------------------------------------------------------------------------------
 # return number of files associated with this instance
@@ -99,6 +100,21 @@ sub process ($self)
     # only uppercasing or lowercasing)
     $file->set_filename($target->mangle_hostname($file->file->basename));
 
+    # --nocheckin command-line option; this inhibits the received file being
+    # actually checked into any repositories; when the option is specified with
+    # a path, then the resulting file is copied there; otherwise nothing is done
+    # and the file abandoned
+    if($self->cmd && defined $self->cmd->nocheckin) {
+      if(my $save_to = $self->cmd->nocheckin ne '') {
+        my $f = $file->save($self->cmd->nocheckin);
+        $logger->info("[$tag] Check-in inhibited, file saved to " . $f);
+      } else {
+        $logger->info("[$tag] Check-in inhibited, file dropped");
+      }
+      next;
+    }
+
+    # commit file to configured repositories
     foreach my $repo ($cfg->repos->@*) {
       my $group = $self->host->admin_group;
       $logger->debug("[$tag] Processing repo type " . ref($repo));

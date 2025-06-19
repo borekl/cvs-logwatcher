@@ -110,7 +110,7 @@ if($cmd->file) {
   );
   my $file = CVSLogwatcher::File->new(file => $cmd->file);
   my $fg = CVSLogwatcher::FileGroup->new(
-    host => $host, files => [ $file ], target => $target
+    host => $host, files => [ $file ], target => $target, cmd => $cmd
   );
   $fg->process;
 

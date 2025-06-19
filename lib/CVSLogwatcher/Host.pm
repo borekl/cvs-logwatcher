@@ -67,7 +67,7 @@ sub process ($self)
   my $target = $self->target;
   my $cmd = $self->cmd;
   my $empty = CVSLogwatcher::FileGroup->new(
-    files => [], host => $self, target => $target
+    files => [], host => $self, target => $target, cmd => $cmd
   );
 
   # get base hostname (without domain name) and set up % tokens
@@ -108,8 +108,7 @@ sub process ($self)
 
   # warn if no files received
   if(!@files) {
-    $logger->warn("[$tag] No files received, nothing to do")
-    unless $self->files->@*;
+    $logger->warn("[$tag] No files received, nothing to do");
     return $empty
   }
 
@@ -121,6 +120,7 @@ sub process ($self)
     files => \@files,
     host => $self,
     target => $target,
+    cmd => $cmd,
   );
 }
 

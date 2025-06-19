@@ -80,7 +80,7 @@ Usage: cvs-logwatcher.pl [options]
   --msg=MSG          define message for --trigger
   --file=FILE        check-in supplied file
   --force            force check-in when using --trigger
-  --nocheckin[=FILE] do not perform RCS repository check in with --trigger
+  --nocheckin[=FILE] do not perform repository check in with --trigger
   --nomangle         do not perform config text transformations
   --debug            set loglevel to debug
   --devel            development mode, implies --debug
