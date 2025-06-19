@@ -225,14 +225,25 @@ $temp_plain->spew(join("\n", (1..10)));
     "Vei6YDXpJKFqIqm\n",
   );
   my $tmp = Path::Tiny->tempfile;
+  my $alttmp = Path::Tiny->tempfile;
+  my $tmpdir = Path::Tiny->tempdir;
   my $file = CVSLogwatcher::File->new(file => $tmp, content => \@content);
-  ok(lives { $file->save }, 'File save (1)');
+  my $rv;
+  ok(lives { $rv = $file->save }, 'File save (1)');
   ok(-f $tmp, 'File save (2)');
+  is($rv->stringify, $tmp->stringify, 'File save (2b)');
   my $file2;
   ok(lives { $file2 = CVSLogwatcher::File->new(file => $tmp) }, 'File save (3)');
   ok(!$file->is_changed($file2));
-  ok(lives { $file2->remove }, 'File save (4)');
-  ok(!-f $tmp, 'File save (5)');
+  # save to alternate destination (complete pathname given)
+  ok(lives { $file->save($alttmp) }, 'File save (4)');
+  ok(-f $alttmp, 'File save (5)');
+  # save to alternate destination (only destination directory given)
+  ok(lives { $file->save($tmpdir) }, 'File save (5)');
+  ok(-f $tmpdir->child($tmp->basename), 'File save (6)');
+  # remove file
+  ok(lives { $file2->remove }, 'File remove (1)');
+  ok(!-f $tmp, 'File remove (2)');
 }
 
 done_testing();

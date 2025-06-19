@@ -228,8 +228,8 @@ sub is_changed ($this_file, $other_file, $cb=undef)
 
 #------------------------------------------------------------------------------
 # Save the current content into a file. Either current file is used, but
-# different target can optionally be specified. This is only for saving plain
-# files, not RCS repositories; use 'check_in' method instead.
+# different target can optionally be specified (both target directory and target
+# file can be specified). This is only for saving plain files.
 sub save ($self, $dest_file = undef)
 {
   # no gzip files at the moment
@@ -238,13 +238,16 @@ sub save ($self, $dest_file = undef)
   # get the destination file
   $dest_file = $dest_file ? path $dest_file : $self->file;
 
+  # if current destination is directory, append basename to form complete
+  # pathname
+  $dest_file = $dest_file->child($self->file->basename) if $dest_file->is_dir;
+
   # write target file
-  open(my $fh, '>', "$dest_file.$$")
-  or die "Could not open $dest_file for writing";
-  foreach ($self->content->@*) { print $fh $_ }
-  close($fh);
-  rename("$dest_file.$$", $dest_file)
-  or "die Failed to rename file $dest_file";
+  $dest_file->spew($self->content->@*)
+  or die "Failed to write file '$dest_file' ($!)";
+
+  # return the destination file path
+  return $dest_file;
 }
 
 #------------------------------------------------------------------------------
