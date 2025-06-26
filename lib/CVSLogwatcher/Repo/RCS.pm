@@ -30,11 +30,10 @@ sub is_repo_file ($self, $file, $dir_in_repo='.')
 # commit supplied file (must be CVSL::File instance) to the repository;
 # target_dir must be a relative directory and is where the file is put; 'host'
 # 'msg' and 'who' arguments must be provided
-#
 sub commit_file ($self, $file, $target_dir, %arg)
 {
   my $cfg = CVSLogwatcher::Config->instance;
-  my $is_new = $self->is_repo_file($file, $target_dir);
+  my $is_new = !$self->is_repo_file($file, $target_dir);
 
   # supplied file must be CVSLogwatcher::File instance
   die 'Argument to commit_file must be a CVSL::File instance'
