@@ -225,6 +225,12 @@ foreach my $log (values $cfg->logfiles->%*) {
     next;
   }
 
+  # check if the file is readable
+  unless(-r $log->file) {
+    $logger->warn(sprintf('[cvs] Skipping unreadable %s (%s)', $log->file, $logid));
+    next;
+  }
+
   # start watching
   $log->watch($ioloop, $cmd, sub ($host) {
 
