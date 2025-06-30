@@ -29,6 +29,7 @@ has task       =>  ( is => 'rwp' );
 has onlyuser   =>  ( is => 'rwp' );
 has heartbeat  =>  ( is => 'rwp' );
 has match      =>  ( is => 'rwp' );
+has logs       =>  ( is => 'rwp' );
 
 # flags
 has interactive => ( is => 'rwp', default => 0 );
@@ -56,6 +57,10 @@ sub BUILD ($self, $args)
     'heartbeat:i' => sub { $self->_set_heartbeat($_[1] || 300) },
     'match=s'     => sub {
                        $self->_set_match($_[1]);
+                       $self->_set_interactive(1);
+                     },
+    'logs'        => sub {
+                       $self->_set_logs($_[1]);
                        $self->_set_interactive(1);
                      },
     'help|?'      => sub { $self->help; exit(0); }
