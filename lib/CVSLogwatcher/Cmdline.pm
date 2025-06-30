@@ -30,6 +30,9 @@ has onlyuser   =>  ( is => 'rwp' );
 has heartbeat  =>  ( is => 'rwp' );
 has match      =>  ( is => 'rwp' );
 
+# flags
+has interactive => ( is => 'rwp', default => 0 );
+
 #-----------------------------------------------------------------------------
 # build function
 sub BUILD ($self, $args)
@@ -51,7 +54,10 @@ sub BUILD ($self, $args)
     'task=s'      => sub { $self->_set_task($_[1]) },
     'onlyuser=s'  => sub { $self->_set_onlyuser($_[1]) },
     'heartbeat:i' => sub { $self->_set_heartbeat($_[1] || 300) },
-    'match=s'     => sub { $self->_set_match($_[1]) },
+    'match=s'     => sub {
+                       $self->_set_match($_[1]);
+                       $self->_set_interactive(1);
+                     },
     'help|?'      => sub { $self->help; exit(0); }
   );
 
