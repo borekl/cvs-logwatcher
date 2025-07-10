@@ -128,7 +128,7 @@ sub process ($self)
     # commit file to configured repositories
     foreach my $repo ($cfg->repos->@*) {
       my $group = $self->host->admin_group;
-      $logger->debug("[$tag] Processing repo type " . ref($repo));
+      $logger->info("[$tag] Processing repo type " . ref($repo));
       $logger->debug(
         "[$tag] Target file is "
         . $repo->base->child($group, $file->file->basename)
@@ -142,7 +142,7 @@ sub process ($self)
           $repo_file
           && $repo_file->is_changed($file, sub ($l) { $target->is_ignored($l) })
         ) {
-          $logger->debug("[$tag] File changed, commiting");
+          $logger->info("[$tag] File changed, committing");
           $repo->commit_file(
             $file, $group,
             host => $host_nodomain,
@@ -151,7 +151,7 @@ sub process ($self)
           );
         } else {
           if($cmd->force) {
-            $logger->debug("[$tag] File did not change but --force in effect");
+            $logger->info("[$tag] File did not change but --force in effect");
             $repo->commit_file(
               $file, $group,
               host => $host_nodomain,
@@ -159,11 +159,11 @@ sub process ($self)
               who => $self->host->who,
             );
           } else {
-            $logger->debug("[$tag] File did not change");
+            $logger->info("[$tag] File did not change");
           }
         }
       } else {
-        $logger->debug("[$tag] File is new in repository");
+        $logger->info("[$tag] File is new in repository");
         $repo->commit_file(
           $file, $group,
           host => $host_nodomain,
