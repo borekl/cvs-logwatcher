@@ -47,6 +47,17 @@ sub process ($self)
       $tag, $file->file->stringify, $file->size
     ));
 
+    # enforce minimum file size
+    if(
+      $target->config->{minsize}
+      && $target->config->{minsize} > $file->size)
+    {
+      $logger->warn(sprintf(
+        '[%s] File below minimum size, aborting check in', $tag
+      ));
+      next;
+    }
+
     # convert line endings to local representation
     if($cmd->mangle && $target->has_option('normeol')) {
       $logger->debug(sprintf(
