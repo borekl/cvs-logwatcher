@@ -13,6 +13,8 @@ use IO::Async::FileStream;
 
 has id => ( is => 'ro', required => 1 );
 has file => ( is => 'ro', required => 1 );
+
+# array of pairs (matchid, regex)
 has matchre => ( is => 'ro', required => 1 );
 
 #-------------------------------------------------------------------------------
@@ -22,10 +24,17 @@ has matchre => ( is => 'ro', required => 1 );
 # present. Other keys are optional.
 sub match ($self, $l, $matchid)
 {
-  my %re;
-  my $regex = $self->matchre->{$matchid};
+  # get configuration for single match entry specified by $matchid; if multiple
+  # are found, it is a sign of misconfiguration
+  my ($match_cfg_entry) = grep { $_->[0] eq $matchid } $self->matchre->@*;
 
-  if($l =~ /$regex/) { $re{$_} = $+{$_} foreach (keys %+) }
+  # if there is a match, copy named capture groups to new hash to make them
+  # scoped
+  my %re;
+  my $regex = $match_cfg_entry->[1];
+  if($regex && $l =~ /$regex/) { $re{$_} = $+{$_} foreach (keys %+) }
+
+  # return the capture groups; if there was no match, this will be an empty hash
   return \%re;
 }
 
@@ -60,9 +69,10 @@ sub watch ($self, $loop, $cmd, $callback)
         $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
 
         # iterate over possible matches
-        for my $match_id (keys $self->matchre->%*) {
+        for my $match_cfg_entry ($self->matchre->@*) {
 
           # match line
+          my $match_id = $match_cfg_entry->[0];
           my $match = $self->match($l, $match_id);
           next unless $match->{host};
           my $host = $match->{host};
@@ -102,7 +112,7 @@ sub watch ($self, $loop, $cmd, $callback)
             $logger->info(sprintf('[%s] | host: %s', $tag, $host ));
             $logger->info(sprintf('[%s] | user: %s', $tag, $user // '-' ));
             $logger->info(sprintf('[%s] | mesg: %s', $tag, $msg // '-' ));
-            next;
+            last;
           }
 
           # finish if no target
@@ -110,13 +120,13 @@ sub watch ($self, $loop, $cmd, $callback)
             $logger->warn(
               "[cvs] No target found for match from '$host' in source '$logid/$match_id'"
             );
-            next;
+            last;
           }
 
           # finish when --onlyuser specified and not matched
           if($cmd->onlyuser && $cmd->onlyuser ne $user) {
             $logger->info("[cvs/$logid] Skipping user $user\@$host (--onlyuser)");
-            next;
+            last;
           }
 
           # invoke callback with Host instance
@@ -132,6 +142,7 @@ sub watch ($self, $loop, $cmd, $callback)
             )
           );
         }
+        last;
       }
       return 0;
     }

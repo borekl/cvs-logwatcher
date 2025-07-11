@@ -68,17 +68,22 @@ if($cmd->interactive) {
   #-----------------------------------------------------------------------------
 
   if($cmd->logs) {
-    my $w1 = max (map { length } ( keys $cfg->logfiles->%* ), 5);
-    my $w2 = max (map { length($cfg->logfiles->{$_}->file) } (keys $cfg->logfiles->%*));
-    my $w3 = max (map { length(join(', ', keys $cfg->logfiles->{$_}->matchre->%*)) } (keys $cfg->logfiles->%*));
+    my @logfiles = sort keys $cfg->logfiles->%*;
+    my $w1 = max (map { length } @logfiles, 5);
+    my $w2 = max (map { length($cfg->logfiles->{$_}->file) } @logfiles);
+    my $w3 = max (
+      map {
+         length(join(', ', map { $_->[0] } $cfg->logfiles->{$_}->matchre->@*))
+      } @logfiles
+    );
     print "\n";
     printf("%-${w1}s  %-${w2}s  %-${w3}s\n", 'logid', 'filename', 'match ids');
     printf("%s  %s  %s\n", '=' x $w1, '=' x $w2, '=' x $w3);
-    foreach my $logid (sort keys $cfg->logfiles->%*) {
+    foreach my $logid (@logfiles) {
       printf(
         "%-${w1}s  %-${w2}s  %s\n",
         $logid, $cfg->logfiles->{$logid}->file,
-        join(', ', keys $cfg->logfiles->{$logid}->matchre->%*)
+        join(', ', map { $_->[0] } $cfg->logfiles->{$logid}->matchre->@*)
       );
     }
     print "\n";
