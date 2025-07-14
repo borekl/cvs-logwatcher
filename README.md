@@ -3,18 +3,15 @@
 **cvs-netconfig** is a network management tool that automatically maintains
 repository of network routers and switches configurations. It observes
 syslog to figure out when configuration of a network device has changed and
-then downloads the changed configuration and commits it into
-an [RCS](https://en.wikipedia.org/wiki/Revision_Control_System)
-repository. Talking to nework devices is typically done with SSH,
-but the configuration is flexible enough to support other methods such
-as direct SCP fetches.
+then downloads the changed configuration and commits it into a repository.
+A this moment, two repository types are supported: RCS and git
 
-The resulting RCS repository can be browsed on a web server with
-[ViewVC](http://www.viewvc.org/) or [CVSweb](https://help.ubuntu.com/community/CVSweb)
-web applications. This includes browsing through revisions and comparing revisions.
+Configuration retrieval is fully configurable and usually utilizes SSH/SFTP.
+The repository can be browsed with a web server using web applications such as
+gitweb (git), CVSweb or ViewVC (RCS).
 
 This tool was written for my employer, so it might be rough around the edges
-at some places. Please not, that while there's CVS in the name of the application,
+at some places. Please note, that while there's CVS in the name of the application,
 it actually only uses basic RCS operations on single files, so there is no
 need to have actual CVS installed. If you want web access with CVSweb or newer
 ViewVC versions, you need to simulate CVS repository for these tools to work.
@@ -33,7 +30,7 @@ that points to the directory itself (ie. CVSROOT -> .)
   * Moo
   * Feature::Compat::Try
   * Path::Tiny
-
+  * Git::Raw
 
 ## How It Works
 
@@ -45,8 +42,7 @@ this:
     Aug 29 14:06:19.642 CEST: %SYS-5-CONFIG_I: Configured from console by rborelupo on vty0 (172.16.20.30)
 
 Triggered by such a message, the script will download the device's
-configuration, and check it into local RCS repository residing in `data`
-directory.
+configuration, and check it into local repository
 
 Configuration download can be performed in three ways:
 
@@ -59,9 +55,8 @@ logon session and record it itself.
 * The script can issue local command, such as scp or wget, that will fetch
 the remote configuration
 
-Once the local file is available, it is checked into the local repository
-using RCS's `ci` command.
-
+Once the local file is available, it is checked into the local repository according to the configuration.
+It is possible to check into both RCS and git in parallel.
 
 ## Configuration
 
@@ -70,7 +65,7 @@ configuration resides in the `cfg` directory. Following files are used:
 
     config.cfg   ... main configuration file (perl syntax)
     keyring.cfg  ... passwords used in configuration file (perl syntax)
-    logging.conf ... Log2Perl configuration
+    logging.conf ... Log2Perl configuration (Log2perl specific syntax)
 
 ### keyring.cfg
 
@@ -121,20 +116,33 @@ defines the default expect timeout for interacting with
 devices. If this timeout is exceeded, the attempt to talk to a device
 is abandoned.
 
+#### Repositories configuration
+
+    repos => [
+      {
+        type => 'RCS',
+        base => 'data',
+      },
+      {
+        type => 'Git',
+        base => '/opt/cvs/repo/dev',
+        email => 'itnetwork@somecompany.com',
+        name => 'IT Department',
+      },
+    ],
+
+This section defines **`base`** directory for give repository **`type`**.
+Git also needs to specify **`email`** and **`name`** to be used with commits.
+
 #### RCS configuration
 
     rcs => {
-      rcsrepo => 'data',
       rcsctl => '/usr/bin/rcs',
       rcsci => '/usr/bin/ci',
       rcsco => '/usr/bin/co',
     }
 
-**`rcsrepo`**
-defines the subdirectory that will hold the RCS repository files
-
-**`rcsctl`**, **`rcsci`**, **`rcsco`**
-defines the path to the RCS binaries
+**`rcsctl`**, **`rcsci`** and **`rcsco`** define the path to the RCS binaries.
 
 #### Ping configuration
 
@@ -183,11 +191,11 @@ it later. The general format is as follows:
 
     LOGID => {
       filename => '/var/log/somefile.log',
-      match => {
-        MATCHID1 => 'regex1',
-        MATCHID2 => 'regex2',
+      match => [
+        [ MATCHID1 => 'regex1' ],
+        [ MATCHID2 => 'regex2' ],
         ...
-      }
+      ]
     }
 
 The regular expression must define at least named capture group `host`.
@@ -203,9 +211,9 @@ MATCHID:
     logfiles => {
       cisco => {
         filename => '/var/log/cisco/cisco.log',
-        match => {
-           cisco => '^.*\s+\d+\s+[0-9:]+\s+(?<host>[\w\d.]+)\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$',
-        }
+        match => [
+           [ cisco => '^.*\s+\d+\s+[0-9:]+\s+(?<host>[\w\d.]+)\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$' ],
+        ]
       }
     }
 
@@ -229,9 +237,9 @@ configuration mentioned above. Groups are used to separate the configs into
 directories.
 
 **`matchid`**
-Defines MATCHID as defined in the `logfiles` section. This key is *required* and
-it is used for matching logfile matches to targets. Multiple targets can use the
-same MATCHID.
+Defines one or more MATCHID's as defined in the `logfiles` section. This key is
+*required* and it is used for matching logfile matches to targets.
+Multiple targets can use the same MATCHID. 
 
 **`hostmatch`**
 Optional. Enables additional matching by device's hostname (in addition to
@@ -338,6 +346,11 @@ Add files that are expected to be received from the remote device. This is
 needed when the configuration is sent using utility such as scp or wget. Do not
 specify this if you are receiving configuation by means of recording the expect
 session.
+
+**`minsize`**
+Minimum file size; if this is defined, than valid file must be at least this size
+to be accepted. Smaller files are dropped without committing into the repository.
+This is primarily intended to avoid commiting partial or zero-size files.
 
 **`action`**
 This specifies anonymous in-line function (in perl), that is executed when the
