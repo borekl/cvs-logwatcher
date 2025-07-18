@@ -100,6 +100,7 @@ Usage: cvs-logwatcher.pl [options]
   --onlyuser=USER    only changes by specified user are processed
   --heartbeat[=N]    enable heartbeat logging every N seconds (default 300)
   --log=LOGID        only process this log
+  --logs             display configured logfiles and exit
   --match=STRING     try to match supplied string, output result and exit
 
 EOHD
@@ -131,6 +132,8 @@ sub dump ($self)
   push(@out, sprintf('match:     %s', $self->match // '--'));
   push(@out, sprintf('debug:     %s', $self->debug ? 'true' : 'false'));
   push(@out, sprintf('devel:     %s', $self->devel ? 'true' : 'false'));
+  push(@out, sprintf('logs:      %s', $self->logs ? 'true' : 'false'));
+  push(@out, '', 'Mode is interactive') if $self->interactive;
 
   return @out;
 }
