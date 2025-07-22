@@ -53,7 +53,6 @@ sub watch ($self, $loop, $cmd, $callback)
   my $fs = IO::Async::FileStream->new(
 
     read_handle => $logh,
-    filename => $self->file,
 
     on_initial => sub {
       my ($self2) = @_;
