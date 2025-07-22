@@ -13,6 +13,7 @@ use IO::Async::FileStream;
 
 has id => ( is => 'ro', required => 1 );
 has file => ( is => 'ro', required => 1 );
+has inode => ( is => 'rwp' );
 
 # array of pairs (matchid, regex)
 has matchre => ( is => 'ro', required => 1 );
@@ -48,6 +49,11 @@ sub watch ($self, $loop, $cmd, $callback)
 
   # open logfile for reading
   open my $logh,  '<', $self->file or die "Cannot open logfile '$logid' ($!)";
+
+  # record inode, this is used to detect file being changed (e.g. when rotating
+  # logs)
+  my @stat = stat($self->file);
+  $self->_set_inode($stat[1]);
 
   # create new FileStream instance
   my $fs = IO::Async::FileStream->new(
@@ -152,6 +158,15 @@ sub watch ($self, $loop, $cmd, $callback)
   $logger->info(
     sprintf('[cvs] Started observing %s (%s)', $self->file, $logid)
   );
+}
+
+#-------------------------------------------------------------------------------
+# Return true if the file seems to have changed (ie. the filename is the same,
+# but refers to different inode)
+sub is_rotated ($self)
+{
+  my @stat = stat($self->file) if $self->file->is_file;
+  return $self->inode && $self->file->is_file && $self->inode != $stat[1];
 }
 
 1;
