@@ -337,6 +337,20 @@ foreach my $sig (qw(INT TERM)) {
   ));
 }
 
+# log rotation detection
+$ioloop->add(IO::Async::Timer::Periodic->new(
+  interval => 10,
+  on_tick => sub {
+    foreach my $log (values $cfg->logfiles->%*) {
+      if($log->is_rotated) {
+        $logger->info(sprintf(
+          "[cvs] %s (%s) rotated", $log->file, $log->id
+        ));
+      }
+    }
+  }
+)->start);
+
 # heartbeat timer
 if($cmd->heartbeat) {
   $ioloop->add(IO::Async::Timer::Periodic->new(
