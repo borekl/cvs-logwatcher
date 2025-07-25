@@ -91,9 +91,9 @@ sub watch ($self, $loop, $cmd, $callback)
           my $tag = "cvs/$host";
 
           # log match information
-          $logger->debug(sprintf(
-            '[%s] --- Match on logfile=%s, match id=%s, target=%s',
-            $tag, $logid, $match_id, $target->id // '?'
+          $logger->info(sprintf(
+            '[%s] --- Match %s@%s -> %s ---',
+            $tag, $match_id, $logid, $target->id // '?'
           ));
 
           $logger->debug(sprintf(

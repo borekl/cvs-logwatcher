@@ -268,6 +268,9 @@ foreach my $log (values $cfg->logfiles->%*) {
 
       #--- processing ----------------------------------------------------------
 
+      # record stargin time
+      my $processing_start = time;
+
       # log some basic information
       my ($h, $msg, $who) = ($host->name, $host->msg, $host->who);
       $logger->info("[$tag] Source host: $h (from syslog)");
@@ -302,6 +305,11 @@ foreach my $log (values $cfg->logfiles->%*) {
 
       # process files
       $fg->process;
+
+      # report duration of the entire processing
+      $logger->info(sprintf(
+        '[%s] Processing completed in %d seconds', $tag, time - $processing_start
+      ));
 
     } catch ($err) {
       $logger->error("[$tag] Failed to process host ($err)");
