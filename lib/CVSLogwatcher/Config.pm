@@ -256,9 +256,9 @@ sub is_ignored_host ($self, $h)
 #------------------------------------------------------------------------------
 sub iterate_matches ($self, $cb)
 {
-  foreach my $logid (sort keys $self->logfiles->%*) {
+  TOP: foreach my $logid (sort keys $self->logfiles->%*) {
     foreach my $match_cfg_entry ($self->logfiles->{$logid}->matchre->@*) {
-      $cb->($self->logfiles->{$logid}, $match_cfg_entry->[0]);
+      last TOP if $cb->($self->logfiles->{$logid}, $match_cfg_entry->[0]);
     }
   }
 }

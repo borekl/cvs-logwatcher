@@ -49,16 +49,18 @@ if($cmd->interactive) {
 
   if($cmd->match) {
     $cfg->iterate_matches(sub ($l, $match_id) {
-      return if $cmd->log && $cmd->log ne $l->id;
+      return 0 if $cmd->log && $cmd->log ne $l->id;
       my $result = $l->match($cmd->match, $match_id);
       if(%$result && $result->{host}) {
         my $target = $cfg->find_target($match_id, $result->{host});
         my $tid = $target->id // 'n/a';
         printf("--- MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
         printf("target:   %s\n", $tid);
-        printf("%-8s: %s\n", $_, $result->{$_}) foreach (keys %$result)
+        printf("%-8s: %s\n", $_, $result->{$_}) foreach (keys %$result);
+        return 1;
       } else {
         printf("--- NO MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
+        return 0;
       }
     });
   }
