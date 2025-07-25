@@ -146,8 +146,8 @@ sub watch ($self, $loop, $cmd, $callback)
               tag => $tag,
             )
           );
+          last;
         }
-        last;
       }
       return 0;
     }
