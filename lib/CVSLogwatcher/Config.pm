@@ -315,8 +315,8 @@ sub exists_matchid ($self, $matchid)
   my $cfg = $self->config;
 
   foreach my $logfile (keys $cfg->{logfiles}->%*) {
-    foreach my $mid (keys $cfg->{logfiles}{$logfile}{match}->%*) {
-      return 1 if $mid eq $matchid;
+    foreach my $mid ($cfg->{logfiles}{$logfile}{match}->@*) {
+      return 1 if $mid->[0] eq $matchid;
     }
   }
 
