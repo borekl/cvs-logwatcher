@@ -273,13 +273,14 @@ foreach my $log (values $cfg->logfiles->%*) {
 
       # log some basic information
       my ($h, $msg, $who) = ($host->name, $host->msg, $host->who);
-      $logger->info("[$tag] Source host: $h (from syslog)");
+      $logger->info("[$tag] Source host: $h");
       $logger->info("[$tag] Message:     ", $msg // '-');
-      $logger->info("[$tag] User:        ", $who // '-');
 
       # skip if ignored user
       if($who && $cfg->is_ignored_user($who)) {
-        $logger->info(qq{[$tag] Ignored user, skipping processing});
+        $logger->info(sprintf(
+          '[%s] User:        %s (ignored)', $tag, $who // '-'
+        ));
         return;
       }
 
@@ -292,10 +293,12 @@ foreach my $log (values $cfg->logfiles->%*) {
       # get admin group
       my $group = $host->admin_group;
       if($group) {
-        $logger->info(qq{[$tag] Admin group: $group});
+        $logger->info(sprintf(
+          '[%s] User:        %s / %s', $tag, $who // '-', $group
+        ));
       } else {
-        $logger->error(sprintf(
-          qq{[%s] No admin group for %s, skipping}, $tag, $host->host_nodomain
+        $logger->info(sprintf(
+          '[%s] User:        %s (no admin group)', $tag, $who // '-'
         ));
         return;
       }
