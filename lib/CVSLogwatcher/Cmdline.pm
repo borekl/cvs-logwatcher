@@ -9,6 +9,7 @@ use warnings;
 use strict;
 use experimental 'signatures';
 
+use FindBin qw($Bin);
 use Getopt::Long qw(GetOptionsFromString);
 
 # command-line option attributes
@@ -30,6 +31,7 @@ has onlyuser   =>  ( is => 'rwp' );
 has heartbeat  =>  ( is => 'rwp' );
 has match      =>  ( is => 'rwp' );
 has logs       =>  ( is => 'rwp' );
+has config     =>  ( is => 'rwp', default => "$Bin/cfg/config.cfg" );
 
 # flags
 has interactive => ( is => 'rwp', default => 0 );
@@ -63,6 +65,7 @@ sub BUILD ($self, $args)
                        $self->_set_logs($_[1]);
                        $self->_set_interactive(1);
                      },
+    'config=s'    => sub { $self->_set_config($_[1]) },
     'help|?'      => sub { $self->help; exit(0); }
   );
 
@@ -102,6 +105,7 @@ Usage: cvs-logwatcher.pl [options]
   --log=LOGID        only process this log
   --logs             display configured logfiles and exit
   --match=STRING     try to match supplied string, output result and exit
+  --config[=FILE]    use non-default config file or read config from stdin
 
 EOHD
 }
@@ -133,6 +137,7 @@ sub dump ($self)
   push(@out, sprintf('debug:     %s', $self->debug ? 'true' : 'false'));
   push(@out, sprintf('devel:     %s', $self->devel ? 'true' : 'false'));
   push(@out, sprintf('logs:      %s', $self->logs ? 'true' : 'false'));
+  push(@out, sprintf('config:    %s', $self->config));
   push(@out, '', 'Mode is interactive') if $self->interactive;
 
   return @out;
