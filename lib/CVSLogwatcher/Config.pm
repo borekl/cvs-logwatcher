@@ -9,7 +9,7 @@ with 'MooX::Singleton';
 use warnings;
 use strict;
 use v5.10;
-use experimental 'signatures', 'postderef';
+use experimental 'signatures', 'postderef', 'unicode_eval';
 use Carp;
 use Path::Tiny;
 use Log::Log4perl qw(get_logger);
