@@ -65,7 +65,13 @@ sub BUILD ($self, $args)
                        $self->_set_logs($_[1]);
                        $self->_set_interactive(1);
                      },
-    'config=s'    => sub { $self->_set_config($_[1]) },
+    'config:s'    => sub {
+                       if(defined $_[1] && !$_[1]) {
+                         $self->_set_config('-')
+                       } else {
+                         $self->_set_config($_[1])
+                       }
+                     },
     'help|?'      => sub { $self->help; exit(0); }
   );
 

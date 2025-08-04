@@ -27,8 +27,9 @@ has basedir => ( is => 'ro', required => 1, coerce => sub ($b) { path $b } );
 has config_file => (
   is => 'ro', required => 1,
   isa => sub ($cfg) {
-    die "Config file $cfg not found" unless -r $cfg;
-  }
+    die "Config file $cfg not found" unless $cfg eq '-' || -r $cfg
+  },
+  coerce => sub ($cfg) { $cfg->isa('Path::Tiny') ? $cfg : path($cfg) },
 );
 
 # configuration directory, this is automatically filled in from 'config_file'
@@ -65,16 +66,29 @@ has logger => ( is => 'lazy' );
 has repos => ( is => 'lazy' );
 
 #-------------------------------------------------------------------------------
-# run a perl script and return its return value while handling errors
+# run a perl script from file and return its return value, if the file passed
+# in is '-', read the script from stdin
 sub _do_script ($file)
 {
-  my $result = do(path($file)->absolute);
-  unless ($result) {
-    croak "couldn't parse $file: $@" if $@;
-    croak "couldn't do $file: $!"    unless defined $result;
-    croak "couldn't run $file"       unless $result;
+  my $config;
+
+  # slurp from stdin if told so
+  if($file eq '-') {
+    local $/;
+    $/ = undef;
+    binmode(STDIN, ':unix:encoding(UTF-8)');
+    $config = <STDIN>;
   }
-  return $result;
+
+  # otherwise read specified file
+  else {
+    $config = $file->slurp_utf8;
+  }
+
+  # process the received config
+  my $re = eval($config);
+  die $@ if $@;
+  return $re;
 }
 
 #------------------------------------------------------------------------------

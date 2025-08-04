@@ -302,9 +302,9 @@
     # where the session is to be recorded
 
     {
-      id         => juniper,
-      defgrp     => secit,
-      matchid    => juniper,
+      id         => 'juniper',
+      defgrp     => 'secit',
+      matchid    => 'juniper',
       validrange => [ '^set version', undef ],
       ignoreline => '^#',
       options    => [ 'normeol' ],
