@@ -3,9 +3,10 @@
 #==============================================================================
 
 package CVSLogwatcher::Stash;
+
+use v5.36;
 use Moo;
 with 'MooX::Singleton';
-use experimental 'signatures', 'postderef';
 
 has _stash => ( is => 'ro', default => sub {{}} );
 

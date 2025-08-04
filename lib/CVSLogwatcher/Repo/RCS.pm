@@ -4,9 +4,9 @@ package CVSLogwatcher::Repo::RCS;
 # individual RCS files, RCS doesn't really have a concept of repository, that's
 # what CVS is for
 
+use v5.36;
 use Moo;
 extends 'CVSLogwatcher::Repo';
-use experimental 'signatures';
 
 use Path::Tiny;
 

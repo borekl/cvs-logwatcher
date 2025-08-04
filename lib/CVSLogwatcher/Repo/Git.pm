@@ -2,9 +2,9 @@ package CVSLogwatcher::Repo::Git;
 
 # handling git repositories
 
+use v5.36;
 use Moo;
 extends 'CVSLogwatcher::Repo';
-use experimental 'signatures';
 
 use Feature::Compat::Try;
 use Path::Tiny;
