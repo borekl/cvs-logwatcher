@@ -5,9 +5,7 @@
 package CVSLogwatcher::Misc;
 require Exporter;
 
-use strict;
-use warnings;
-use experimental 'signatures';
+use v5.36;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw(

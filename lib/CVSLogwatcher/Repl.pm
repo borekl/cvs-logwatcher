@@ -4,11 +4,8 @@
 
 package CVSLogwatcher::Repl;
 
+use v5.36;
 use Moo;
-use v5.12;
-use warnings;
-use strict;
-use experimental 'signatures', 'postderef';
 
 has values => ( is => 'ro', default => sub { {} } );
 

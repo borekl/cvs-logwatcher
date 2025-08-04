@@ -4,11 +4,9 @@
 
 package CVSLogwatcher::Target;
 
+use v5.36;
 use Moo;
-use v5.12;
-use warnings;
-use strict;
-use experimental 'signatures', 'postderef';
+
 use CVSLogwatcher::Expect;
 use CVSLogwatcher::File;
 

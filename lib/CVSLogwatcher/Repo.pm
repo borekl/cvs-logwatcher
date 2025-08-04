@@ -2,10 +2,8 @@ package CVSLogwatcher::Repo;
 
 # base class for implementing actual repository types
 
+use v5.36;
 use Moo;
-use warnings;
-use strict;
-use experimental 'signatures', 'postderef';
 
 use Path::Tiny qw(path);
 

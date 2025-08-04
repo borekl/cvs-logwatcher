@@ -6,10 +6,8 @@
 
 package CVSLogwatcher::FileGroup;
 
+use v5.36;
 use Moo;
-use warnings;
-use strict;
-use experimental 'signatures', 'postderef';
 
 use Path::Tiny;
 

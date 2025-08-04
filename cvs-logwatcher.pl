@@ -10,9 +10,7 @@
 # See README.md for more details.
 #=============================================================================
 
-use strict;
-use warnings;
-use experimental 'signatures', 'say';
+use v5.36;
 use IO::Async::Loop;
 use IO::Async::Signal;
 use IO::Async::Timer::Periodic;

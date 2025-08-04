@@ -6,10 +6,8 @@
 
 package CVSLogwatcher::File;
 
+use v5.36;
 use Moo;
-use warnings;
-use strict;
-use experimental 'signatures', 'postderef';
 
 use Feature::Compat::Try;
 use Path::Tiny qw(path tempdir);

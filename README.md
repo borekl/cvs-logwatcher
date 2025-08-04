@@ -22,7 +22,7 @@ that points to the directory itself (ie. CVSROOT -> .)
 
 ## Requirements
 
-* Perl 5.12 or newer
+* Perl 5.36 or newer
 * Following perl modules:
   * Expect
   * Log::Log4Perl

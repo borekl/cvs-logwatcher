@@ -1,8 +1,6 @@
 #/usr/bin/perl
 
-use strict;
-use warnings;
-use experimental 'postderef';
+use v5.36;
 use Path::Tiny qw(cwd);
 use Test2::V0;
 

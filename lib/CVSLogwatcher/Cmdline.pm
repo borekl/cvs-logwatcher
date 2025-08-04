@@ -4,10 +4,8 @@
 
 package CVSLogwatcher::Cmdline;
 
+use v5.36;
 use Moo;
-use warnings;
-use strict;
-use experimental 'signatures';
 
 use FindBin qw($Bin);
 use Getopt::Long qw(GetOptionsFromString);

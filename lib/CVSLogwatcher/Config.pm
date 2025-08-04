@@ -3,13 +3,11 @@
 #==============================================================================
 
 package CVSLogwatcher::Config;
+
+use v5.36;
 use Moo;
 with 'MooX::Singleton';
 
-use warnings;
-use strict;
-use v5.10;
-use experimental 'signatures', 'postderef', 'unicode_eval';
 use Carp;
 use Path::Tiny;
 use Log::Log4perl qw(get_logger);
@@ -143,10 +141,11 @@ sub _build_logprefix ($self)
 {
   my $cfg = $self->config;
 
-  die 'No config.logprefix defined'
-  unless $cfg->{config}{logprefix};
-
-  return path $cfg->{config}{logprefix};
+  if($cfg->{config} && $cfg->{config}{logprefix}) {
+    return path $cfg->{config}{logprefix};
+  } else {
+    return path '/var/log';
+  }
 }
 
 #------------------------------------------------------------------------------

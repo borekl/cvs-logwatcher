@@ -4,11 +4,8 @@
 
 package CVSLogwatcher::Expect;
 
+use v5.36;
 use Moo;
-use v5.10;
-use warnings;
-use strict;
-use experimental 'signatures', 'postderef';
 
 use Feature::Compat::Try;
 use Expect;

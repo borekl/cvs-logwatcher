@@ -4,10 +4,8 @@
 
 package CVSLogwatcher::Logfile;
 
+use v5.36;
 use Moo;
-use warnings;
-use strict;
-use experimental 'signatures';
 
 use IO::Async::FileStream;
 
