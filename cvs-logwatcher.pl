@@ -349,7 +349,7 @@ $ioloop->add(IO::Async::Timer::Periodic->new(
   interval => 10,
   on_tick => sub {
     foreach my $log (values $cfg->logfiles->%*) {
-      if($log->is_rotated) {
+      if($log->update_inode) {
         $logger->info(sprintf(
           "[cvs] %s (%s) rotated", $log->file, $log->id
         ));

@@ -159,12 +159,32 @@ sub watch ($self, $loop, $cmd, $callback)
 }
 
 #-------------------------------------------------------------------------------
-# Return true if the file seems to have changed (ie. the filename is the same,
-# but refers to different inode)
+# Return current inode number if the file seems to have changed (ie. the
+# filename is the same, but refers to different inode); otherwise returns undef
 sub is_rotated ($self)
 {
   my @stat = stat($self->file) if $self->file->is_file;
-  return $self->inode && $self->file->is_file && $self->inode != $stat[1];
+  if($self->inode && $self->file->is_file && $self->inode != $stat[1]) {
+    return $stat[1];
+  } else {
+    return undef;
+  }
+}
+
+#-------------------------------------------------------------------------------
+# update inode number of the log; returns true when the inode number changed
+sub update_inode ($self)
+{
+  # do nothing if no associated file
+  return 0 unless $self->file->is_file;
+
+  # update inode if it changed
+  if(my $new_inode = $self->is_rotated) {
+    $self->_set_inode($new_inode);
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 1;
