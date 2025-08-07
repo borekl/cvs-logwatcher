@@ -114,6 +114,11 @@ sub commit_file ($self, $file, $target_dir, %arg)
   my $commit = $self->git->commit(
     $commit_message, $me, $me, \@parents, $tree
   );
+
+  # run post-update hook if present, this is required so that serving the
+  # repository on dumb server works
+  my $post_update_hook = $self->base->child('.git', 'hooks', 'post-update');
+  system($post_update_hook->stringify) if $post_update_hook->is_file;
 }
 
 #-------------------------------------------------------------------------------
