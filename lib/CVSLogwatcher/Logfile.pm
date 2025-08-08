@@ -16,6 +16,15 @@ has inode => ( is => 'rwp' );
 # array of pairs (matchid, regex)
 has matchre => ( is => 'ro', required => 1 );
 
+# these values are supplied to the 'watch' method and following attributes are
+# used to store the values for later invocations from within the instance
+has _cmdline => ( is => 'rwp' );
+has _callback => ( is => 'rwp' );
+has _loop => ( is => 'rwp' );
+
+# IO::Async::FileStream instance
+has _fs => ( is => 'rwp' );
+
 #-------------------------------------------------------------------------------
 # Match a single log line against a regular expression specified by match id and
 # return a hash reference to named capture groups that matched. The 'host' key
@@ -44,6 +53,17 @@ sub watch ($self, $loop, $cmd, $callback)
   my $logid = $self->id;
   my $cfg = CVSLogwatcher::Config->instance;
   my $logger = $cfg->logger;
+  state $subsequent_runs;
+
+  # save and reuse command-line and callback refs; these can be reused for
+  # subsequent invocations of the watch method; these are necessary when the
+  # logfile needs to be reopened after rotation
+  $self->_set__cmdline($cmd) if $cmd;
+  $self->_set__loop($loop) if $loop;
+  $self->_set__callback($callback) if $callback;
+  $cmd = $self->_cmdline unless $cmd;
+  $loop = $self->_loop unless $loop;
+  $callback = $self->_callback unless $callback;
 
   # open logfile for reading
   open my $logh,  '<', $self->file or die "Cannot open logfile '$logid' ($!)";
@@ -54,7 +74,7 @@ sub watch ($self, $loop, $cmd, $callback)
   $self->_set_inode($stat[1]);
 
   # create new FileStream instance
-  my $fs = IO::Async::FileStream->new(
+  $self->_set__fs(IO::Async::FileStream->new(
 
     read_handle => $logh,
 
@@ -149,13 +169,17 @@ sub watch ($self, $loop, $cmd, $callback)
       }
       return 0;
     }
-  );
+  ));
 
   # attatch to event loop
-  $loop->add($fs);
+  $self->_loop->add($self->_fs);
   $logger->info(
-    sprintf('[cvs] Started observing %s (%s)', $self->file, $logid)
+    sprintf(
+      $subsequent_runs ? '[cvs] Reopened %s (%s)' : '[cvs] Started observing %s (%s)',
+      $self->file, $logid
+    )
   );
+  $subsequent_runs = 1;
 }
 
 #-------------------------------------------------------------------------------
@@ -185,6 +209,24 @@ sub update_inode ($self)
   } else {
     return 0;
   }
+}
+
+#-------------------------------------------------------------------------------
+# reopen watched file; this is intended action upon detection that the watched
+# file was rotated (using logrotate(8) for example)
+sub reopen ($self)
+{
+  my $logid = $self->id;
+  my $cfg = CVSLogwatcher::Config->instance;
+  my $logger = $cfg->logger;
+
+  # close the original file using IO::Async::Stream method, which also removes
+  # itself from the event loop
+  $self->_fs->close;
+
+  # create a new watcher
+  $self->watch($self->_loop, $self->_cmdline, $self->_callback);
+  #$logger->info(sprintf('[cvs] Reopened %s (%s)', $self->file, $logid));
 }
 
 1;

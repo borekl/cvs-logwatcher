@@ -353,6 +353,7 @@ $ioloop->add(IO::Async::Timer::Periodic->new(
         $logger->info(sprintf(
           "[cvs] %s (%s) rotated", $log->file, $log->id
         ));
+        $log->reopen;
       }
     }
   }
