@@ -15,22 +15,21 @@ use CVSLogwatcher::Repl;
 use CVSLogwatcher::Misc;
 use CVSLogwatcher::File;
 
-has config => ( is => 'ro', required => 1 );
 has target => ( is => 'ro', required => 1 );
 has spawn => ( is => 'lazy' );
 has sleep => ( is => 'lazy' );
 
-sub _build_sleep ($self) { $self->config->{sleep} // 1 };
+sub _build_sleep ($self) { $self->target->{expect}{sleep} // 1 };
 
 sub _build_spawn ($self) {
-  $self->config->{spawn} // die "No expect 'spawn' line defined";
+  $self->target->config->{expect}{spawn} // die "No expect 'spawn' line defined";
 }
 
 #------------------------------------------------------------------------------
 # Return task by its name; FIXME more configuration checks needed
 sub get_task ($self, $task = undef)
 {
-  my $cfg = $self->config;
+  my $cfg = $self->target->config->{expect};
 
   # if task not specified, use default task
   $task = $cfg->{deftask} // undef unless $task;
@@ -104,7 +103,7 @@ sub run_task ($self, $host, $task = undef)
 
     # iterate over all chats in the task
     foreach my $chid (@chats) {
-      my $chat = $self->config->{chats}{$chid};
+      my $chat = $self->target->config->{expect}{chats}{$chid};
 
       # iterate over chat lines
       my $line_count = 1;
