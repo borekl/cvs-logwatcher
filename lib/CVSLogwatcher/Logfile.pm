@@ -226,7 +226,6 @@ sub reopen ($self)
 
   # create a new watcher
   $self->watch($self->_loop, $self->_cmdline, $self->_callback);
-  #$logger->info(sprintf('[cvs] Reopened %s (%s)', $self->file, $logid));
 }
 
 1;
