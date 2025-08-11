@@ -53,6 +53,15 @@ sub _build_admin_group ($self)
 }
 
 #-----------------------------------------------------------------------------
+# return an empty FileGroup instance
+sub empty_fg ($self)
+{
+  CVSLogwatcher::FileGroup->new(
+    files => [], host => $self, target => $self->target, cmd => $self->cmd
+  )
+}
+
+#-----------------------------------------------------------------------------
 # This method encapsulates retrieval of configuration from remote device; when
 # successful, this returns CVSLogwatcher::FileGroup instance; NB that even
 # if no files are retrieved, the return value still must FileGroup instance
@@ -64,9 +73,7 @@ sub process ($self)
   my $host = $self->name;
   my $target = $self->target;
   my $cmd = $self->cmd;
-  my $empty = CVSLogwatcher::FileGroup->new(
-    files => [], host => $self, target => $target, cmd => $cmd
-  );
+  my $empty = $self->empty_fg;
 
   # get base hostname (without domain name) and set up % tokens
   my $host_nodomain = $self->host_nodomain;
