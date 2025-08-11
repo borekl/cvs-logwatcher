@@ -35,37 +35,15 @@ my $cfg = CVSLogwatcher::Config->instance(
 # interactive code, ie. show something to user and exit
 if($cmd->interactive) {
 
-  #-----------------------------------------------------------------------------
-  #--- match check -------------------------------------------------------------
-  #-----------------------------------------------------------------------------
-
-  # for debugging purposes it is possible to give the program a string to try
-  # to match against configured regular expression and it will return the match
-  # result; optionally, --log can be defined to constrain matching only to one
-  # logfile configuration
-
+  # --match // for debugging purposes it is possible to give the program a
+  # string to try to match against configured regular expression and it will
+  # return the match result; optionally, --log can be defined to constrain
+  # matching only to one logfile configuration
   if($cmd->match) {
-    $cfg->iterate_matches(sub ($l, $match_id) {
-      return 0 if $cmd->log && $cmd->log ne $l->id;
-      my $result = $l->match($cmd->match, $match_id);
-      if(%$result && $result->{host}) {
-        my $target = $cfg->find_target($match_id, $result->{host});
-        my $tid = $target->id // 'n/a';
-        printf("--- MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
-        printf("target:   %s\n", $tid);
-        printf("%-8s: %s\n", $_, $result->{$_}) foreach (keys %$result);
-        return 1;
-      } else {
-        printf("--- NO MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
-        return 0;
-      }
-    });
+    $cfg->test_match($cmd->match, $cmd->log);
   }
 
-  #-----------------------------------------------------------------------------
-  #--- show configured logs ----------------------------------------------------
-  #-----------------------------------------------------------------------------
-
+  # --logs // display configured logs along with match definitions
   if($cmd->logs) {
     $cfg->display_logs;
   }
