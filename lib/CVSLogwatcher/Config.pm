@@ -10,6 +10,7 @@ with 'MooX::Singleton';
 
 use Carp;
 use Path::Tiny;
+use List::Util qw(max);
 use Log::Log4perl qw(get_logger);
 
 use CVSLogwatcher::Logfile;
@@ -334,6 +335,35 @@ sub exists_matchid ($self, $matchid)
   }
 
   return 0;
+}
+
+#------------------------------------------------------------------------------
+# display configure logs and match expressions
+sub display_logs ($self)
+{
+  print "\n";
+  if($self->logfiles->%*) {
+    my @logfiles = sort keys $self->logfiles->%*;
+    my $w1 = max (map { length } @logfiles, 5);
+    my $w2 = max (map { length($self->logfiles->{$_}->file) } @logfiles);
+    my $w3 = max (
+      map {
+        length(join(', ', map { $_->[0] } $self->logfiles->{$_}->matchre->@*))
+      } @logfiles
+    );
+    printf("%-${w1}s  %-${w2}s  %-${w3}s\n", 'logid', 'filename', 'match ids');
+    printf("%s  %s  %s\n", '=' x $w1, '=' x $w2, '=' x $w3);
+    foreach my $logid (@logfiles) {
+      printf(
+        "%-${w1}s  %-${w2}s  %s\n",
+        $logid, $self->logfiles->{$logid}->file,
+        join(', ', map { $_->[0] } $self->logfiles->{$logid}->matchre->@*)
+      );
+    }
+  } else {
+    say 'No logs configured';
+  }
+  print "\n";
 }
 
 1;

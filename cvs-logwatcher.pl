@@ -15,7 +15,6 @@ use IO::Async::Loop;
 use IO::Async::Signal;
 use IO::Async::Timer::Periodic;
 use Feature::Compat::Try;
-use List::Util qw(max);
 use Path::Tiny;
 use FindBin qw($Bin);
 use Log::Log4perl::Level;
@@ -68,29 +67,7 @@ if($cmd->interactive) {
   #-----------------------------------------------------------------------------
 
   if($cmd->logs) {
-    print "\n";
-    if($cfg->logfiles->%*) {
-      my @logfiles = sort keys $cfg->logfiles->%*;
-      my $w1 = max (map { length } @logfiles, 5);
-      my $w2 = max (map { length($cfg->logfiles->{$_}->file) } @logfiles);
-      my $w3 = max (
-        map {
-          length(join(', ', map { $_->[0] } $cfg->logfiles->{$_}->matchre->@*))
-        } @logfiles
-      );
-      printf("%-${w1}s  %-${w2}s  %-${w3}s\n", 'logid', 'filename', 'match ids');
-      printf("%s  %s  %s\n", '=' x $w1, '=' x $w2, '=' x $w3);
-      foreach my $logid (@logfiles) {
-        printf(
-          "%-${w1}s  %-${w2}s  %s\n",
-          $logid, $cfg->logfiles->{$logid}->file,
-          join(', ', map { $_->[0] } $cfg->logfiles->{$logid}->matchre->@*)
-        );
-      }
-    } else {
-      say 'No logs configured';
-    }
-    print "\n";
+    $cfg->display_logs;
   }
 
   # don't go any further on interactive invocations
