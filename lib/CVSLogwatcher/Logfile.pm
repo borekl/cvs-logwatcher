@@ -53,7 +53,7 @@ sub watch ($self, $loop, $cmd, $callback)
   my $logid = $self->id;
   my $cfg = CVSLogwatcher::Config->instance;
   my $logger = $cfg->logger;
-  state $subsequent_runs;
+  my $subsequent_runs = defined $self->_cmdline;
 
   # save and reuse command-line and callback refs; these can be reused for
   # subsequent invocations of the watch method; these are necessary when the
