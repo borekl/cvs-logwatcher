@@ -376,7 +376,7 @@ sub test_match ($self, $match, $log)
     my $result = $l->match($match, $match_id);
     if(%$result && $result->{host}) {
       my $target = $self->find_target($match_id, $result->{host});
-      my $tid = $target->id // 'n/a';
+      my $tid = ref $target ? $target->id : 'n/a';
       printf("--- MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
       printf("target:   %s\n", $tid);
       printf("%-8s: %s\n", $_, $result->{$_}) foreach (keys %$result);
