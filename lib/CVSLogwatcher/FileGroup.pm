@@ -105,9 +105,12 @@ sub process ($self)
       }
     }
 
-    # filename transform, user configurable filename transformation (currently
-    # only uppercasing or lowercasing)
-    $file->set_filename($target->mangle_hostname($file->file->basename));
+    # convert hostname to uppercase
+    if($target->has_option('uchostname')) {
+      if($file->set_uc_filename) {
+        $logger->info("[$tag] Changing file name to " . $file->file->basename);
+      }
+    }
 
     # --nocheckin command-line option; this inhibits the received file being
     # actually checked into any repositories; when the option is specified with

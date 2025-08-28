@@ -32,6 +32,9 @@ my $cfg = CVSLogwatcher::Config->instance(
   is($file->size_change, 0, 'File size change on no change (11)');
   delete $file->content->[0];
   is($file->size_change, 4, 'File size change on decrease (12)');
+  is($file->set_uc_filename, T(), 'File name uppercasing check (13)');
+  is($file->file, '/aaa/bbb/OTHER.FILE.GZ', 'File name uppercasing check (14)');
+  is($file->set_uc_filename, F(), 'File name uppercasing check (15)');
 }
 
 # create test plain file

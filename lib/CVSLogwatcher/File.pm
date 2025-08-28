@@ -62,6 +62,15 @@ sub set_filename ($self, $filename)
 }
 
 #------------------------------------------------------------------------------
+# Convert filename to uppercase
+sub set_uc_filename ($self)
+{
+  my $basename = $self->file->basename;
+  $self->file($self->file->sibling(uc $basename));
+  return $basename ne uc($basename);
+}
+
+#------------------------------------------------------------------------------
 # Set location of the file (filename itself remains unchanged); this function
 # is complementary to set_filename.
 sub set_path ($self, $path)
