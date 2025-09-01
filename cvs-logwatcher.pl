@@ -173,6 +173,8 @@ if($cmd->trigger && !$cmd->initonly) {
       next;
     }
     try {
+      my $processing_start = time;
+
       my $fg = CVSLogwatcher::Host->new(
         target => $target,
         name => $host,
@@ -183,6 +185,12 @@ if($cmd->trigger && !$cmd->initonly) {
         data => {},
       )->process;
       $fg->process;
+
+      # report duration of the entire processing
+      $logger->info(sprintf(
+        '[cvs/%s@%s] Processing completed in %d seconds',
+        $target->id, $host, time - $processing_start
+      ));
     } catch ($err) {
       $logger->error("[cvs/$host] Failed to process host ($err)");
     }
