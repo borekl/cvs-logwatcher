@@ -39,31 +39,31 @@ has interactive => ( is => 'rwp', default => 0 );
 sub BUILD ($self, $args)
 {
   my @options = (
-    'trigger=s'   => sub { $self->_set_trigger(lc $_[1]) },
-    'host=s'      => sub { $self->_set_host(lc $_[1]) },
-    'user=s'      => sub { $self->_set_user($_[1]) },
-    'msg=s'       => sub { $self->_set_msg($_[1]) },
-    'file=s'      => sub { $self->_set_file($_[1]) },
-    'force'       => sub { $self->_set_force($_[1]) },
+    'trigger|t=s' => sub { $self->_set_trigger(lc $_[1]) },
+    'host|h=s'    => sub { $self->_set_host(lc $_[1]) },
+    'user|u=s'    => sub { $self->_set_user($_[1]) },
+    'msg|m=s'     => sub { $self->_set_msg($_[1]) },
+    'file|f=s'    => sub { $self->_set_file($_[1]) },
+    'force|F'     => sub { $self->_set_force($_[1]) },
     'nocheckin:s' => sub { $self->_set_nocheckin($_[1]) },
     'mangle!'     => sub { $self->_set_mangle($_[1]) },
-    'initonly'    => sub { $self->_set_initonly($_[1]) },
+    'initonly|i'  => sub { $self->_set_initonly($_[1]) },
     'debug'       => sub { $self->_set_debug($_[1]) },
-    'devel'       => sub { $self->_set_debug($_[1]), $self->_set_devel($_[1]) },
-    'log=s'       => sub { $self->_set_log($_[1]) },
-    'watchonly'   => sub { $self->_set_watchonly($_[1]) },
+    'devel|d'     => sub { $self->_set_debug($_[1]), $self->_set_devel($_[1]) },
+    'log|l=s'     => sub { $self->_set_log($_[1]) },
+    'watchonly|w' => sub { $self->_set_watchonly($_[1]) },
     'task=s'      => sub { $self->_set_task($_[1]) },
     'onlyuser=s'  => sub { $self->_set_onlyuser($_[1]) },
     'heartbeat:i' => sub { $self->_set_heartbeat($_[1] || 300) },
-    'match=s'     => sub {
+    'match|M=s'   => sub {
                        $self->_set_match($_[1]);
                        $self->_set_interactive(1);
                      },
-    'logs'        => sub {
+    'logs|L'      => sub {
                        $self->_set_logs($_[1]);
                        $self->_set_interactive(1);
                      },
-    'config:s'    => sub {
+    'config|c:s'  => sub {
                        if(defined $_[1] && !$_[1]) {
                          $self->_set_config('-')
                        } else {
@@ -72,6 +72,9 @@ sub BUILD ($self, $args)
                      },
     'help|?'      => sub { $self->help; exit(0); }
   );
+
+  # enable short-form options bundling
+  Getopt::Long::Configure ("bundling");
 
   # if invoked with 'cmdline' argument, use the value of that argument to parse
   # options from; this is useful for tests
@@ -91,25 +94,25 @@ sub help
 
 Usage: cvs-logwatcher.pl [options]
 
-  --help             get this information text
-  --trigger=MATCHID  trigger processing as if MATCHID matched
-  --host=HOST        define host for --trigger or limit processing to it
-  --user=USER        define user for --trigger
-  --msg=MSG          define message for --trigger
-  --file=FILE        check-in supplied file
-  --force            force check-in when using --trigger
-  --nocheckin[=FILE] do not perform repository check in with --trigger
-  --nomangle         do not perform config text transformations
-  --debug            set loglevel to debug
-  --devel            development mode, implies --debug
-  --initonly         init everything and exit
-  --watchonly        only observe logfiles
-  --onlyuser=USER    only changes by specified user are processed
-  --heartbeat[=N]    enable heartbeat logging every N seconds (default 300)
-  --log=LOGID        only process this log
-  --logs             display configured logfiles and exit
-  --match=STRING     try to match supplied string, output result and exit
-  --config[=FILE]    use non-default config file or read config from stdin
+  -?, --help             get this information text
+  -t, --trigger=MATCHID  trigger processing as if MATCHID matched
+  -h, --host=HOST        define host for --trigger or limit processing to it
+  -u, --user=USER        define user for --trigger
+  -m, --msg=MSG          define message for --trigger
+  -f, --file=FILE        check-in supplied file
+  -F, --force            force check-in when using --trigger
+      --nocheckin[=FILE] do not perform repository check in with --trigger
+      --nomangle         do not perform config text transformations
+      --debug            set loglevel to debug
+  -d, --devel            development mode, implies --debug
+  -i, --initonly         init everything and exit
+  -w, --watchonly        only observe logfiles
+      --onlyuser=USER    only changes by specified user are processed
+      --heartbeat[=N]    enable heartbeat logging every N seconds (default 300)
+  -l, --log=LOGID        only process this log
+  -L, --logs             display configured logfiles and exit
+  -M, --match=STRING     try to match supplied string, output result and exit
+  -c, --config[=FILE]    use non-default config file or read config from stdin
 
 EOHD
 }
