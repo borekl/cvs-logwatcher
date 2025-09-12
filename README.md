@@ -184,10 +184,11 @@ of the command-line options. The general format is as follows:
 Each log is configured with a hash that contains two keys `filename` and `match`.
 The `filename` should be fairly self-explanatory and defines the log to open
 and observe as either absolute or relative pathname. If it is relative,
-`config.logprefix` is prepended to it. The `match` key defines one or more
-regular expressions which the program matches against every new line received
-from the log. Each regex has its own MATCHID, which again is used to reference
-it later. The general format is as follows:
+`config.logprefix` is prepended to it. When the logfile is rotated (ie. renamed
+and new logfile is created in its place), it is automatically reopened.
+The `match` key defines one or more regular expressions which the program matches
+against every new line received from the log. Each regex has its own MATCHID,
+which again is used to reference it later. The general format is as follows:
 
     LOGID => {
       filename => '/var/log/somefile.log',
@@ -297,8 +298,11 @@ start with "sw-london" or "sw-paris" is matched, but "sw-london-01" and
 Define list of options that should be used for the target. Currently only one
 option is supported:
 
-* `normeol` this option will make the program to convert retrieved
-  configurations to local end-of-line characters; this is recommended
+* `normeol` convert retrieved configurations to local end-of-line characters;
+  this is recommended
+
+* `uchostname` turn hostname to uppercase; this happens after the (optional)
+  extraction of the hostname from the configuration file
 
 **`validate`**
 This specifies list of regular expressions that each must match at least once
@@ -500,76 +504,79 @@ example:
 
 ## Command-line Options
 
-**`--help`**
+**`-?`**, **`--help`**  
 Display command-line options summary.
 
-**`--trigger=MATCHID`**
+**`-t`**, **`--trigger=MATCHID`**  
 Manually trigger event with MATCHID as defined in the `logfiles` configuration
 section. You must provide at least the source hostname using the `--host`
 option.
 
-**`--host=HOST`**
+**`-h`**, **`--host=HOST`**  
 Provides source hostname of a manually triggered event.
 
-**`--user=USER`**
+**`-u`**, **`--user=USER`**  
 Provides username for a manually triggered event. Can be omitted, in that case
 `unknown` is used instead.
 
-**`--msg=MESSAGE`**
+**`-m`**, **`--msg=MESSAGE`**  
 Provides commit message for a manually triggered event.
 
-**`--file=FILE`**
+**`-f`**, **`--file=FILE`**  
 Instead of going to a host specified with `--host` option, check-in supplied
 file. You still need to specify both `--trigger` and `--host` so that the
 application knows how to process the file. This is primarily intended for
 development and troubleshooting.
 
-**`--force`**
+**`-F`**, **`--force`**
 Force RCS commit even when there's no change in the configuration (after
 filtering using the `ignoreline` target option). Note that when old and new
 revision are *exactly* the same, no commit is created by RCS.
 
-**`--nocheckin[=PATHNAME]`**
+**`--nocheckin[=PATHNAME]`**  
 Do not perform repository check in after successfully retrieving configuration
 from a device. When no PATHNAME is defined, the file is dropped, which is
 probably not very useful. When directory is specified, the file is moved there.
 When filename is specified, the file is renamed into it. This should only be
 used when manually triggering with the `--trigger` option.
 
-**`--nomangle`**
+**`--nomangle`**  
 Do not perform configuration file transformations prescribed in the target
 config.
 
-**`--initonly`**
+**`-i`**, **`--initonly`**  
 Initialize and then exit immediately, this is useful for verifying basic
 configuration validity.
 
-**`--watchonly`**
+**`-w`**, **`--watchonly`**  
 Observe logfiles, log or display all message, but do not act upon any triggers.
 This is most useful with `--devel` to verify that the program is seeing
 log entries coming in. When matching log entry is received, additional info
 is written to log.
 
-**`--onlyuser=USER`**
+**`--onlyuser=USER`**  
 Process only changes done by specified user, everything else will be ignored.
 This is intended for troubleshooting.
 
-**`--heartbeat[=SECONDS]`**
+**`--heartbeat[=SECONDS]`**  
 Enable heartbeat message logging. Default period is 300 seconds, different
 number can be specified. Disabled by default.
 
-**`--log=LOGID`**
+**`-l`**, **`--log=LOGID`**  
 Only specified log is processed, the rest is ignored.
 
-**`--match=STRING`**
+**`-L`**, **`--logs`** 
+Display configured logfiles along with their associated match ids.
+
+**`-M`**, **`--match=STRING`**  
 Try to match supplied string and exit. When there is match, the target, match_id
 and all named capture groups are displayed. This is useful when designing
 regular expressions for matching logfile entries.
 
-**`--debug`**
+**`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.
 
-**`--devel`**
+**`-d`**, **`--devel`**  
 Enables development mode: loglevel is set to DEBUG, log goes to STDOUT
 instead of file and the script does not detach from controlling terminal.
 
