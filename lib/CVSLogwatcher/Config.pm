@@ -323,15 +323,17 @@ sub admin_group ($self, $host)
 }
 
 #------------------------------------------------------------------------------
-# Verify that a match id exists, this is only used to validate command-line
+# verify that a match id exists, this is only used to validate command-line;
+# note, that there might be no log associated to the match id, which is valid
+# and functional configuration (such matchid can only be invoked manually)
 sub exists_matchid ($self, $matchid)
 {
   my $cfg = $self->config;
 
-  foreach my $logfile (keys $cfg->{logfiles}->%*) {
-    foreach my $mid ($cfg->{logfiles}{$logfile}{match}->@*) {
-      return 1 if $mid->[0] eq $matchid;
-    }
+  foreach my $target ($cfg->{targets}->@*) {
+    next unless exists $target->{matchid};
+    my @matchids = ref $target->{matchid} ? $target->{matchid}->@* : $target->{matchid};
+    return 1 if (grep { $_ eq $matchid } @matchids);
   }
 
   return 0;
