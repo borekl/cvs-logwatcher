@@ -52,9 +52,9 @@
     },
     {
       type => 'Git',
-      base => '/opt/cvs/data-dev-git',
-      email => 'some@email.com',
-      name => 'Some Username',
+      base => '/opt/cvs/repo/dev',
+      email => 'admin@somecompany.com',
+      name => 'Some Company',
     },
   ],
 
@@ -63,8 +63,6 @@
 #=============================================================================
 
   rcs => {
-
-    # location of RCS binaries
     rcsctl => '/usr/bin/rcs',
     rcsci => '/usr/bin/ci',
     rcsco => '/usr/bin/co',
@@ -124,37 +122,140 @@
 
   ignoreusers => [ qw(cvs cvs1 alu-stats account_stat) ],
 
-#=============================================================================
+#===============================================================================
+# MATCHES section
+#
+# This defines a set of regular expressions for use in the logfiles section.
+#===============================================================================
+
+  matches => {
+
+    cisco => qr/
+      ^.*\s+\d+\s+[0-9:.]+\s+
+      (?<host>[-\w\d.]+)\s+.*CONFIG_I.*
+      (?<msg>Configured\sfrom\s(?:console|vty)\sby\s(?<user>\w+).*)\s*$
+    /x,
+
+    cisco2 => qr/
+      \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}\s
+      (?<host>[-\w\d.]+)\s.*CONFIG_I.*
+      (?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$
+    /x,
+
+    cpnnokia => qr/
+      ^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+
+      (?<host>[-\w\d.]+)\s+-\s-\s-\s-\s\d+\s\S+\sUSER-MINOR-cli_user_logout-\d+\s
+      (?<msg>\[(?<user>[\w\d]+)\]:\s+.*)\s*$
+    /x,
+
+    cpnjuniper => qr/
+      ^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+
+      (?<host>[-\w\d.]+)\s.*
+      mgd\[(?<index>\d+)\]:\s%INTERACT-4-UI_COMMIT_COMPLETED
+    /x,
+
+    cpnjunuser => qr/
+      ^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+
+      (?<host>[-\w\d.]+)\s.*
+      mgd\[(?<index>\d+)\]:\s%INTERACT-5-UI_COMMIT:\s
+      User '(?<user>\w+)'.*\s+\(comment:\s+(?<comment>.*)\)
+    /x,
+
+    cpnjunuser2 => qr/
+      ^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+
+      (?<host>[-\w\d.]+)\s.*
+      mgd\[(?<index>\d+)\]:\sUI_COMMIT:\s
+      User\s'(?<user>\w+)'.*\s+\(comment:\s+(?<comment>.*)\)
+    /,
+
+    cpnjuniper3 => qr/
+      ^.*\s+\d+\s+[0-9:]+              \s+ # RFC 3164 timestamp
+      \S+                              \s+ # hostname (relay)
+      \d+                              \s+ # pid?
+      [0-9+-T]+                        \s+ # ISO 8601 timestamp
+      (?<host>[-\w\d.]+)               \s+ # hostname (source)
+      mgd\s+(?<index>\d+)              .+  # process id
+      UI_COMMIT_COMPLETED:             .+
+      commit\scomplete
+    /x,
+
+    cpnjunuser3 => qr/
+      ^.*\s+\d+\s+[0-9:]+              \s+ # RFC 3164 timestamp
+      \S+                              \s+ # hostname (relay)
+      \d+                              \s+ # pid?
+      [0-9+-T]+                        \s+ # ISO 8601 timestamp
+      (?<host>[-\w\d.]+)               \s+ # hostname (source)
+      mgd\s+(?<index>\d+)              .+  # process id
+      UI_COMMIT:                       \s+
+      User\s+'(?<user>\w+)'            \s+ # username
+      requested\s'commit'\soperation\s
+      \(comment:\s+(?<comment>.*)\)        # comment
+    /x,
+
+    dellsw => qr /
+      ^\w+\s\d{1,2}\s\d{2}:\d{2}:\d{2} \s+ # RFC 3164 timestamp
+      \S+                              \s+ # hostname (relay)
+      \d+                              \s+ # pid?
+      [0-9+-T]+                        \s+ # ISO 8601 timestamp
+      (?<host>[-\w\d.]+)               \s  # hostname (source)
+      .*                                   # skip uninteresting fields
+      %MGMT_CLISH_CMD_AAA_ACCTG:       \s
+      AAA\saccounting                  \s
+      (?<user>\w+)                     \s  # username
+      .*                               \s  # skip uninteresting fields
+      stop                             \s  # match only "stop" records
+      .*                               \s  # skip uninteresting fields
+      cmd=write\smemory                    # match "write memory"
+    /x,
+
+    juniper => qr/
+      ^.*\s+\d+\s+[0-9:]+\s+
+      (?<host>[-\w\d.]+)\s+.*
+      (?<msg>UI_COMMIT_PROGRESS:\s
+      Commit\soperation\sin\sprogress:\scommit\scomplete)\s*$
+    /x,
+
+  },
+
+#===============================================================================
 # LOGFILES section
 #
-# This defines logfiles that will be opened and watched. The match regex must
-# provide 'host' named capture group; 'user' and 'msg' are optional and will
-# be used when available. Multiple possible matches per log are possible
-# useful for aggregate logs from multiple different platforms.
-#=============================================================================
+# This defines logfiles that will be opened and watched. Every logfile has a
+# list of regular expressions (defined in the "matches" section above) that will
+# be matched against every arriving log entry. When a match is made, the first
+# target (defined below in the 'targets' section) referencing the match id will
+# be invoked.
+#===============================================================================
 
   logfiles => {
-    cisco => {
-      filename => '/var/log/cisco/cisco.log',
-      match => {
-        cisco => '^.*\s+\d+\s+[0-9:.]+\s+(?<host>[-\w\d.]+)\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$',
-      }
-    },
-    alu => {
-      #filename => '/opt/cvs/dev/juniper.log',
-      filename => '/var/log/network/cpn/change_new.log',
-      match => {
-        cpnnokia => '^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+(?<host>[-\w\d.]+)\s+-\s-\s-\s-\s\d+\s\S+\sUSER-MINOR-cli_user_logout-\d+\s(?<msg>\[(?<user>[\w\d]+)\]:\s+.*)\s*$',
-        cpnjuniper => '^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+(?<host>[-\w\d.]+)\s.*mgd\[(?<index>\d+)\]:\s%INTERACT-4-UI_COMMIT_COMPLETED',
-        cpnjunuser => q{^.*\s+\d+\s+[0-9:]+\s+([-\w\d.]+)\s+(\d+)\s+(\S+)\s+(?<host>[-\w\d.]+)\s.*mgd\[(?<index>\d+)\]:\s%INTERACT-5-UI_COMMIT: User '(?<user>\w+)'.*\s+\(comment:\s+(?<comment>.*)\)},
-      }
-    },
-    juniper => {
-      filename => '/var/log/network/juniper.log',
-      match => {
-        juniper => '^.*\s+\d+\s+[0-9:]+\s+(?<host>[-\w\d.]+)\s+.*(?<msg>UI_COMMIT_PROGRESS: Commit operation in progress: commit complete)\s*$',
-      }
-    },
+
+    test => [ '/opt/cvs/dev/test.log' ],
+    cisco => [ '/var/log/cisco/cisco.log' => 'cisco', 'cisco2' ],
+    alu => [
+      '/var/log/network/cpn/change_new.log' => 'cpnnokia', 'cpnjuniper',
+      'cpnjunuser', 'cpnjunuser2', 'cpnjuniper3', 'cpnjunuser3', 'dellsw'
+    ],
+    juniper => [ '/var/log/network/fw.log' => 'juniper' ],
+
+    #test => {
+    #  filename => '/opt/cvs/dev/test.log',
+    #  match => [],
+    #},
+    #cisco => {
+    #  filename => '/var/log/cisco/cisco.log',
+    #  match => [ 'cisco', 'cisco2' ],
+    #},
+    #alu => {
+    #  filename => '/var/log/network/cpn/change_new.log',
+    #  match => [
+    #    'cpnnokia', 'cpnjuniper', 'cpnjunuser', 'cpnjunuser2', 'cpnjuniper3',
+    #    'cpnjunuser3', 'dellsw'
+    #  ],
+    #},
+    #juniper => {
+    #  filename => '/var/log/network/fw.log',
+    #  match => [ 'juniper' ],
+    #},
   },
 
 #=============================================================================
@@ -171,7 +272,8 @@
 
     {
       id           => 'juniper-usr',
-      matchid      => 'cpnjunuser',
+      defgrp       => 'nsu',
+      matchid      => [ 'cpnjunuser', 'cpnjunuser2', 'cpnjunuser3' ],
       action       => sub {
                         my ($stash, $data) = @_;
                         my $idx = $data->{index};
@@ -183,8 +285,9 @@
     {
       id           => 'juniper-scp',
       defgrp       => 'nsu',
-      matchid      => 'cpnjuniper',
+      matchid      => [ 'cpnjuniper', 'cpnjuniper3' ],
       hostname     => [ 'host-name\s([-a-zA-Z0-9]+)-re\d', 'host-name\s([-a-zA-Z0-9]+);' ],
+      options      => [ 'normeol' ],
       files        => [ '%D/%H' ],
       commit       => {
         msg        => sub {
@@ -192,13 +295,14 @@
                         my $idx = $data->{index};
                         sprintf(
                           'Commited by %s (comment: %s)',
-                          $stash->{$idx}{user}, $stash->{$idx}{comment}
+                          $stash->{$idx}{user} // 'unknown',
+                          $stash->{$idx}{comment} // 'none',
                         );
                       },
         user       => sub {
                         my ($stash, $data) = @_;
                         my $idx = $data->{index};
-                        $stash->{$idx}{user};
+                        $stash->{$idx}{user} // 'unknown';
                       },
       },
       expect       => {
@@ -222,14 +326,15 @@
     {
       id           => 'cisco-ssh',
       defgrp       => 'netit',
-      matchid      => 'cisco',
+      matchid      => [ 'cisco', 'cisco2' ],
       validrange   => [ '^(!|version )', '^end\s*$' ],
       filter       => [ '^Connection to \S+ closed', '# exit\s*$' ],
       ignoreline   => '^(!|ntp clock-period)',
       hostname     => '^(?:hostname|switchname)\s([-a-zA-Z0-9]+)',
+      minsize      => 512,
       options      => [ "snmphost", "normeol" ],
       expect       => {
-        spawn => '/usr/bin/ssh -o KexAlgorithms=diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h',
+        spawn => '/usr/bin/ssh -o KexAlgorithms=diffie-hellman-group14-sha256,diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h',
         sleep => 1,
         deftask => 'config',
         chats => {
@@ -239,7 +344,7 @@
           ],
           getconfig => [
             [ '^\s?%P#', "sh run\r", '%D/%H' ],
-            [ '^\s?%P#', "sh run\r", '-' ],
+            [ '^\s?%P#', "\r", '-' ],
           ],
           getconfigall => [
             [ '^\s?%P#', "sh run all\r", "%D/%H.all" ],
@@ -268,6 +373,7 @@
       validate   => [ '^# Finished' ],
       ignoreline => '^#',
       rcsfile    => 'uppercase',
+      options    => [ 'normeol', 'uchostname' ],
       expect => {
         spawn => '/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs %h',
         sleep => 1,
@@ -325,6 +431,43 @@
       }
     },
 
+    # definition for a Dell OS10 device
+    {
+      id         => 'dell',
+      defgrp     => 'netit',
+      matchid    => 'dellsw',
+      options    => [ 'normeol' ],
+      hostname   => '^(?:hostname|switchname)\s([-a-zA-Z0-9]+)',
+      validrange => [ '^! Version', '^ntp source' ],
+      ignoreline => [ '^!' ],
+      commit     => {
+        msg      => sub {
+                      my ($stash, $data) = @_;
+                      'Commited by ' . $data->{user};
+                    },
+      },
+      expect     => {
+        spawn    => '/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h',
+        sleep    => 1,
+        deftask  => 'config',
+        chats    => {
+          login => [
+            [ 'password:', "%3\r" ],
+            [ '^\s?(\S*)#', "\r", undef, '%+0' ],
+          ],
+          getconfig => [
+            [ '^%P#', "show running-configuration | no-more\r", '%D/%H' ],
+            [ '^%P#', "\r", '-' ],
+          ],
+          logout => [
+            [ '^%P#', "exit\r" ],
+          ],
+        },
+        tasks => {
+          config => { seq => [ qw(login getconfig logout) ] },
+        }
+      },
+    },
   ],
 
 #=============================================================================

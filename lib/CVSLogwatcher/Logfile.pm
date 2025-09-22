@@ -13,8 +13,9 @@ has id => ( is => 'ro', required => 1 );
 has file => ( is => 'ro', required => 1 );
 has inode => ( is => 'rwp' );
 
-# array of pairs (matchid, regex)
-has matchre => ( is => 'ro', required => 1 );
+# array of regex names, the actual regexes are configured in 'matches' config
+# seciton
+has matches => ( is => 'ro', required => 1);
 
 # these values are supplied to the 'watch' method and following attributes are
 # used to store the values for later invocations from within the instance
@@ -32,14 +33,17 @@ has _fs => ( is => 'rwp' );
 # present. Other keys are optional.
 sub match ($self, $l, $matchid)
 {
-  # get configuration for single match entry specified by $matchid; if multiple
-  # are found, it is a sign of misconfiguration
-  my ($match_cfg_entry) = grep { $_->[0] eq $matchid } $self->matchre->@*;
+  my $cfg = CVSLogwatcher::Config->instance;
+
+  # if no matches are configured or specified match doesn't exist, return right
+  # away
+  my $matches = $cfg->config->{matches};
+  return {} unless ref $matches && $matches->{$matchid};
 
   # if there is a match, copy named capture groups to new hash to make them
   # scoped
   my %re;
-  my $regex = $match_cfg_entry->[1];
+  my $regex = $matches->{$matchid};
   if($regex && $l =~ /$regex/) { $re{$_} = $+{$_} foreach (keys %+) }
 
   # return the capture groups; if there was no match, this will be an empty hash
@@ -92,10 +96,9 @@ sub watch ($self, $loop, $cmd, $callback)
         $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
 
         # iterate over possible matches
-        for my $match_cfg_entry ($self->matchre->@*) {
+        for my $match_id ($self->matches->@*) {
 
           # match line
-          my $match_id = $match_cfg_entry->[0];
           my $match = $self->match($l, $match_id);
           next unless $match->{host};
           my $host = $match->{host};

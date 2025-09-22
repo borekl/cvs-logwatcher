@@ -91,21 +91,21 @@ ok($cfg_example->is_file, 'Example configuration file exists');
       prop blessed => 'CVSLogwatcher::Logfile';
       call id => 'cisco';
       call file => '/var/log/cisco/cisco.log';
-      call matchre => T();
+      call matches => T();
       end();
     };
     field 'alu' => object {
       prop blessed => 'CVSLogwatcher::Logfile';
       call id => 'alu';
       call file => '/var/log/network/cpn/change_new.log';
-      call matchre => T();
+      call matches => T();
       end();
     };
     field 'juniper' => object {
       prop blessed => 'CVSLogwatcher::Logfile';
       call id => 'juniper';
       call file => '/var/log/network/juniper.log';
-      call matchre => T();
+      call matches => T();
       end();
     };
     end();

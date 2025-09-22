@@ -156,16 +156,18 @@ sub _build_logfiles ($self)
   my %logs;
 
   for my $logid (keys $cfg->{logfiles}->%*) {
-    my $log = $cfg->{logfiles}{$logid};
-    my $logfile = path $log->{filename};
+    my @log = $cfg->{logfiles}{$logid}->@*;
+    my $logfile = path(shift @log);
+
     # handle relative filenames
     $logfile = $cfg->basedir->child($logfile) if substr($logfile, 0, 1) ne '/';
+
     # instantiate a logfile
     $logs{$logid} = CVSLogwatcher::Logfile->new(
       id => $logid,
       file => $logfile,
-      matchre => $log->{match}
-    );
+      matches => \@log
+    )
   }
 
   return \%logs;
@@ -271,8 +273,8 @@ sub is_ignored_host ($self, $h)
 sub iterate_matches ($self, $cb)
 {
   TOP: foreach my $logid (sort keys $self->logfiles->%*) {
-    foreach my $match_cfg_entry ($self->logfiles->{$logid}->matchre->@*) {
-      last TOP if $cb->($self->logfiles->{$logid}, $match_cfg_entry->[0]);
+    foreach my $matchid ($self->logfiles->{$logid}->matches->@*) {
+      last TOP if $cb->($self->logfiles->{$logid}, $matchid);
     }
   }
 }
@@ -350,7 +352,7 @@ sub display_logs ($self)
     my $w2 = max (map { length($self->logfiles->{$_}->file) } @logfiles);
     my $w3 = max (
       map {
-        length(join(', ', map { $_->[0] } $self->logfiles->{$_}->matchre->@*))
+        length(join(', ', $self->logfiles->{$_}->matches->@*))
       } @logfiles
     );
     printf("%-${w1}s  %-${w2}s  %-${w3}s\n", 'logid', 'filename', 'match ids');
@@ -359,7 +361,7 @@ sub display_logs ($self)
       printf(
         "%-${w1}s  %-${w2}s  %s\n",
         $logid, $self->logfiles->{$logid}->file,
-        join(', ', map { $_->[0] } $self->logfiles->{$logid}->matchre->@*)
+        join(', ', $self->logfiles->{$logid}->matches->@*)
       );
     }
   } else {
@@ -371,7 +373,7 @@ sub display_logs ($self)
 #------------------------------------------------------------------------------
 # function implementing the --match commad-line option; if there is log id in
 # the arguments, then the matching is constrained only to that log
-sub test_match ($self, $match, $log)
+sub test_match ($self, $match, $log=undef)
 {
   $self->iterate_matches(sub ($l, $match_id) {
     return 0 if $log && $l->id ne $log;

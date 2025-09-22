@@ -169,6 +169,24 @@ names that in turn are arrays of regexes used match hostnames. For example:
 **`ignoreusers`**
 is an array that lists users who should not trigger repository update
 
+#### Matches configuration
+
+This section defines a "library" of regular expressions that can later be used
+to match log entries to detect configuration changes on network devices. The
+section is hash with keys being the *match id* and values being the regex being
+defined. Following example defines regex with match id "cisco":
+
+    matches => {
+      cisco => qr/
+        ^.*\s+\d+\s+[0-9:.]+\s+
+        (?<host>[-\w\d.]+)\s+.*CONFIG_I.*
+        (?<msg>Configured\sfrom\s(?:console|vty)\sby\s(?<user>\w+).*)\s*$
+      /x,
+    }
+
+The regular expression must define at least named capture group `host`.
+Capture groups `user` and `msg` are optional.
+
 #### Logfiles configuration
 
 This section defines logfiles that the program will observer for configuration
@@ -176,47 +194,23 @@ events. Each log has a user defined LOGID, which can be referenced by some
 of the command-line options. The general format is as follows:
 
     logfiles => {
-      LOGID1 => { log configuration ... },
-      LOGID2 => { log configuration ... },
+      LOGID1 => [ FILENAME => MATCHID1, ..., MATCHIDN ],
+      LOGID2 => [ FILENAME => MATCHID1, ..., MATCHIDN ],
       ...
     }
 
-Each log is configured with a hash that contains two keys `filename` and `match`.
-The `filename` should be fairly self-explanatory and defines the log to open
-and observe as either absolute or relative pathname. If it is relative,
-`config.logprefix` is prepended to it. When the logfile is rotated (ie. renamed
-and new logfile is created in its place), it is automatically reopened.
-The `match` key defines one or more regular expressions which the program matches
-against every new line received from the log. Each regex has its own MATCHID,
-which again is used to reference it later. The general format is as follows:
-
-    LOGID => {
-      filename => '/var/log/somefile.log',
-      match => [
-        [ MATCHID1 => 'regex1' ],
-        [ MATCHID2 => 'regex2' ],
-        ...
-      ]
-    }
-
-The regular expression must define at least named capture group `host`.
-Capture groups `user` and `msg` are optional.
-
-After a match, the matched log line is thus associated with LOGID, MATCHID
-and a host. These values are used to select a _target_, which defines
-the action that should be performed.
-
-Example log configuration for a CISCO IOS network device with only one
-MATCHID:
+Each log is configured with an array that contains filename in the first place
+followed by one or more match ids, referencing definitions in the *matches*
+section. Following example defines one logfile to which two matchids "cisco1"
+and "cisco2" will be applied:
 
     logfiles => {
-      cisco => {
-        filename => '/var/log/cisco/cisco.log',
-        match => [
-           [ cisco => '^.*\s+\d+\s+[0-9:]+\s+(?<host>[\w\d.]+)\s+.*CONFIG_I.*(?<msg>Configured from (?:console|vty) by (?<user>\w+).*)\s*$' ],
-        ]
-      }
+      ciscolog => [ '/var/log/cisco.log' => 'cisco1', 'cisco2' ],
     }
+
+After a match, the matched log line is thus associated with *logid*, *matchid*
+and a *host*. These values are used to select a *target*, which defines
+the action that should be performed.
 
 #### Targets configuration
 
@@ -238,7 +232,7 @@ configuration mentioned above. Groups are used to separate the configs into
 directories.
 
 **`matchid`**
-Defines one or more MATCHID's as defined in the `logfiles` section. This key is
+Defines one or more MATCHID's as defined in the `matches` section. This key is
 *required* and it is used for matching logfile matches to targets.
 Multiple targets can use the same MATCHID. 
 
