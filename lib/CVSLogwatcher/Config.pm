@@ -116,7 +116,7 @@ sub _build_keyring ($self)
 #------------------------------------------------------------------------------
 # get scratch directory; if config.tempdir gives absolute path use that,
 # otherwise root the relative path at FindBin's $Bin (that is the directory
-# the executing script is in). If config.tempdir
+# the executing script is in).
 sub _build_tempdir ($self)
 {
   my $cfg = $self->config;
