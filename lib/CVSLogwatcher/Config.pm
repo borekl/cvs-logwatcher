@@ -160,7 +160,7 @@ sub _build_logfiles ($self)
     my $logfile = path(shift @log);
 
     # handle relative filenames
-    $logfile = $cfg->basedir->child($logfile) if substr($logfile, 0, 1) ne '/';
+    $logfile = $self->logprefix->child($logfile) if substr($logfile, 0, 1) ne '/';
 
     # instantiate a logfile
     $logs{$logid} = CVSLogwatcher::Logfile->new(
