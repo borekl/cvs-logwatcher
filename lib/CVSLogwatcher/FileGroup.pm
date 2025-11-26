@@ -37,6 +37,7 @@ sub process ($self)
   # iterate over the files
   foreach my $file ($self->files->@*) {
 
+    my @mangle;
     $logger->debug(sprintf('[%s] Processing %s', $tag, $file->file));
 
     # basic info
@@ -58,28 +59,43 @@ sub process ($self)
 
     # convert line endings to local representation
     if($cmd->mangle && $target->has_option('normeol')) {
+      my $diff;
       $logger->debug(sprintf(
-        '[%s] %d bytes stripped (normeol)', $tag, $file->normalize_eol
+        '[%s] %d bytes stripped (normeol)', $tag, $diff = $file->normalize_eol
       ));
+      push(@mangle, sprintf("normeol=%d", $diff));
     }
 
     # filter out junk at the start and the end ("validrange" option)
     if(
       $cmd->mangle
-      && $target->config->{validrange}
-      && defined (my $diff = $file->validrange($target->config->{validrange}->@*))
+      && exists $target->config->{validrange}
+      && ref $target->config->{validrange}
+      && $target->config->{validrange}->@*
     ) {
+      my $diff = $file->validrange($target->config->{validrange}->@*);
       $logger->debug(sprintf(
         '[%s] %d bytes stripped (validrange)', $tag, $diff
-      ))
+      ));
+      push(@mangle, sprintf("validrange=%d", $diff));
     }
 
     # filter out lines anywhere in the configuration ("filter" option)
-    if($cmd->mangle && defined (my $diff = $file->filter($target->config->{filter}->@*))) {
+    if(
+      $cmd->mangle
+      && exists $target->config->{filter}
+      && ref $target->config->{filter}
+      && $target->config->{filter}->@*
+    ) {
+      my $diff = $file->filter($target->config->{filter}->@*);
       $logger->debug(sprintf(
         '[%s] %d bytes stripped (filter)', $tag, $diff
-      ))
+      ));
+      push(@mangle, sprintf("filter=%d", $diff));
     }
+
+    # log mangling summary
+    $logger->info("[$tag] Mangle summary: " . join(', ', @mangle)) if @mangle;
 
     # validate the configuration
     if($target->config->{validate}) {
