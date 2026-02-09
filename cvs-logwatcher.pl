@@ -11,6 +11,7 @@
 #=============================================================================
 
 use v5.36;
+use Time::HiRes qw(time);
 use IO::Async::Loop;
 use IO::Async::Signal;
 use IO::Async::Timer::Periodic;
@@ -188,7 +189,7 @@ if($cmd->trigger && !$cmd->initonly) {
 
       # report duration of the entire processing
       $logger->info(sprintf(
-        '[cvs/%s@%s] Processing completed in %d seconds',
+        '[cvs/%s@%s] Processing completed in %.1f seconds',
         $target->id, $host, time - $processing_start
       ));
     } catch ($err) {
@@ -278,7 +279,7 @@ foreach my $log (values $cfg->logfiles->%*) {
 
       # report duration of the entire processing
       $logger->info(sprintf(
-        '[%s] Processing completed in %d seconds', $tag, time - $processing_start
+        '[%s] Processing completed in %.1f seconds', $tag, time - $processing_start
       ));
 
     } catch ($err) {
