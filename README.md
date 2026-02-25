@@ -565,7 +565,9 @@ Display configured logfiles along with their associated match ids.
 **`-M`**, **`--match=STRING`**  
 Try to match supplied string and exit. When there is match, the target, match_id
 and all named capture groups are displayed. This is useful when designing
-regular expressions for matching logfile entries.
+regular expressions for matching logfile entries. `--log=LOGID` option can
+be used to constrain matching only to matches that are applied to given
+logfile.
 
 **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.

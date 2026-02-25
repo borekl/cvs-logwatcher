@@ -270,6 +270,9 @@ sub is_ignored_host ($self, $h)
 }
 
 #------------------------------------------------------------------------------
+# Invoke callback for each configured (logfile, matchid) combination and
+# continue until either a) no more (logfile, matchid) combination exist, or b)
+# the callback returns true
 sub iterate_matches ($self, $cb)
 {
   TOP: foreach my $logid (sort keys $self->logfiles->%*) {
@@ -371,25 +374,41 @@ sub display_logs ($self)
 }
 
 #------------------------------------------------------------------------------
+sub logfiles_with_matchid ($self, $matchid)
+{
+  my @logfiles;
+  foreach my $logid (sort keys $self->logfiles->%*) {
+    my $log = $self->logfiles->{$logid};
+    foreach my $matchid2 ($log->matches()->@*) {
+      push(@logfiles, $log) if $matchid eq $matchid2;
+    }
+  }
+  return @logfiles;
+}
+
+#------------------------------------------------------------------------------
 # function implementing the --match commad-line option; if there is log id in
 # the arguments, then the matching is constrained only to that log
 sub test_match ($self, $match, $log=undef)
 {
-  $self->iterate_matches(sub ($l, $match_id) {
-    return 0 if $log && $l->id ne $log;
-    my $result = $l->match($match, $match_id);
-    if(%$result && $result->{host}) {
-      my $target = $self->find_target($match_id, $result->{host});
-      my $tid = ref $target ? $target->id : 'n/a';
-      printf("--- MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
-      printf("target:   %s\n", $tid);
-      printf("%-8s: %s\n", $_, $result->{$_}) foreach (keys %$result);
-      return 1;
+  my $matches = $self->config->{matches};
+  foreach my $match_id (sort keys %$matches) {
+    my @logfiles = $self->logfiles_with_matchid($match_id);
+    next if $log && !grep { $log eq $_->id} @logfiles;
+    my $regex = $matches->{$match_id};
+    if($regex && $match =~ /$regex/) {
+      my (%re, @info);
+      push(@info, 'matchid=' . $match_id);
+      push(@info, 'logs=' . join('|', map { $_->id } @logfiles));
+      $re{$_} = $+{$_} foreach (keys %+);
+      my $target = $self->find_target($match_id, $re{host});
+      push(@info, 'target=' . $target->id) if ref $target;
+      foreach (keys %re) { push(@info, sprintf('+%s=%s', $_, $re{$_}) ) }
+      printf("--- MATCH (%s)\n", join(', ', @info));
     } else {
-      printf("--- NO MATCH (logid=%s, matchid=%s) ---\n", $l->id, $match_id);
-      return 0;
+      printf("--- NO MATCH (matchid=%s)\n", $match_id);
     }
-  });
+  }
 }
 
 1;
