@@ -1,0 +1,17 @@
+[Unit]
+Description=CVS Logwatcher
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/cvs/prod
+ExecStart=/opt/cvs/prod/cvs-logwatcher.pl
+User=cvs
+Group=cvs
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
