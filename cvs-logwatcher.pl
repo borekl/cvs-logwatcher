@@ -23,6 +23,7 @@ use lib "$Bin/lib";
 use CVSLogwatcher::Config;
 use CVSLogwatcher::Cmdline;
 use CVSLogwatcher::Host;
+use CVSLogwatcher::TestMatch;
 
 # get command-line options
 my $cmd = CVSLogwatcher::Cmdline->new;
@@ -40,8 +41,13 @@ if($cmd->interactive) {
   # string to try to match against configured regular expression and it will
   # return the match result; optionally, --log can be defined to constrain
   # matching only to one logfile configuration
-  if($cmd->match) {
-    $cfg->test_match($cmd->match, $cmd->log);
+  my $i = 1;
+  if($cmd->match->@*) {
+    my $tstm = CVSLogwatcher::TestMatch->new;
+    foreach ($cmd->match->@*) {
+      printf("=== LINE %s ===\n", $i++);
+      $tstm->test_match($_, $cmd->log);
+    }
   }
 
   # --logs // display configured logs along with match definitions

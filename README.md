@@ -567,7 +567,9 @@ Try to match supplied string and exit. When there is match, the target, match_id
 and all named capture groups are displayed. This is useful when designing
 regular expressions for matching logfile entries. `--log=LOGID` option can
 be used to constrain matching only to matches that are applied to given
-logfile.
+logfile. This option can be used multiple time to supply more than one line to
+match, such usage is necessary when testing setups where information is collated
+from multiple different log entries.
 
 **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.

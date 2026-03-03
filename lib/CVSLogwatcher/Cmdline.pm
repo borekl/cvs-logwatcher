@@ -27,7 +27,7 @@ has watchonly  =>  ( is => 'rwp' );
 has task       =>  ( is => 'rwp' );
 has onlyuser   =>  ( is => 'rwp' );
 has heartbeat  =>  ( is => 'rwp' );
-has match      =>  ( is => 'rwp' );
+has match      =>  ( is => 'ro', default => sub {[]} );
 has logs       =>  ( is => 'rwp' );
 has config     =>  ( is => 'rwp', default => "$Bin/cfg/config.cfg" );
 
@@ -56,7 +56,7 @@ sub BUILD ($self, $args)
     'onlyuser=s'  => sub { $self->_set_onlyuser($_[1]) },
     'heartbeat:i' => sub { $self->_set_heartbeat($_[1] || 300) },
     'match|M=s'   => sub {
-                       $self->_set_match($_[1]);
+                       push($self->match->@*, $_[1]);
                        $self->_set_interactive(1);
                      },
     'logs|L'      => sub {
@@ -140,7 +140,7 @@ sub dump ($self)
   push(@out, sprintf('task:      %s', $self->task // '--'));
   push(@out, sprintf('watchonly: %s', $self->watchonly ? 'true' : 'false'));
   push(@out, sprintf('heartbeat: %s', $self->heartbeat ? $self->heartbeat : 'disabled'));
-  push(@out, sprintf('match:     %s', $self->match // '--'));
+  push(@out, sprintf('match:     %s', join(',', $self->match->@*)));
   push(@out, sprintf('debug:     %s', $self->debug ? 'true' : 'false'));
   push(@out, sprintf('devel:     %s', $self->devel ? 'true' : 'false'));
   push(@out, sprintf('logs:      %s', $self->logs ? 'true' : 'false'));
