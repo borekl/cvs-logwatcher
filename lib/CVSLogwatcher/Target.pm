@@ -9,6 +9,7 @@ use Moo;
 
 use CVSLogwatcher::Expect;
 use CVSLogwatcher::File;
+use CVSLogwatcher::Stash;
 
 # full config as parsed from the config file
 has config => ( is => 'ro', required => 1 );
@@ -206,6 +207,23 @@ sub add_files ($self, $files)
         @$files, CVSLogwatcher::File->new(file => $rfile, target => $self)
       ) if -r $rfile;
     }
+  }
+}
+
+#------------------------------------------------------------------------------
+# Invoke custom target action if it is defined. The argument is the Host
+# instance
+sub action ($self, $host)
+{
+  my $logger = CVSLogwatcher::Config->instance->logger;
+  my $tag = $host->tag;
+
+  if($self->config->{action}) {
+    $logger->debug(qq{[$tag] Invoking action callback});
+    $self->config->{action}->(
+      CVSLogwatcher::Stash->instance->host($host->name),
+      $host->data
+    );
   }
 }
 

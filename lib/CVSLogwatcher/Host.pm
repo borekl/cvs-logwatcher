@@ -12,7 +12,6 @@ use Feature::Compat::Try;
 use CVSLogwatcher::File;
 use CVSLogwatcher::FileGroup;
 use CVSLogwatcher::Misc;
-use CVSLogwatcher::Stash;
 
 # hostname
 has name => ( required => 1, is => 'ro' );
@@ -86,16 +85,10 @@ sub process ($self)
   my $tag = $self->tag;
 
   # if custom action is configured, perform it
-  if($target->config->{action}) {
-    $logger->debug(qq{[$tag] Invoking action callback});
-    $target->config->{action}->(
-      CVSLogwatcher::Stash->instance->host($self->name),
-      $self->data
-    );
-  }
+  $target->action($self);
 
-  # following code is only relevant for targets with 'expect' configuration,
-  # ie. those that perform actual configuration retrieval
+  # if current target does not contain 'expect' configuration, return from
+  # the function with an empty FileGroup
   return $empty unless exists $target->config->{expect};
 
   # ensure reachability
