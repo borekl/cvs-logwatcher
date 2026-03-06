@@ -190,8 +190,6 @@ sub process ($self)
       }
     }
 
-    # FIXME: Implement --nocheckin option
-
   }
 }
 

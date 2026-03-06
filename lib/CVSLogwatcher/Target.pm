@@ -227,4 +227,23 @@ sub action ($self, $host)
   }
 }
 
+#------------------------------------------------------------------------------
+# Invoke custom commit usr/message getter if defined
+sub commit_info ($self, $match)
+{
+  my $stash = CVSLogwatcher::Stash->instance->host($match->{host});
+  my ($user, $msg);
+
+  if(exists $self->config->{commit}) {
+    if($self->config->{commit}{user}) {
+      $user = $self->config->{commit}{user}->($stash, $match)
+    }
+    if($self->config->{commit}{msg}) {
+      $msg = $self->config->{commit}{msg}->($stash, $match)
+    }
+  }
+
+  return ($user, $msg);
+}
+
 1;

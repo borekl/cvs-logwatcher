@@ -123,15 +123,7 @@ sub watch ($self, $loop, $cmd, $callback)
           ));
 
           # invoke callback for 'user' and 'msg' fields, if defined
-          my $stash = CVSLogwatcher::Stash->instance->host($host);
-          if($target && $target->config->{commit}) {
-            if($target->config->{commit}{user}) {
-              $user = $target->config->{commit}{user}->($stash, $match)
-            }
-            if($target->config->{commit}{msg}) {
-              $msg = $target->config->{commit}{msg}->($stash, $match)
-            }
-          }
+          ($user, $msg) = $target->commit_info($match);
 
           # log info when watching and then finish
           if($cmd->watchonly) {
