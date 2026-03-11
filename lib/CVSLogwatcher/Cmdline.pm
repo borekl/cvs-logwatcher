@@ -28,6 +28,7 @@ has task       =>  ( is => 'rwp' );
 has onlyuser   =>  ( is => 'rwp' );
 has heartbeat  =>  ( is => 'rwp' );
 has match      =>  ( is => 'ro', default => sub {[]} );
+has match_stdin => ( is => 'rwp' );
 has logs       =>  ( is => 'rwp' );
 has config     =>  ( is => 'rwp', default => "$Bin/cfg/config.cfg" );
 
@@ -59,6 +60,7 @@ sub BUILD ($self, $args)
                        push($self->match->@*, $_[1]);
                        $self->_set_interactive(1);
                      },
+    'match-stdin' => sub { $self->_set_match_stdin($_[1]) },
     'logs|L'      => sub {
                        $self->_set_logs($_[1]);
                        $self->_set_interactive(1);
@@ -112,6 +114,7 @@ Usage: cvs-logwatcher.pl [options]
   -l, --log=LOGID        only process this log
   -L, --logs             display configured logfiles and exit
   -M, --match=STRING     try to match supplied string, output result and exit
+      --match-stdin      try to match input on stdin, exit upon EOF
   -c, --config[=FILE]    use non-default config file or read config from stdin
 
 EOHD
@@ -123,31 +126,43 @@ sub dump ($self)
 {
   my @out;
 
-  push(@out, sprintf('trigger:   %s', $self->trigger // '--'));
-  push(@out, sprintf('host:      %s', $self->host // '--'));
-  push(@out, sprintf('user:      %s', $self->user // '--'));
-  push(@out, sprintf('msg:       %s', $self->msg // '--'));
-  push(@out, sprintf('file:      %s', $self->file // '--'));
-  push(@out, sprintf('force:     %s', $self->force ? 'true' : 'false'));
+  push(@out, sprintf('trigger:     %s', $self->trigger // '--'));
+  push(@out, sprintf('host:        %s', $self->host // '--'));
+  push(@out, sprintf('user:        %s', $self->user // '--'));
+  push(@out, sprintf('msg:         %s', $self->msg // '--'));
+  push(@out, sprintf('file:        %s', $self->file // '--'));
+  push(@out, sprintf('force:       %s', $self->force ? 'true' : 'false'));
   if(defined $self->nocheckin) {
-    push(@out, sprintf('nocheckin: %s', $self->nocheckin ? $self->nocheckin : 'true' ));
+    push(@out, sprintf('nocheckin:   %s', $self->nocheckin ? $self->nocheckin : 'true' ));
   } else {
-    push(@out, 'nocheckin: false');
+    push(@out, 'nocheckin:   false');
   }
-  push(@out, sprintf('mangle:    %s', $self->mangle ? 'true' : 'false'));
-  push(@out, sprintf('initonly:  %s', $self->initonly ? 'true' : 'false'));
-  push(@out, sprintf('log:       %s', $self->log // '--'));
-  push(@out, sprintf('task:      %s', $self->task // '--'));
-  push(@out, sprintf('watchonly: %s', $self->watchonly ? 'true' : 'false'));
-  push(@out, sprintf('heartbeat: %s', $self->heartbeat ? $self->heartbeat : 'disabled'));
-  push(@out, sprintf('match:     %s', join(',', $self->match->@*)));
-  push(@out, sprintf('debug:     %s', $self->debug ? 'true' : 'false'));
-  push(@out, sprintf('devel:     %s', $self->devel ? 'true' : 'false'));
-  push(@out, sprintf('logs:      %s', $self->logs ? 'true' : 'false'));
-  push(@out, sprintf('config:    %s', $self->config));
+  push(@out, sprintf('mangle:      %s', $self->mangle ? 'true' : 'false'));
+  push(@out, sprintf('initonly:    %s', $self->initonly ? 'true' : 'false'));
+  push(@out, sprintf('log:         %s', $self->log // '--'));
+  push(@out, sprintf('task:        %s', $self->task // '--'));
+  push(@out, sprintf('watchonly:   %s', $self->watchonly ? 'true' : 'false'));
+  push(@out, sprintf('heartbeat:   %s', $self->heartbeat ? $self->heartbeat : 'disabled'));
+  push(@out, sprintf('match:       %s', $self->match->@*
+                                        ? join(',', $self->match->@*)
+                                        : '--'
+  ));
+  push(@out, sprintf('match-stdin: %s', $self->match_stdin ? 'true' : 'false'));
+  push(@out, sprintf('debug:       %s', $self->debug ? 'true' : 'false'));
+  push(@out, sprintf('devel:       %s', $self->devel ? 'true' : 'false'));
+  push(@out, sprintf('logs:        %s', $self->logs ? 'true' : 'false'));
+  push(@out, sprintf('config:      %s', $self->config));
   push(@out, '', 'Mode is interactive') if $self->interactive;
 
   return @out;
+}
+
+#-----------------------------------------------------------------------------
+# Create an empty instance of the Cmdline class, this is needed for the case
+# where we use Host class for testing and the command-line is not relevant.
+sub dummy
+{
+  return bless {}, 'CVSLogwatcher::Cmdline';
 }
 
 1;

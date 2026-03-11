@@ -37,17 +37,28 @@ my $cfg = CVSLogwatcher::Config->instance(
 # interactive code, ie. show something to user and exit
 if($cmd->interactive) {
 
-  # --match // for debugging purposes it is possible to give the program a
-  # string to try to match against configured regular expression and it will
-  # return the match result; optionally, --log can be defined to constrain
-  # matching only to one logfile configuration
-  my $i = 1;
+  # --match, --match-stdin // options for troubleshooting logfile entries
+  # matching; the --match option allows pass string on the command-line (can be
+  # use more than once), --match-stdin takes lines from standard input; each
+  # line produces matching results; --log option can constrain matching to one
+  # specifi logfile
+  my $tstm = CVSLogwatcher::TestMatch->new;
+  my $line_count = 1;
+
+  # function for performing the match
+  my $test = sub ($l) {
+    printf("=== LINE %s ===\n", $line_count++);
+    $tstm->test_match($l, $cmd->log);
+  };
+
+  # feed in lines supplied on command-line
   if($cmd->match->@*) {
-    my $tstm = CVSLogwatcher::TestMatch->new;
-    foreach ($cmd->match->@*) {
-      printf("=== LINE %s ===\n", $i++);
-      $tstm->test_match($_, $cmd->log);
-    }
+    foreach my $l ($cmd->match->@*) { $test->($l) }
+  }
+
+  # feed in lines supplied on standard input
+  if($cmd->match_stdin) {
+    while(my $l = <>) { chomp $l; $test->($l) }
   }
 
   # --logs // display configured logs along with match definitions

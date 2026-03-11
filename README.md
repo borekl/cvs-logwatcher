@@ -234,7 +234,7 @@ directories.
 **`matchid`**
 Defines one or more MATCHID's as defined in the `matches` section. This key is
 *required* and it is used for matching logfile matches to targets.
-Multiple targets can use the same MATCHID. 
+Multiple targets can use the same MATCHID.
 
 **`hostmatch`**
 Optional. Enables additional matching by device's hostname (in addition to
@@ -522,7 +522,7 @@ file. You still need to specify both `--trigger` and `--host` so that the
 application knows how to process the file. This is primarily intended for
 development and troubleshooting.
 
-**`-F`**, **`--force`**
+**`-F`**, **`--force`**  
 Force RCS commit even when there's no change in the configuration (after
 filtering using the `ignoreline` target option). Note that when old and new
 revision are *exactly* the same, no commit is created by RCS.
@@ -559,7 +559,7 @@ number can be specified. Disabled by default.
 **`-l`**, **`--log=LOGID`**  
 Only specified log is processed, the rest is ignored.
 
-**`-L`**, **`--logs`** 
+**`-L`**, **`--logs`**  
 Display configured logfiles along with their associated match ids.
 
 **`-M`**, **`--match=STRING`**  
@@ -571,18 +571,14 @@ logfile. This option can be used multiple time to supply more than one line to
 match, such usage is necessary when testing setups where information is collated
 from multiple different log entries.
 
+**`--match-stdin`**  
+This works the same as `--match`, but the lines to be matched are read from
+standard input. Both options can be used at the same time; in that case the
+lines provided on the command-line are used first.
+
 **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.
 
 **`-d`**, **`--devel`**  
 Enables development mode: loglevel is set to DEBUG, log goes to STDOUT
 instead of file and the script does not detach from controlling terminal.
-
-## To Do
-
-* Fork the processing part. At this moment the processing blocks the entire
-  program, which means that it's quite unsuitable for high traffic uses.
-* Implement "automatic refresh" -- this feature would on regular basis try to
-  refresh devices with too old configs in repository. This would probably
-  necessitate some kind of hostname storage so that the program know where to go
-  to for the refresh.
