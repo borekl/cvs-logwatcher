@@ -219,7 +219,7 @@ sub action ($self, $host)
   my $tag = $host->tag;
 
   if($self->config->{action}) {
-    $logger->debug(qq{[$tag] Invoking action callback});
+    $logger->debug(qq{[$tag] Invoking action callback}) if $tag;
     $self->config->{action}->(
       CVSLogwatcher::Stash->instance->host($host->name),
       $host->data

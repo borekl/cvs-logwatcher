@@ -32,8 +32,8 @@ has msg => ( is => 'lazy', default => sub ($s) { $s->cmd->msg // '' } );
 # target
 has target => ( required => 1, is => 'ro' );
 
-# logging tag
-has tag => ( required => 1, is => 'ro' );
+# logging tag, if left undefined no logging will be done
+has tag => ( is => 'ro' );
 
 # additional data, this contains %+, ie. named capture groups matched via regexp
 # from log entries
@@ -93,7 +93,7 @@ sub process ($self)
 
   # ensure reachability
   if($cfg->ping && system($repl->replace($cfg->ping)) >> 8) {
-    $logger->error(qq{[$tag] Host $host_nodomain unreachable, skipping});
+    $logger->error(qq{[$tag] Host $host_nodomain unreachable, skipping}) if $tag;
     return $empty;
   }
 
@@ -106,7 +106,7 @@ sub process ($self)
 
   # warn if no files received
   if(!@files) {
-    $logger->warn("[$tag] No files received, nothing to do");
+    $logger->warn("[$tag] No files received, nothing to do") if $tag;
     return $empty
   }
 
