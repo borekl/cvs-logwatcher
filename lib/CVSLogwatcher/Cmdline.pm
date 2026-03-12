@@ -60,7 +60,10 @@ sub BUILD ($self, $args)
                        push($self->match->@*, $_[1]);
                        $self->_set_interactive(1);
                      },
-    'match-stdin' => sub { $self->_set_match_stdin($_[1]) },
+    'match-stdin' => sub {
+                       $self->_set_match_stdin($_[1]);
+                       $self->_set_interactive(1);
+                     },
     'logs|L'      => sub {
                        $self->_set_logs($_[1]);
                        $self->_set_interactive(1);
