@@ -571,10 +571,27 @@ logfile. This option can be used multiple time to supply more than one line to
 match, such usage is necessary when testing setups where information is collated
 from multiple different log entries.
 
+The matching entry produces following output (example):
+
+    --- MATCH (matchid=cisco, logs=change, target=cisco-ssh, +host=london-hq-01,
+    +msg=Configured from vty by jsmith on 172.20.113.123@pts/2, +user=jsmith,
+    %user=jsmith, %message=Configured from vty by jsmith on 172.20.113.123@pts/2)
+
+The key/value pairs in the brackets show, how is the application parsing the
+logf entry. The unprefixed keys (matchid, logs, target) are internal to the 
+application and show how it is handling the entry. The keys with `+` prefix
+are named capture groups from the matched regular expression; and the keys
+prefixed with `%` are fields used for commits (these are either just copied from
+capture groups, but they can also be customized through the `commit` key under
+target configuration (as described earlier).
+
 **`--match-stdin`**  
 This works the same as `--match`, but the lines to be matched are read from
 standard input. Both options can be used at the same time; in that case the
-lines provided on the command-line are used first.
+lines provided on the command-line are used first. This option lets you feed
+real log to the application without the need to copy the entries like this:
+
+     grep -i london-hq-01 /var/log/network.log | ./cvs-logwatcher.pl --match-stdin
 
 **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.
