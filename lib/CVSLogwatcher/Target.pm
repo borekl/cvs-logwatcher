@@ -234,6 +234,9 @@ sub commit_info ($self, $match)
   my $stash = CVSLogwatcher::Stash->instance->host($match->{host});
   my ($user, $msg);
 
+  $user = $match->{user} // 'unknown';
+  $msg = $match->{msg} if exists $match->{msg};
+
   if(exists $self->config->{commit}) {
     if($self->config->{commit}{user}) {
       $user = $self->config->{commit}{user}->($stash, $match)
