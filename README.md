@@ -31,6 +31,7 @@ that points to the directory itself (ie. CVSROOT -> .)
   * Feature::Compat::Try
   * Path::Tiny
   * Git::Raw
+  * File::chdir
 
 ## How It Works
 

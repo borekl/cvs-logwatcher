@@ -9,6 +9,7 @@ extends 'CVSLogwatcher::Repo';
 use Feature::Compat::Try;
 use Path::Tiny;
 use Git::Raw;
+use File::chdir;
 
 use CVSLogwatcher::File;
 
@@ -117,8 +118,11 @@ sub commit_file ($self, $file, $target_dir, %arg)
 
   # run post-update hook if present, this is required so that serving the
   # repository on dumb server works
-  my $post_update_hook = $self->base->child('.git', 'hooks', 'post-update');
-  system($post_update_hook->stringify) if $post_update_hook->is_file;
+  {
+    local $CWD = $self->base;
+    my $post_update_hook = $self->base->child('.git', 'hooks', 'post-update');
+    system($post_update_hook->stringify) if $post_update_hook->is_file;
+  }
 }
 
 #-------------------------------------------------------------------------------
