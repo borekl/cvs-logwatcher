@@ -11,7 +11,7 @@ with 'MooX::Singleton';
 use Carp;
 use Path::Tiny;
 use List::Util qw(max);
-use Log::Log4perl qw(get_logger);
+use Mojo::Log;
 
 use CVSLogwatcher::Logfile;
 use CVSLogwatcher::Target;
@@ -58,8 +58,8 @@ has targets => ( is => 'lazy' );
 # replacements
 has repl => ( is => 'lazy' );
 
-# Log4Perl logger instance
-has logger => ( is => 'lazy' );
+# Mojo log instance
+has logger => ( is => 'ro', default => sub { Mojo::Log->new });
 
 # configuration repositories
 has repos => ( is => 'lazy' );
@@ -191,20 +191,6 @@ sub _build_repl ($self)
     $self->keyring->%*,
     '%D' => $self->tempdir->stringify
   );
-}
-
-#------------------------------------------------------------------------------
-# Log4Perl Logger initialization
-sub _build_logger ($self)
-{
-  # ensure Log4Perl configuration is available
-  die "Logging configurartion 'cfg/logging.conf' not found or not readable\n"
-  unless -r $self->basedir->child('cfg/logging.conf');
-
-  # initialize
-  Log::Log4perl->init_and_watch("cfg/logging.conf", 60);
-  my $logger = get_logger('CVS::Main');
-  return $logger;
 }
 
 #-------------------------------------------------------------------------------

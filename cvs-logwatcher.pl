@@ -18,7 +18,6 @@ use IO::Async::Timer::Periodic;
 use Feature::Compat::Try;
 use Path::Tiny;
 use FindBin qw($Bin);
-use Log::Log4perl::Level;
 use lib "$Bin/lib";
 use CVSLogwatcher::Config;
 use CVSLogwatcher::Cmdline;
@@ -72,8 +71,7 @@ if($cmd->interactive) {
 
 # logging setup according to command-line
 my $logger = $cfg->logger;
-$logger->remove_appender($cmd->devel ? 'AFile' : 'AScrn');
-$logger->level($cmd->debug ? $DEBUG : $INFO);
+$logger->level($cmd->debug ? 'debug' : 'info');
 
 # title
 $logger->info(qq{[cvs] --------------------------------});

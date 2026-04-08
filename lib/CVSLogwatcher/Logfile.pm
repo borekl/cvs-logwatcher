@@ -90,7 +90,7 @@ sub watch ($self, $loop, $cmd, $callback)
     on_read => sub {
       my ($self2, $buffref) = @_;
       while( $$buffref =~ s/^(.*\n)// ) {
-        my $l = $1;
+        chomp(my $l = $1);
 
         # if --watchonly is active, display the line
         $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
