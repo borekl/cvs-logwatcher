@@ -12,7 +12,7 @@ Restart=on-failure
 RestartSec=5
 KillSignal=SIGINT
 TimeoutStopSec=15
-Envirnment="MOJO_LOG_SHORT=1"
+Environment="MOJO_LOG_SHORT=1"
 
 [Install]
 WantedBy=multi-user.target
