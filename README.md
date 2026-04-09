@@ -66,7 +66,6 @@ configuration resides in the `cfg` directory. Following files are used:
 
     config.cfg   ... main configuration file (perl syntax)
     keyring.cfg  ... passwords used in configuration file (perl syntax)
-    logging.conf ... Log2Perl configuration (Log2perl specific syntax)
 
 ### keyring.cfg
 
