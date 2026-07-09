@@ -57,7 +57,7 @@ sub test_match ($self, $match, $log=undef)
       );
 
       # invoke custom action
-      $target->action($host) if ref $target;
+      $target->custom_action($host) if ref $target;
 
       # get capture groups info
       foreach (keys %re) { push(@info, sprintf('+%s=%s', $_, $re{$_}) ) }

@@ -85,7 +85,7 @@ sub process ($self)
   my $tag = $self->tag;
 
   # if custom action is configured, perform it
-  $target->action($self);
+  $target->custom_action($self);
 
   # if current target does not contain 'expect' configuration, return from
   # the function with an empty FileGroup
@@ -99,7 +99,7 @@ sub process ($self)
 
   # run expect chat sequence, either the one specified on the command line
   # or the default one defined with 'deftask' key
-  my (@files) = $target->expect->run_task($self, $cmd->task);
+  my (@files) = $target->action->run($self, $cmd->task);
 
   # add explicitly defined files
   $target->add_files(\@files);

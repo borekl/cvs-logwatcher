@@ -49,7 +49,7 @@ sub get_task ($self, $task = undef)
 #------------------------------------------------------------------------------
 # Execute specified task (or default task if not specified). Returns list
 # of files that were created during executing this task.
-sub run_task ($self, $host, $task = undef)
+sub run ($self, $host, $task = undef)
 {
   my $cfg = CVSLogwatcher::Config->instance;
   my @files;

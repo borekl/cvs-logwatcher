@@ -36,14 +36,19 @@ has validate => (
 );
 
 # CVSL::Expect instance
-has expect => ( is => 'lazy' );
+has action => ( is => 'lazy' );
 
 #------------------------------------------------------------------------------
 sub _build_id ($self) { $self->config->{id} }
 
 #------------------------------------------------------------------------------
-sub _build_expect ($self) {
-  CVSLogwatcher::Expect->new(target => $self);
+sub _build_action ($self)
+{
+  if(exists $self->config->{expect}) {
+    return CVSLogwatcher::Expect->new(target => $self);
+  } else {
+    die sprintf("Target %s has no action configured\n", $self->id);
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -213,7 +218,7 @@ sub add_files ($self, $files)
 #------------------------------------------------------------------------------
 # Invoke custom target action if it is defined. The argument is the Host
 # instance
-sub action ($self, $host)
+sub custom_action ($self, $host)
 {
   my $logger = CVSLogwatcher::Config->instance->logger;
   my $tag = $host->tag;
