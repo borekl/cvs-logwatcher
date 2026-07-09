@@ -305,17 +305,11 @@
                         $stash->{$idx}{user} // 'unknown';
                       },
       },
-      expect       => {
-        spawn => '/usr/bin/scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no cvs1@%h:/config/juniper.conf %D/%H',
-        deftask => 'main',
-        chats => {
-          login => [
-            [ '(Password|PASSWORD|password):', "%3\r" ],
-          ]
-        },
-        tasks => {
-          main => { seq => [ 'login' ] }
-        }
+      sftp => {
+        user => 'cvs1',
+        password => '%3',
+        cd => '/config',
+        files => [ 'juniper.conf', 'juniper.conf.gz' ],
       }
     },
 

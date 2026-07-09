@@ -8,6 +8,8 @@ use v5.36;
 use Moo;
 
 use CVSLogwatcher::Action::Expect;
+use CVSLogwatcher::Action::SFTP;
+use CVSLogwatcher::Action::Null;
 use CVSLogwatcher::File;
 use CVSLogwatcher::Stash;
 
@@ -35,7 +37,7 @@ has validate => (
   default => sub ($s) { $s->config->{validate} // [] }
 );
 
-# CVSL::Expect instance
+# CVSL::Action:: instance
 has action => ( is => 'lazy' );
 
 #------------------------------------------------------------------------------
@@ -46,8 +48,10 @@ sub _build_action ($self)
 {
   if(exists $self->config->{expect}) {
     return CVSLogwatcher::Action::Expect->new(target => $self);
+  } elsif(exists $self->config->{sftp}) {
+    return CVSLogwatcher::Action::SFTP->new(target => $self);
   } else {
-    die sprintf("Target %s has no action configured\n", $self->id);
+    return CVSLogwatcher::Action::Null->new(target => $self);
   }
 }
 

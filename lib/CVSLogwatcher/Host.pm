@@ -8,7 +8,6 @@ use v5.36;
 use Moo;
 
 use Path::Tiny qw(path);
-use Feature::Compat::Try;
 use CVSLogwatcher::File;
 use CVSLogwatcher::FileGroup;
 use CVSLogwatcher::Misc;
@@ -52,11 +51,11 @@ sub _build_admin_group ($self)
 }
 
 #-----------------------------------------------------------------------------
-# return an empty FileGroup instance
-sub empty_fg ($self)
+# return a FileGroup instance
+sub _fg ($self, @files)
 {
   CVSLogwatcher::FileGroup->new(
-    files => [], host => $self, target => $self->target, cmd => $self->cmd
+    files => \@files, host => $self, target => $self->target, cmd => $self->cmd
   )
 }
 
@@ -72,7 +71,6 @@ sub process ($self)
   my $host = $self->name;
   my $target = $self->target;
   my $cmd = $self->cmd;
-  my $empty = $self->empty_fg;
 
   # get base hostname (without domain name) and set up % tokens
   my $host_nodomain = $self->host_nodomain;
@@ -84,17 +82,20 @@ sub process ($self)
   # get logging tag
   my $tag = $self->tag;
 
+  $logger->debug(
+    qq{[$tag] Host processing commenced, action is } . ref($target->action)
+  );
+
   # if custom action is configured, perform it
   $target->custom_action($self);
 
-  # if current target does not contain 'expect' configuration, return from
-  # the function with an empty FileGroup
-  return $empty unless exists $target->config->{expect};
-
-  # ensure reachability
-  if($cfg->ping && system($repl->replace($cfg->ping)) >> 8) {
-    $logger->error(qq{[$tag] Host $host_nodomain unreachable, skipping}) if $tag;
-    return $empty;
+  # ensure reachability, FIXME: this should probably be part of the action
+  # itself, so that we don't need to special-case it here
+  unless ($target->action->isa('CVSLogwatcher::Action::Null')) {
+    if($cfg->ping && system($repl->replace($cfg->ping)) >> 8) {
+      $logger->error(qq{[$tag] Host $host_nodomain unreachable, skipping}) if $tag;
+      return $self->_fg;
+    }
   }
 
   # run expect chat sequence, either the one specified on the command line
@@ -105,21 +106,13 @@ sub process ($self)
   $target->add_files(\@files);
 
   # warn if no files received
-  if(!@files) {
-    $logger->warn("[$tag] No files received, nothing to do") if $tag;
-    return $empty
-  }
+  $logger->warn("[$tag] No files received, nothing to do") if !@files && $tag;
 
   # iterate over files received
   foreach my $file (@files) { $file->remove }
 
   # wrap the resulting files in a file group and finish
-  return CVSLogwatcher::FileGroup->new(
-    files => \@files,
-    host => $self,
-    target => $target,
-    cmd => $cmd,
-  );
+  return $self->_fg(@files);
 }
 
 1;

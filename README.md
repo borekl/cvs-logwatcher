@@ -32,6 +32,7 @@ that points to the directory itself (ie. CVSROOT -> .)
   * Path::Tiny
   * Git::Raw
   * File::chdir
+  * Net::SFTP::Foreign
 
 ## How It Works
 
@@ -495,6 +496,39 @@ example:
         seq => [ 'login', 'getconfigall', 'logout' ]
       }
     }
+
+**`sftp`**
+
+    sftp => {
+      user => 'cvs1',
+      password => '%3',
+      cd => '/config',
+      files => [ 'juniper.conf', 'juniper.conf.gz' ],
+    }
+
+SFTP is an alternative to expect scripting configured with in the section
+`expect`. Expect chats are generic way of invoking any terminal-based tool, but
+they can be slow and fragile and also not very flexible. With SFTP, the
+application will use the SSH File Transfer Protocol, a widely supported
+extension to the SSH protocol. It is recommended to prefer this option whenever
+possible as it is more robust and performant. Following configuration options
+are used:
+
+**`user`**
+Define username that should be used to connect to the remote device.
+
+**`pasword`**
+Define password that should be used to connec to the remote device. You can
+use the % tokens to refer to the keyring file.
+
+**`cd`**
+Remote directory with the files to be retrieved.
+
+**`files`**
+List of candidate files to be retrieved. Only the first file that is found on
+the remote is downloaded, the rest is skipped. This lets you adapt to situations
+where the file can have multiple names (e.g. on JunOS routers you can have
+uncompressed and compressed configurations that differ in the .gz suffix).
 
 ## Command-line Options
 
