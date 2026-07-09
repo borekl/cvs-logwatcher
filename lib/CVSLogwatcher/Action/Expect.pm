@@ -2,7 +2,7 @@
 # Talking to remote hosts using the Expect module
 #==============================================================================
 
-package CVSLogwatcher::Expect;
+package CVSLogwatcher::Action::Expect;
 
 use v5.36;
 use Moo;

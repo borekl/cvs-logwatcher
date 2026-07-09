@@ -7,7 +7,7 @@ package CVSLogwatcher::Target;
 use v5.36;
 use Moo;
 
-use CVSLogwatcher::Expect;
+use CVSLogwatcher::Action::Expect;
 use CVSLogwatcher::File;
 use CVSLogwatcher::Stash;
 
@@ -45,7 +45,7 @@ sub _build_id ($self) { $self->config->{id} }
 sub _build_action ($self)
 {
   if(exists $self->config->{expect}) {
-    return CVSLogwatcher::Expect->new(target => $self);
+    return CVSLogwatcher::Action::Expect->new(target => $self);
   } else {
     die sprintf("Target %s has no action configured\n", $self->id);
   }
