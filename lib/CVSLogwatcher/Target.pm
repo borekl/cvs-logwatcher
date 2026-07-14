@@ -258,4 +258,12 @@ sub commit_info ($self, $match)
   return ($user, $msg);
 }
 
+#------------------------------------------------------------------------------
+# returns true if this target has either expect or sftp configured
+sub has_retrieval ($self)
+{
+  return $self->config->{expect} || $self->config->{sftp}
+}
+
+
 1;

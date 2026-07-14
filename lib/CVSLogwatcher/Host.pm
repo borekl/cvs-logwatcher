@@ -106,7 +106,9 @@ sub process ($self)
   $target->add_files(\@files);
 
   # warn if no files received
-  $logger->warn("[$tag] No files received, nothing to do") if !@files && $tag;
+  if($tag && !@files && $target->has_retrieval) {
+    $logger->warn("[$tag] No files received, nothing to do");
+  }
 
   # iterate over files received
   foreach my $file (@files) { $file->remove }
