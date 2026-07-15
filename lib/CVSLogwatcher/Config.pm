@@ -12,6 +12,8 @@ use Carp;
 use Path::Tiny;
 use List::Util qw(max);
 use Mojo::Log;
+use Term::ReadKey qw(GetTerminalSize);
+use Perl6::Form;
 
 use CVSLogwatcher::Logfile;
 use CVSLogwatcher::Target;
@@ -334,28 +336,47 @@ sub exists_matchid ($self, $matchid)
 # display configure logs and match expressions
 sub display_logs ($self)
 {
-  print "\n";
-  if($self->logfiles->%*) {
-    my @logfiles = sort keys $self->logfiles->%*;
-    my $w1 = max (map { length } @logfiles, 5);
-    my $w2 = max (map { length($self->logfiles->{$_}->file) } @logfiles);
-    my $w3 = max (
-      map {
-        length(join(', ', $self->logfiles->{$_}->matches->@*))
-      } @logfiles
-    );
-    printf("%-${w1}s  %-${w2}s  %-${w3}s\n", 'logid', 'filename', 'match ids');
-    printf("%s  %s  %s\n", '=' x $w1, '=' x $w2, '=' x $w3);
-    foreach my $logid (@logfiles) {
-      printf(
-        "%-${w1}s  %-${w2}s  %s\n",
-        $logid, $self->logfiles->{$logid}->file,
-        join(', ', $self->logfiles->{$logid}->matches->@*)
-      );
-    }
-  } else {
+  # get terminal width
+  my ($wchar) = GetTerminalSize();
+  $wchar = 80 if $wchar < 80;
+
+  # return if there's nothing to output
+  unless($self->logfiles->%*) {
     say 'No logs configured';
+    return;
   }
+
+  # aux function
+  my $_f = sub ($l, $c) { '{' . ($c x ($l-2)) .'}' };
+
+  # make space
+  print "\n";
+
+  # get column widths
+  my @logfiles = sort keys $self->logfiles->%*;
+  my @fields;
+  $fields[0] = max (map { length } @logfiles, 5);
+  $fields[1] = max (map { length($self->logfiles->{$_}->file) } @logfiles);
+  $fields[2] = $wchar - $fields[0] - $fields[1] - 4;
+
+  # create divider betwee headers and content
+  my $div = '=' x $fields[0] . '  ' . '=' x $fields[1] . '  ' .
+            '=' x $fields[2];
+
+  # create format string
+  my $form = $_f->($fields[0], '<') . '  ' . $_f->($fields[1], '<') . '  ' .
+    $_f->($fields[2], '[');
+
+  # output heading
+  print form $form, 'logid', 'logfile', 'matchid(s)  ';
+  print $div, "\n";
+
+  # output the content of the table
+  foreach my $logid (@logfiles) {
+    print form $form, $logid, $self->logfiles->{$logid}->file,
+              join(', ', $self->logfiles->{$logid}->matches->@*);
+  }
+
   print "\n";
 }
 

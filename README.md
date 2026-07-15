@@ -33,6 +33,8 @@ that points to the directory itself (ie. CVSROOT -> .)
   * Git::Raw
   * File::chdir
   * Net::SFTP::Foreign
+  * Perl6::Form
+  * Term::ReadKey
 
 ## How It Works
 
