@@ -174,25 +174,6 @@ sub filter_pass ($self, $l)
 }
 
 #------------------------------------------------------------------------------
-# Factory function for config validation. The returned function is fed the
-# config file line by line and returns list of remaining unmatched regexes; if
-# all regexes are matched, the list is empty.
-sub validate_checker ($self)
-{
-  my @regexes = @{$self->validate};
-
-  if(@{$self->validate}) {
-    return sub ($l=undef) {
-      return @regexes if !@regexes || !defined $l;
-      @regexes = grep { $l !~ /$_/ } @regexes;
-      return @regexes;
-    }
-  } else {
-    return undef;
-  }
-}
-
-#------------------------------------------------------------------------------
 # Return true if line is ignored, as defined by 'ignoreline' configuration
 # option. Returns false if no ignoreline is defined.
 sub is_ignored ($self, $l)
