@@ -1,6 +1,6 @@
-#=============================================================================
+#===============================================================================
 # Module to interface with command-line options.
-#=============================================================================
+#===============================================================================
 
 package CVSLogwatcher::Cmdline;
 
@@ -35,7 +35,7 @@ has config     =>  ( is => 'rwp', default => "$Bin/cfg/config.cfg" );
 # flags
 has interactive => ( is => 'rwp', default => 0 );
 
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # build function
 sub BUILD ($self, $args)
 {
@@ -91,7 +91,7 @@ sub BUILD ($self, $args)
   elsif(!GetOptions(@options)) { exit(1) }
 }
 
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # Display help message
 sub help
 {
@@ -123,7 +123,7 @@ Usage: cvs-logwatcher.pl [options]
 EOHD
 }
 
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # Dump the commandline options state as a list of formatted lines
 sub dump ($self)
 {
@@ -160,12 +160,28 @@ sub dump ($self)
   return @out;
 }
 
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # Create an empty instance of the Cmdline class, this is needed for the case
 # where we use Host class for testing and the command-line is not relevant.
 sub dummy
 {
   return bless {}, 'CVSLogwatcher::Cmdline';
+}
+
+#-------------------------------------------------------------------------------
+# feed lines to be matched against configured rules to a supplied callback;
+# this won't do anything if no --match=STRING or --match-stdin was used
+sub match_lines ($self, $cb)
+{
+  # test lines supplied on command-line
+  if($self->match->@*) {
+    foreach my $l ($self->match->@*) { $cb->($l) }
+  }
+
+  # test lines supplied through stdin
+  if($self->match_stdin) {
+    while(my $l = <>) { chomp $l; $cb->($l) }
+  }
 }
 
 1;

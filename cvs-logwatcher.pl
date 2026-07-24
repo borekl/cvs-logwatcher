@@ -40,25 +40,13 @@ if($cmd->interactive) {
   # matching; the --match option allows pass string on the command-line (can be
   # use more than once), --match-stdin takes lines from standard input; each
   # line produces matching results; --log option can constrain matching to one
-  # specifi logfile
+  # specific logfile
   my $tstm = CVSLogwatcher::TestMatch->new;
   my $line_count = 1;
-
-  # function for performing the match
-  my $test = sub ($l) {
+  $cmd->match_lines(sub ($l) {
     printf("=== LINE %s ===\n", $line_count++);
     $tstm->test_match($l, $cmd->log);
-  };
-
-  # feed in lines supplied on command-line
-  if($cmd->match->@*) {
-    foreach my $l ($cmd->match->@*) { $test->($l) }
-  }
-
-  # feed in lines supplied on standard input
-  if($cmd->match_stdin) {
-    while(my $l = <>) { chomp $l; $test->($l) }
-  }
+  });
 
   # --logs // display configured logs along with match definitions
   if($cmd->logs) {
