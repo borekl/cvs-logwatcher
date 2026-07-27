@@ -108,6 +108,12 @@ if($cmd->trigger) {
 
 if($cmd->file) {
 
+  # make sure command-line specifies everything we need
+  my @unspecified;
+  push(@unspecified, '--trigger') unless $cmd->trigger;
+  push(@unspecified, '--host') unless $cmd->host;
+  die sprintf('%s not specified', join(' and ', @unspecified)) if @unspecified;
+
   # give some basic info
   $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd->trigger));
   $logger->info(sprintf('[cvs] Explicit host is %s', $cmd->host));
