@@ -36,7 +36,26 @@ has tag => ( is => 'ro' );
 
 # additional data, this contains %+, ie. named capture groups matched via regexp
 # from log entries
-has data => ( is => 'ro', required => 1 );
+has data => ( is => 'ro', required => 1, default => sub {{}} );
+
+#-----------------------------------------------------------------------------
+# name, who, msg and tag are taken from ::Comandline instance unless provided
+# explicitly
+around BUILDARGS => sub ($orig, $class, %args)
+{
+  if($args{cmd}) {
+    $args{name} = $args{cmd}->host
+      if !exists $args{name} && $args{cmd}->host;
+    $args{who} = $args{cmd}->user
+      if !exists $args{who} && $args{cmd}->user;
+    $args{msg} = $args{cmd}->msg
+      if !exists $args{msg} && $args{cmd}->msg;
+    $args{tag} = ('cvs/' . $args{cmd}->host)
+      if !exists $args{tag} && $args{cmd}->host;
+  }
+
+  return $class->$orig(%args);
+};
 
 #-----------------------------------------------------------------------------
 sub _build_host_nodomain ($self) { host_strip_domain($self->name) }

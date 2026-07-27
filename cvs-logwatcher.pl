@@ -132,10 +132,7 @@ if($cmd->file) {
   }
 
   # initialize required instances
-  my $host = CVSLogwatcher::Host->new(
-    name => $cmd->host, cmd => $cmd, who => $cmd->user, msg => $cmd->msg,
-    target => $target, tag => ('cvs/' . $cmd->host), data => {},
-  );
+  my $host = CVSLogwatcher::Host->new(cmd => $cmd, target => $target);
   my $file = CVSLogwatcher::File->new(file => $cmd->file);
   my $fg = CVSLogwatcher::FileGroup->new(
     host => $host, files => [ $file ], target => $target, cmd => $cmd
@@ -187,12 +184,8 @@ if($cmd->trigger && !$cmd->initonly) {
 
       my $fg = CVSLogwatcher::Host->new(
         target => $target,
-        name => $host,
-        msg => $cmd->msg,
-        who => $cmd->user,
         cmd => $cmd,
         tag => sprintf('cvs/%s@%s', $target->id, $host),
-        data => {},
       )->process;
       $fg->process;
 
