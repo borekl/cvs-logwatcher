@@ -22,7 +22,6 @@ is($cmd, object {
   call log        => U();
   call watchonly  => F();
   call debug      => F();
-  call devel      => F();
   call task       => U();
   call onlyuser   => U();
   call hearbeat   => U();
@@ -30,7 +29,7 @@ is($cmd, object {
 
 # binary options work
 $cmd = CVSLogwatcher::Cmdline->new(cmdline => join(' ',
-  '--force', '--debug', '--devel', '--initonly',
+  '--force', '--debug', '--initonly',
   '--nocheckin', '--watchonly --nomangle'
 ));
 is($cmd, object {
@@ -40,7 +39,6 @@ is($cmd, object {
   call initonly  => T();
   call watchonly => T();
   call debug     => T();
-  call devel     => T();
 }, 'Binary options');
 
 # options with string values work
@@ -70,10 +68,6 @@ $cmd = CVSLogwatcher::Cmdline->new(cmdline => '--heartbeat');
 is($cmd, object { call heartbeat => 300; }, '--heartbeat default' );
 $cmd = CVSLogwatcher::Cmdline->new(cmdline => '--heartbeat=123');
 is($cmd, object { call heartbeat => 123; }, '--heartbeat non-default' );
-
-# --devel enables --debug
-$cmd = CVSLogwatcher::Cmdline->new(cmdline => '--devel');
-ok($cmd->debug, '-devel enables --debug');
 
 # finish
 done_testing();

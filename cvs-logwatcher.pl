@@ -64,7 +64,6 @@ $logger->level($cmd->debug ? 'debug' : 'info');
 # title
 $logger->info(qq{[cvs] --------------------------------});
 $logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
-$logger->info(qq{[cvs] Mode is }, $cmd->devel ? 'development' : 'production');
 $logger->debug(qq{[cvs] Debugging enabled}) if $cmd->debug;
 $logger->debug(qq{[cvs] Log directory is }, $cfg->logprefix);
 $logger->debug(qq{[cvs] Scratch directory is }, $cfg->tempdir);

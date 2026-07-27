@@ -579,10 +579,8 @@ Initialize and then exit immediately, this is useful for verifying basic
 configuration validity.
 
 **`-w`**, **`--watchonly`**  
-Observe logfiles, log or display all message, but do not act upon any triggers.
-This is most useful with `--devel` to verify that the program is seeing
-log entries coming in. When matching log entry is received, additional info
-is written to log.
+Observe logfiles, log or display all messages, but do not act upon any triggers.
+ When matching log entry is received, additional info is written to log.
 
 **`--onlyuser=USER`**  
 Process only changes done by specified user, everything else will be ignored.
@@ -629,9 +627,5 @@ real log to the application without the need to copy the entries like this:
 
      grep -i london-hq-01 /var/log/network.log | ./cvs-logwatcher.pl --match-stdin
 
-**`--debug`**  
+**`-d`, **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.
-
-**`-d`**, **`--devel`**  
-Enables development mode: loglevel is set to DEBUG, log goes to STDOUT
-instead of file and the script does not detach from controlling terminal.

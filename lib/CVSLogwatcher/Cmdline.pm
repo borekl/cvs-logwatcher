@@ -12,7 +12,6 @@ use Getopt::Long qw(GetOptionsFromString);
 
 # command-line option attributes
 has debug      =>  ( is => 'rwp' );
-has devel      =>  ( is => 'rwp' );
 has trigger    =>  ( is => 'rwp' );
 has host       =>  ( is => 'rwp' );
 has user       =>  ( is => 'rwp' );
@@ -49,8 +48,7 @@ sub BUILD ($self, $args)
     'nocheckin:s' => sub { $self->_set_nocheckin($_[1]) },
     'mangle!'     => sub { $self->_set_mangle($_[1]) },
     'initonly|i'  => sub { $self->_set_initonly($_[1]) },
-    'debug'       => sub { $self->_set_debug($_[1]) },
-    'devel|d'     => sub { $self->_set_debug($_[1]), $self->_set_devel($_[1]) },
+    'debug|d'     => sub { $self->_set_debug($_[1]) },
     'log|l=s'     => sub { $self->_set_log($_[1]) },
     'watchonly|w' => sub { $self->_set_watchonly($_[1]) },
     'task=s'      => sub { $self->_set_task($_[1]) },
@@ -108,8 +106,7 @@ Usage: cvs-logwatcher.pl [options]
   -F, --force            force check-in when using --trigger
       --nocheckin[=FILE] do not perform repository check in with --trigger
       --nomangle         do not perform config text transformations
-      --debug            set loglevel to debug
-  -d, --devel            development mode, implies --debug
+  -d, --debug            set loglevel to debug
   -i, --initonly         init everything and exit
   -w, --watchonly        only observe logfiles
       --onlyuser=USER    only changes by specified user are processed
@@ -152,7 +149,6 @@ sub dump ($self)
   ));
   push(@out, sprintf('match-stdin: %s', $self->match_stdin ? 'true' : 'false'));
   push(@out, sprintf('debug:       %s', $self->debug ? 'true' : 'false'));
-  push(@out, sprintf('devel:       %s', $self->devel ? 'true' : 'false'));
   push(@out, sprintf('logs:        %s', $self->logs ? 'true' : 'false'));
   push(@out, sprintf('config:      %s', $self->config));
   push(@out, '', 'Mode is interactive') if $self->interactive;
