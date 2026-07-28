@@ -25,8 +25,8 @@ has admin_group => ( is => 'lazy' );
 has cmd => ( required => 1, is => 'ro' );
 
 # user/message parsed from log or specified on the command-line
-has who => ( is => 'lazy', default => sub ($s) { $s->cmd->user // ''} );
-has msg => ( is => 'lazy', default => sub ($s) { $s->cmd->msg // '' } );
+has who => ( is => 'lazy', default => sub { '' } );
+has msg => ( is => 'lazy', default => sub { '' } );
 
 # target
 has target => ( required => 1, is => 'ro' );
