@@ -335,3 +335,4 @@ if($cmd->heartbeat) {
 # run event loop
 $logger->debug('[cvs] Starting main loop');
 $ioloop->run;
+$logger->debug('[cvs] Main loop shutdown');
