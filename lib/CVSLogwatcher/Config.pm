@@ -14,6 +14,7 @@ use List::Util qw(max);
 use Mojo::Log;
 use Term::ReadKey qw(GetTerminalSize);
 use Perl6::Form;
+use Feature::Compat::Try;
 
 use CVSLogwatcher::Logfile;
 use CVSLogwatcher::Target;
@@ -85,7 +86,7 @@ sub _do_script ($file)
 
   # process the received config
   my $re = eval($config);
-  die $@ if $@;
+  die "Failed to parse config file '$file'\n$@" if $@;
   return $re;
 }
 
@@ -93,7 +94,17 @@ sub _do_script ($file)
 # load and parse configuration
 sub _build_config ($self)
 {
-  return _do_script($self->config_file);
+  my $logger = CVSLogwatcher::Logger->instance;
+  my $cfg;
+
+  try {
+    $cfg = _do_script($self->config_file);
+  } catch ($e) {
+    $self->fatal($_) foreach split(/\n/, $e);
+    die;
+  }
+
+  return $cfg;
 }
 
 #------------------------------------------------------------------------------
@@ -104,10 +115,15 @@ sub _build_keyring ($self)
   my $cfg = $self->config;
   my $file = $cfg->{config}{keyring} // undef;
 
-  if($file) {
-    $file = $self->_config_dir->child($file);
-    die "Cannot find or access keyring file $file" unless -r $file;
-    return _do_script($file);
+  try {
+    if($file) {
+      $file = $self->_config_dir->child($file);
+      die "Cannot find or access keyring file $file" unless -r $file;
+      return _do_script($file);
+    }
+  } catch($e) {
+    $self->fatal($_) foreach split(/\n/, $e);
+    die;
   }
 
   return {};
