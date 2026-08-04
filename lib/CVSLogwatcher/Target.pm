@@ -205,11 +205,10 @@ sub add_files ($self, $files)
 # instance
 sub custom_action ($self, $host)
 {
-  my $logger = CVSLogwatcher::Config->instance->logger;
-  my $tag = $host->tag;
+  my $logger = CVSLogwatcher::Logger->instance->prefix($host->tag) if $host->tag;
 
   if($self->config->{action}) {
-    $logger->debug(qq{[$tag] Invoking action callback}) if $tag;
+    $logger->debug('Invoking action callback') if $logger;
     $self->config->{action}->(
       CVSLogwatcher::Stash->instance->host($host->name),
       $host->data

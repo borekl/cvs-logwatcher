@@ -11,6 +11,7 @@ use Path::Tiny qw(path);
 use CVSLogwatcher::File;
 use CVSLogwatcher::FileGroup;
 use CVSLogwatcher::Misc;
+use CVSLogwatcher::Logger;
 
 # hostname
 has name => ( required => 1, is => 'ro' );
@@ -86,7 +87,7 @@ sub process ($self)
 {
   # shortcut variables
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = $cfg->logger;
+  my $logger = CVSLogwatcher::Logger->instance->prefix($self->tag) if $self->tag;
   my $host = $self->name;
   my $target = $self->target;
   my $cmd = $self->cmd;
@@ -98,12 +99,9 @@ sub process ($self)
     '%h' => $self->name
   );
 
-  # get logging tag
-  my $tag = $self->tag;
-
   $logger->debug(
-    qq{[$tag] Host processing commenced, action is } . ref($target->action)
-  );
+    'Host processing commenced, action is %s', ref($target->action)
+  ) if $logger;
 
   # if custom action is configured, perform it
   $target->custom_action($self);
@@ -112,7 +110,7 @@ sub process ($self)
   # itself, so that we don't need to special-case it here
   unless ($target->action->isa('CVSLogwatcher::Action::Null')) {
     if($cfg->ping && system($repl->replace($cfg->ping)) >> 8) {
-      $logger->error(qq{[$tag] Host $host_nodomain unreachable, skipping}) if $tag;
+      $logger->error('Host $host_nodomain unreachable, skipping') if $logger;
       return $self->_fg;
     }
   }
@@ -125,8 +123,8 @@ sub process ($self)
   $target->add_files(\@files);
 
   # warn if no files received
-  if($tag && !@files && $target->has_retrieval) {
-    $logger->warn("[$tag] No files received, nothing to do");
+  if($logger && !@files && $target->has_retrieval) {
+    $logger->warn('No files received, nothing to do');
   }
 
   # iterate over files received

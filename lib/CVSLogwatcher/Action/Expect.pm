@@ -14,6 +14,7 @@ use CVSLogwatcher::Config;
 use CVSLogwatcher::Repl;
 use CVSLogwatcher::Misc;
 use CVSLogwatcher::File;
+use CVSLogwatcher::Logger;
 
 has target => ( is => 'ro', required => 1 );
 has spawn => ( is => 'lazy' );
@@ -52,17 +53,14 @@ sub get_task ($self, $task = undef)
 sub run ($self, $host, $task = undef)
 {
   my $cfg = CVSLogwatcher::Config->instance;
+  my $logger = CVSLogwatcher::Logger->instance->prefix($host->tag);
   my @files;
-  my $tag = $host->tag;
 
   # create local Repl instance
   my $repl = $cfg->repl->clone->add_value(
     '%H' => $host->host_nodomain,
     '%h' => $host->name
   );
-
-  # get logger
-  my $logger = $cfg->logger;
 
   # get the spawn string
   my $spawn = $repl->replace($self->spawn);
@@ -74,25 +72,19 @@ sub run ($self, $host, $task = undef)
   my $suffix = $task_def->{suffix} // undef;
 
   if(@chats) {
-    $cfg->logger->info(sprintf(
-      '[%s] Running task "%s" with %d chats', $tag, $task_name, scalar(@chats)
-    ));
-    $cfg->logger->debug(sprintf(
-      '[%s] Chats: %s', $tag, join(', ', @chats)
-    ));
-  } else {
-    $cfg->logger->fatal(
-      sprintf('[%s] Task "%s" has no chats, aborting', $tag, $task_name)
+    $logger->info(
+      'Running task "%s" with %d chats', $task_name, scalar(@chats)
     );
+    $logger->debug('Chats: %s', join(', ', @chats));
+  } else {
+    $logger->fatal('Task "%s" has no chats, aborting', $task_name);
     return ();
   }
 
   # establish a connection with the remote host
-  $cfg->logger->debug(
-    sprintf('[%s] Spawning Expect instance (%s)', $tag, $spawn)
-  );
+  $logger->debug('Spawning Expect instance (%s)', $spawn);
   my $exh = Expect->spawn($spawn) or do {
-    $logger->fatal("[$tag] Failed to spawn Expect instance");
+    $logger->fatal('Failed to spawn Expect instance');
     return ();
   };
   $exh->log_stdout(0);
@@ -109,9 +101,9 @@ sub run ($self, $host, $task = undef)
       my $line_count = 1;
       foreach my $chline (@$chat) {
         my ($look, $resp, $log, $prompt) = @$chline;
-        $cfg->logger->debug(sprintf(
-          '[%s] Chat %s %d/%d', $tag, $chid, $line_count, scalar(@$chat)
-        ));
+        $logger->debug(
+          'Chat %s %d/%d', $chid, $line_count, scalar(@$chat)
+        );
 
         # hide passwords, make CR visible
         my $resp_cloaked = $resp;
@@ -123,28 +115,27 @@ sub run ($self, $host, $task = undef)
           $log = $repl->replace($log);
           $exh->log_file($log, 'w') or die "Failed to open file '$log'";
           push(@files, $log);
-          $logger->info("[$tag] Logfile opened: ", $log);
+          $logger->info('Logfile opened: %s', $log);
         }
 
         # wait for expected string to arrive from remote
-        $logger->debug(sprintf(
-          '[%s] Expect string(%d): %s',
-          $tag, $line_count, $repl->replace($look)
-        ));
+        $logger->debug(
+          'Expect string(%d): %s', $line_count, $repl->replace($look)
+        );
         $exh->expect(
           $cfg->config->{config}{expmax} // 300, '-re', $repl->replace($look)
         ) or die;
         my @g = $exh->matchlist;
-        $logger->debug(sprintf(
-          '[%s] Expect receive(%d): %s', $tag, $line_count, $exh->match()
-        ));
-        $logger->debug(sprintf(
-          '[%s] Expect groups(%d): %s', $tag, $line_count, join(',', @g)
-        )) if @g;
+        $logger->debug(
+          'Expect receive(%d): %s', $line_count, $exh->match()
+        );
+        $logger->debug(
+          'Expect groups(%d): %s', $line_count, join(',', @g)
+        ) if @g;
 
         # close log if the log filename is '-'
         if($log && $log eq '-') {
-          $logger->info("[$tag] Closing logfile");
+          $logger->info('Closing logfile');
           $exh->log_file(undef);
         }
 
@@ -159,10 +150,9 @@ sub run ($self, $host, $task = undef)
         sleep($self->sleep) if $self->sleep;
 
         # send response
-        $logger->debug(sprintf(
-          '[%s] Expect send(%d): %s',
-          $tag, $line_count, $repl->replace($resp_cloaked)
-        ));
+        $logger->debug(
+          'Expect send(%d): %s', $line_count, $repl->replace($resp_cloaked)
+        );
         $exh->print($repl->replace($resp));
 
         # keep count of lines
@@ -171,8 +161,8 @@ sub run ($self, $host, $task = undef)
     }
 
   } catch ($e) {
-    $logger->error("[$tag] Expect failed");
-    $logger->debug("[$tag] Failure reason is: ", $e);
+    $logger->error('Expect failed');
+    $logger->debug('Failure reason is: %s', $e);
   }
 
   sleep($self->sleep) if $self->sleep;

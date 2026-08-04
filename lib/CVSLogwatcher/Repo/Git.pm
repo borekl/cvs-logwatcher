@@ -75,7 +75,6 @@ sub is_repo_file ($self, $file, $dir_in_repo='.')
 sub commit_file ($self, $file, $target_dir, %arg)
 {
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = $cfg->logger;
   my $is_new = $self->is_repo_file($file, $target_dir);
 
   # supplied file must be CVSLogwatcher::File instance

@@ -10,6 +10,7 @@ use v5.36;
 use Moo;
 
 use Path::Tiny;
+use CVSLogwatcher::Logger;
 
 # attributes
 has files => ( is => 'ro', required => 1 );
@@ -28,9 +29,8 @@ sub process ($self)
 {
   # shortcut variables
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = $cfg->logger;
+  my $logger = CVSLogwatcher::Logger->instance->prefix($self->host->tag);
   my $cmd = $self->host->cmd;
-  my $tag = $self->host->tag;
   my $target = $self->host->target;
   my $host_nodomain = $self->host->host_nodomain;
 
@@ -38,31 +38,28 @@ sub process ($self)
   foreach my $file ($self->files->@*) {
 
     my @mangle;
-    $logger->debug(sprintf('[%s] Processing %s', $tag, $file->file));
+    $logger->debug('Processing %s', $file->file);
 
     # basic info
-    $logger->info(sprintf(
-      '[%s] File %s received, %d bytes',
-      $tag, $file->file->stringify, $file->size
-    ));
+    $logger->info(
+      'File %s received, %d bytes', $file->file->stringify, $file->size
+    );
 
     # enforce minimum file size
     if(
       $target->config->{minsize}
       && $target->config->{minsize} > $file->size)
     {
-      $logger->warn(sprintf(
-        '[%s] File below minimum size, aborting check in', $tag
-      ));
+      $logger->warn('File below minimum size, aborting check in');
       next;
     }
 
     # convert line endings to local representation
     if($cmd->mangle && $target->has_option('normeol')) {
       my $diff;
-      $logger->debug(sprintf(
-        '[%s] %d bytes stripped (normeol)', $tag, $diff = $file->normalize_eol
-      ));
+      $logger->debug(
+        '%d bytes stripped (normeol)', $diff = $file->normalize_eol
+      );
       push(@mangle, sprintf("normeol=%d", $diff));
     }
 
@@ -74,9 +71,7 @@ sub process ($self)
       && $target->config->{validrange}->@*
     ) {
       my $diff = $file->validrange($target->config->{validrange}->@*);
-      $logger->debug(sprintf(
-        '[%s] %d bytes stripped (validrange)', $tag, $diff
-      ));
+      $logger->debug('%d bytes stripped (validrange)', $diff);
       push(@mangle, sprintf("validrange=%d", $diff));
     }
 
@@ -88,21 +83,19 @@ sub process ($self)
       && $target->config->{filter}->@*
     ) {
       my $diff = $file->filter($target->config->{filter}->@*);
-      $logger->debug(sprintf(
-        '[%s] %d bytes stripped (filter)', $tag, $diff
-      ));
+      $logger->debug('%d bytes stripped (filter)', $diff);
       push(@mangle, sprintf("filter=%d", $diff));
     }
 
     # log mangling summary
-    $logger->info("[$tag] Mangle summary: " . join(', ', @mangle)) if @mangle;
+    $logger->info('Mangle summary: %s', join(', ', @mangle)) if @mangle;
 
     # validate the configuration
     if($target->config->{validate}) {
       if(my @failed = $file->validate($target->config->{validate}->@*)) {
-        $logger->warn("[$tag] Validation required but failed, aborting check in");
+        $logger->warn('Validation required but failed, aborting check in');
         $logger->debug(
-          "[$tag] Failed validation expressions: ",
+          'Failed validation expressions: %s',
           join(', ', map { "'$_'" } @failed)
         );
         next;
@@ -116,7 +109,7 @@ sub process ($self)
       $regex = [ $regex ] unless ref $regex;
       if(my $confname = $file->extract_hostname(@$regex)) {
         $host_nodomain = $confname;
-        $logger->info("[$tag] Changing file name to " . $confname);
+        $logger->info('Changing file name to %s', $confname);
         $file->set_filename($confname);
       }
     }
@@ -124,7 +117,7 @@ sub process ($self)
     # convert hostname to uppercase
     if($target->has_option('uchostname')) {
       if($file->set_uc_filename) {
-        $logger->info("[$tag] Changing file name to " . $file->file->basename);
+        $logger->info('Changing file name to %s', $file->file->basename);
       }
     }
 
@@ -135,9 +128,9 @@ sub process ($self)
     if($self->cmd && defined $self->cmd->nocheckin) {
       if(my $save_to = $self->cmd->nocheckin ne '') {
         my $f = $file->save($self->cmd->nocheckin);
-        $logger->info("[$tag] Check-in inhibited, file saved to " . $f);
+        $logger->info('Check-in inhibited, file saved to %s', $f);
       } else {
-        $logger->info("[$tag] Check-in inhibited, file dropped");
+        $logger->info('Check-in inhibited, file dropped');
       }
       next;
     }
@@ -145,21 +138,21 @@ sub process ($self)
     # commit file to configured repositories
     foreach my $repo ($cfg->repos->@*) {
       my $group = $self->host->admin_group;
-      $logger->info("[$tag] Processing repo type " . ref($repo));
+      $logger->info('Processing repo type %s', ref($repo));
       $logger->debug(
-        "[$tag] Target file is "
-        . $repo->base->child($group, $file->file->basename)
+        "Target file is %s",
+        $repo->base->child($group, $file->file->basename)
       );
 
       # see if the file exists in the repository already
       if($repo->is_repo_file($file, $group)) {
-        $logger->debug("[$tag] File exists in repository");
+        $logger->debug('File exists in repository');
         my $repo_file = $repo->checkout_file($file, $group);
         if(
           $repo_file
           && $repo_file->is_changed($file, sub ($l) { $target->is_ignored($l) })
         ) {
-          $logger->info("[$tag] File changed, committing");
+          $logger->info('File changed, committing');
           $repo->commit_file(
             $file, $group,
             host => $host_nodomain,
@@ -168,7 +161,7 @@ sub process ($self)
           );
         } else {
           if($cmd->force) {
-            $logger->info("[$tag] File did not change but --force in effect");
+            $logger->info('File did not change but --force in effect');
             $repo->commit_file(
               $file, $group,
               host => $host_nodomain,
@@ -176,11 +169,11 @@ sub process ($self)
               who => $self->host->who,
             );
           } else {
-            $logger->info("[$tag] File did not change");
+            $logger->info('File did not change');
           }
         }
       } else {
-        $logger->info("[$tag] File is new in repository");
+        $logger->info('File is new in repository');
         $repo->commit_file(
           $file, $group,
           host => $host_nodomain,

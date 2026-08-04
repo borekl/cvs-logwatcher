@@ -8,6 +8,7 @@ use v5.36;
 use Moo;
 
 use IO::Async::FileStream;
+use CVSLogwatcher::Logger;
 
 has id => ( is => 'ro', required => 1 );
 has file => ( is => 'ro', required => 1 );
@@ -56,7 +57,7 @@ sub watch ($self, $loop, $cmd, $callback)
 {
   my $logid = $self->id;
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = $cfg->logger;
+  my $logger = CVSLogwatcher::Logger->instance;
   my $subsequent_runs = defined $self->_cmdline;
 
   # save and reuse command-line and callback refs; these can be reused for
@@ -90,10 +91,11 @@ sub watch ($self, $loop, $cmd, $callback)
     on_read => sub {
       my ($self2, $buffref) = @_;
       while( $$buffref =~ s/^(.*\n)// ) {
+        my $logger_lid = $logger->prefix("cvs/$logid");
         chomp(my $l = $1);
 
         # if --watchonly is active, display the line
-        $logger->info("[cvs/$logid] $l") if $cmd->watchonly;
+        $logger_lid->info($l) if $cmd->watchonly;
 
         # iterate over possible matches
         for my $match_id ($self->matches->@*) {
@@ -109,41 +111,42 @@ sub watch ($self, $loop, $cmd, $callback)
           my $target = $cfg->find_target($match_id, $host);
 
           # assign logging tag
-          my $tag = "cvs/$host";
+          my $logger_host = $logger->prefix("cvs/$host");
 
           # log match information
-          $logger->info(sprintf(
-            '[%s] --- Match %s@%s -> %s ---',
-            $tag, $match_id, $logid, $target->id // '?'
-          ));
+          $logger_host->info(
+            '--- Match %s@%s -> %s ---',
+            $match_id, $logid, $target->id // '?'
+          );
 
-          $logger->debug(sprintf(
-            '[%s] Capture groups: %s', $tag,
+          $logger_host->debug(
+            'Capture groups: %s',
             join(', ', map {sprintf('%s=%s', $_, $match->{$_}) } keys %$match)
-          ));
+          );
 
           # invoke callback for 'user' and 'msg' fields, if defined
           ($user, $msg) = $target->commit_info($match);
 
           # log info when watching and then finish
           if($cmd->watchonly) {
-            $logger->info(sprintf('[%s] | host: %s', $tag, $host ));
-            $logger->info(sprintf('[%s] | user: %s', $tag, $user // '-' ));
-            $logger->info(sprintf('[%s] | mesg: %s', $tag, $msg // '-' ));
+            $logger_host->info('| host: %s', $host );
+            $logger_host->info('| user: %s', $user // '-' );
+            $logger_host->info('| mesg: %s', $msg // '-' );
             last;
           }
 
           # finish if no target
           if(!$target) {
             $logger->warn(
-              "[cvs] No target found for match from '$host' in source '$logid/$match_id'"
+              qq{No target found for match from '%s' in source '%s/%s'},
+              $host, $logid, $match_id
             );
             last;
           }
 
           # finish when --onlyuser specified and not matched
           if($cmd->onlyuser && $cmd->onlyuser ne $user) {
-            $logger->info("[cvs/$logid] Skipping user $user\@$host (--onlyuser)");
+            $logger_lid->info('Skipping user %s@%s (--onlyuser)', $user, $host);
             last;
           }
 
@@ -156,7 +159,7 @@ sub watch ($self, $loop, $cmd, $callback)
               who => $user // 'unknown',
               cmd => $cmd,
               data => $match,
-              tag => $tag,
+              tag => "cvs/$host",
             )
           );
           last;
@@ -169,10 +172,8 @@ sub watch ($self, $loop, $cmd, $callback)
   # attatch to event loop
   $self->_loop->add($self->_fs);
   $logger->info(
-    sprintf(
-      $subsequent_runs ? '[cvs] Reopened %s (%s)' : '[cvs] Started observing %s (%s)',
+      $subsequent_runs ? ' Reopened %s (%s)' : 'Started observing %s (%s)',
       $self->file, $logid
-    )
   );
   $subsequent_runs = 1;
 }
@@ -213,7 +214,7 @@ sub reopen ($self)
 {
   my $logid = $self->id;
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = $cfg->logger;
+  my $logger = CVSLogwatcher::Logger->instance;
 
   # close the original file using IO::Async::Stream method, which also removes
   # itself from the event loop

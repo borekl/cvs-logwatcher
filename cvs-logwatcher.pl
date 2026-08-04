@@ -23,9 +23,21 @@ use CVSLogwatcher::Config;
 use CVSLogwatcher::Cmdline;
 use CVSLogwatcher::Host;
 use CVSLogwatcher::TestMatch;
+use CVSLogwatcher::Logger;
+
+# get logger
+my $logger = CVSLogwatcher::Logger->instance;
 
 # get command-line options
 my $cmd = CVSLogwatcher::Cmdline->new;
+
+# title
+unless($cmd->interactive) {
+  $logger->info('--------------------------------');
+  $logger->info('NetIT CVS // Log Watcher started');
+  $logger->level($cmd->debug ? 'debug' : 'info');
+  $logger->debug('Debugging enabled') if $cmd->debug;
+}
 
 # read configuration
 my $cfg = CVSLogwatcher::Config->instance(
@@ -57,41 +69,35 @@ if($cmd->interactive) {
   exit(0);
 }
 
-# logging setup according to command-line
-my $logger = $cfg->logger;
-$logger->level($cmd->debug ? 'debug' : 'info');
-
 # title
-$logger->info(qq{[cvs] --------------------------------});
-$logger->info(qq{[cvs] NetIT CVS // Log Watcher started});
-$logger->debug(qq{[cvs] Debugging enabled}) if $cmd->debug;
-$logger->debug(qq{[cvs] Log directory is }, $cfg->logprefix);
-$logger->debug(qq{[cvs] Scratch directory is }, $cfg->tempdir);
+$logger->debug('Log directory is %s', $cfg->logprefix);
+$logger->debug('Scratch directory is %s', $cfg->tempdir);
 foreach my $repo ($cfg->repos->@*) {
   my $type = ref($repo);
   $type =~ s/.*:://;
-  $logger->debug(
-    sprintf(qq{[cvs] Repository %s -> %s }, $type, $repo->base)
-  );
+  $logger->debug('Repository %s -> %s ', $type, $repo->base);
 }
+
+# verify that keyring is correct, we want to fail on startup if it is not
+$cfg->keyring;
 
 # verify that logfiles are configured
 unless(keys $cfg->logfiles->%*) {
-  $logger->fatal('[cvs] No valid logfiles configured, aborting');
+  $logger->fatal('No valid logfiles configured, aborting');
   exit(1);
 }
 
 # verify command-line parameters
 if($cmd->trigger) {
   if(!$cfg->exists_matchid($cmd->trigger)) {
-    $logger->fatal(sprintf(
-      q{[cvs] Option --trigger refers to non-existent match id '%s', aborting},
+    $logger->fatal(
+      qq{Option --trigger refers to non-existent match id '%s', aborting},
       $cmd->trigger
-    ));
+    );
     exit(1);
   }
   if(!$cmd->host) {
-    $logger->fatal(qq{[cvs] Option --trigger requires --host, aborting});
+    $logger->fatal(qq{Option --trigger requires --host, aborting});
     exit(1);
   }
 }
@@ -114,19 +120,19 @@ if($cmd->file) {
   die sprintf('%s not specified', join(' and ', @unspecified)) if @unspecified;
 
   # give some basic info
-  $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd->trigger));
-  $logger->info(sprintf('[cvs] Explicit host is %s', $cmd->host));
-  $logger->info(sprintf('[cvs] Explicit user is %s', $cmd->user)) if $cmd->user;
-  $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd->msg)) if $cmd->msg;
-  $logger->info(sprintf('[cvs] Explicit file is %s', $cmd->file));
+  $logger->info('Explicit target %s triggered', $cmd->trigger);
+  $logger->info('Explicit host is %s', $cmd->host);
+  $logger->info('Explicit user is %s', $cmd->user) if $cmd->user;
+  $logger->info('Explicit message is "%s"', $cmd->msg) if $cmd->msg;
+  $logger->info('Explicit file is %s', $cmd->file);
 
   # make sure there's associated target
   my $target = $cfg->find_target($cmd->trigger, lc($cmd->host));
   if(!$target) {
-    $logger->warn(sprintf(
-      "[cvs] No target found for match from '%s' in source '%s'",
+    $logger->warn(
+      qq{No target found for match from '%s' in source '%s'},
       $cmd->host, $cmd->trigger
-    ));
+    );
     exit(1);
   }
 
@@ -154,10 +160,10 @@ if($cmd->file) {
 if($cmd->trigger && !$cmd->initonly) {
 
   # give some basic info
-  $logger->info(sprintf('[cvs] Explicit target %s triggered', $cmd->trigger));
-  $logger->info(sprintf('[cvs] Explicit host is %s', $cmd->host));
-  $logger->info(sprintf('[cvs] Explicit user is %s', $cmd->user)) if $cmd->user;
-  $logger->info(sprintf('[cvs] Explicit message is "%s"', $cmd->msg)) if $cmd->msg;
+  $logger->info('Explicit target %s triggered', $cmd->trigger);
+  $logger->info('Explicit host is %s', $cmd->host);
+  $logger->info('Explicit user is %s', $cmd->user) if $cmd->user;
+  $logger->info('Explicit message is "%s"', $cmd->msg) if $cmd->msg;
 
   # get list of hosts to process; the following section implements expansion
   # of a host group specificed as '--host=@hostgroup' into list of hosts
@@ -174,7 +180,8 @@ if($cmd->trigger && !$cmd->initonly) {
     my $target = $cfg->find_target($cmd->trigger, lc($host));
     if(!$target) {
       $logger->warn(
-        "[cvs] No target found for match from '$host' in source '$cmd->trigger'"
+        "No target found for match from '%s' in source '%s'",
+        $host, $cmd->trigger
       );
       next;
     }
@@ -189,17 +196,17 @@ if($cmd->trigger && !$cmd->initonly) {
       $fg->process;
 
       # report duration of the entire processing
-      $logger->info(sprintf(
-        '[cvs/%s@%s] Processing completed in %.1f seconds',
-        $target->id, $host, time - $processing_start
-      ));
+      $logger->info(
+        'Processing completed in %.1f seconds', time - $processing_start
+      );
     } catch ($err) {
-      $logger->error("[cvs/$host] Failed to process host ($err)");
+      my $logger_host = $logger->prefix("cvs/$host");
+      $logger_host->error('Failed to process host (%s)', $err);
     }
   }
 
   # exit
-  $logger->info('[cvs] Finishing');
+  $logger->info('Finishing');
   exit(0);
 }
 
@@ -217,21 +224,20 @@ foreach my $log (values $cfg->logfiles->%*) {
 
   # check if we are suppressing this logfile
   if(defined $cmd->log && $cmd->log ne $logid) {
-    $logger->info(sprintf('[cvs] Suppressing %s (%s)', $log->file, $logid));
+    $logger->info('Suppressing %s (%s)', $log->file, $logid);
     next;
   }
 
   # check if the file is readable
   unless(-r $log->file) {
-    $logger->warn(sprintf('[cvs] Skipping unreadable %s (%s)', $log->file, $logid));
+    $logger->warn('Skipping unreadable %s (%s)', $log->file, $logid);
     next;
   }
 
   # start watching
   $log->watch($ioloop, $cmd, sub ($host) {
 
-    # get logging tag
-    my $tag = $host->tag;
+    my $logger2 = $logger->prefix('cvs/' . $host->tag);
 
     try {
 
@@ -242,33 +248,27 @@ foreach my $log (values $cfg->logfiles->%*) {
 
       # log some basic information
       my ($h, $msg, $who) = ($host->name, $host->msg, $host->who);
-      $logger->info("[$tag] Source host: $h");
-      $logger->info("[$tag] Message:     ", $msg // '-');
+      $logger2->info('Source host: %s', $h);
+      $logger2->info('Message:     %s', $msg // '-');
 
       # skip if ignored user
       if($who && $cfg->is_ignored_user($who)) {
-        $logger->info(sprintf(
-          '[%s] User:        %s (ignored)', $tag, $who // '-'
-        ));
+        $logger2->info('User:        %s (ignored)', $who // '-');
         return;
       }
 
       # skip if ignored host
       if($cfg->is_ignored_host($host->host_nodomain)) {
-        $logger->info(qq{[$tag] Ignored host, skipping processing});
+        $logger2->info('Ignored host, skipping processing');
         return;
       }
 
       # get admin group
       my $group = $host->admin_group;
       if($group) {
-        $logger->info(sprintf(
-          '[%s] User:        %s / %s', $tag, $who // '-', $group
-        ));
+        $logger2->info('User:        %s / %s', $who // '-', $group);
       } else {
-        $logger->info(sprintf(
-          '[%s] User:        %s (no admin group)', $tag, $who // '-'
-        ));
+        $logger2->info('User:        %s (no admin group)', $who // '-');
         return;
       }
 
@@ -279,12 +279,12 @@ foreach my $log (values $cfg->logfiles->%*) {
       $fg->process;
 
       # report duration of the entire processing
-      $logger->info(sprintf(
-        '[%s] Processing completed in %.1f seconds', $tag, time - $processing_start
-      ));
+      $logger2->info(
+        'Processing completed in %.1f seconds', time - $processing_start
+      );
 
     } catch ($err) {
-      $logger->error("[$tag] Failed to process host ($err)");
+      $logger2->error('Failed to process host (%s)', $err);
     }
 
     #--- end of processing -----------------------------------------------------
@@ -295,7 +295,7 @@ foreach my $log (values $cfg->logfiles->%*) {
 # if user specifies --initonly, do not enter the main loop, this is for testing
 # purposes only
 if($cmd->initonly) {
-  $logger->info(qq{[cvs] Init completed, exiting});
+  $logger->info('Init completed, exiting');
   exit(0);
 }
 
@@ -303,7 +303,7 @@ if($cmd->initonly) {
 foreach my $sig (qw(INT TERM)) {
   $ioloop->add(IO::Async::Signal->new(
     name => $sig, on_receipt => sub {
-      $logger->info("[cvs] SIG$sig received, terminating");
+      $logger->info("SIG$sig received, terminating");
       $ioloop->stop;
     }
   ));
@@ -315,9 +315,7 @@ $ioloop->add(IO::Async::Timer::Periodic->new(
   on_tick => sub {
     foreach my $log (values $cfg->logfiles->%*) {
       if($log->update_inode) {
-        $logger->info(sprintf(
-          "[cvs] %s (%s) rotated", $log->file, $log->id
-        ));
+        $logger->info('%s (%s) rotated', $log->file, $log->id);
         $log->reopen;
       }
     }
@@ -328,11 +326,11 @@ $ioloop->add(IO::Async::Timer::Periodic->new(
 if($cmd->heartbeat) {
   $ioloop->add(IO::Async::Timer::Periodic->new(
     interval => $cmd->heartbeat,
-    on_tick => sub { $logger->info('[cvs] Heartbeat') }
+    on_tick => sub { $logger->info('Heartbeat') }
   )->start);
 }
 
 # run event loop
-$logger->debug('[cvs] Starting main loop');
+$logger->debug('Starting main loop');
 $ioloop->run;
-$logger->debug('[cvs] Main loop shutdown');
+$logger->debug('Main loop shutdown');

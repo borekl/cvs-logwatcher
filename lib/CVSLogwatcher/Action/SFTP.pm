@@ -11,6 +11,7 @@ use Feature::Compat::Try;
 use Net::SFTP::Foreign;
 
 use CVSLogwatcher::Config;
+use CVSLogwatcher::Logger;
 
 has target => ( is => 'ro', required => 1 );
 
@@ -19,8 +20,7 @@ sub run ($self, $host, @rest)
 {
   my $main_cfg = CVSLogwatcher::Config->instance;
   my $cfg = $self->target->config->{sftp};
-  my $logger = $main_cfg->logger;
-  my $tag = $host->tag;
+  my $logger = CVSLogwatcher::Logger->instance->prefix($host->tag);
 
   # open stderr filehandle for ssh and send it to blackhole
   open(my $stderr, '>', '/dev/null') or die 'Unable to open /dev/null';
@@ -39,7 +39,7 @@ sub run ($self, $host, @rest)
     ],
   );
   $sftp->die_on_error('Unable to connect to ' . $host->name);
-  $logger->info(sprintf('[%s] Connected to %s', $tag, $host->name));
+  $logger->info('Connected to %s', $host->name);
 
   # list target directory and select file to download
   my $dir = $sftp->ls($cfg->{cd});
@@ -63,9 +63,7 @@ sub run ($self, $host, @rest)
   }
 
   # log selected file
-  $logger->info(sprintf(
-    '[%s] Selected file %s for download', $tag, $file_to_get
-  ));
+  $logger->info('Selected file %s for download', $file_to_get);
 
   # change directory
   $sftp->setcwd($cfg->{cd});
@@ -76,9 +74,7 @@ sub run ($self, $host, @rest)
   my $local_dir = CVSLogwatcher::Config->instance->tempdir;
   my $local_file = $local_dir->child($file_to_get);
 
-  $logger->info(sprintf(
-    '[%s] Receiving %s -> %s', $tag, $file_to_get, $local_file)
-  );
+  $logger->info('Receiving %s -> %s', $file_to_get, $local_file);
 
   $sftp->get($file_to_get, $local_file);
   $sftp->die_on_error('Failed to receive file %s ' . $local_file);

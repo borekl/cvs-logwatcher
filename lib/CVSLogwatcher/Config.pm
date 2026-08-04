@@ -60,9 +60,6 @@ has targets => ( is => 'lazy' );
 # replacements
 has repl => ( is => 'lazy' );
 
-# Mojo log instance
-has logger => ( is => 'ro', default => sub { Mojo::Log->new });
-
 # configuration repositories
 has repos => ( is => 'lazy' );
 
@@ -103,6 +100,7 @@ sub _build_config ($self)
 # load and parse keyring
 sub _build_keyring ($self)
 {
+  my $logger = CVSLogwatcher::Logger->instance;
   my $cfg = $self->config;
   my $file = $cfg->{config}{keyring} // undef;
 
