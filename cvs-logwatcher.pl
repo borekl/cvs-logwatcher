@@ -14,7 +14,6 @@ use v5.36;
 use Time::HiRes qw(time);
 use IO::Async::Loop;
 use IO::Async::Signal;
-use IO::Async::Timer::Periodic;
 use Feature::Compat::Try;
 use Path::Tiny;
 use FindBin qw($Bin);
@@ -321,14 +320,6 @@ $ioloop->add(IO::Async::Timer::Periodic->new(
     }
   }
 )->start);
-
-# heartbeat timer
-if($cmd->heartbeat) {
-  $ioloop->add(IO::Async::Timer::Periodic->new(
-    interval => $cmd->heartbeat,
-    on_tick => sub { $logger->info('Heartbeat') }
-  )->start);
-}
 
 # run event loop
 $logger->debug('Starting main loop');

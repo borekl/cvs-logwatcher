@@ -24,7 +24,6 @@ is($cmd, object {
   call debug      => F();
   call task       => U();
   call onlyuser   => U();
-  call hearbeat   => U();
 }, 'Default values');
 
 # binary options work
@@ -62,12 +61,6 @@ is($cmd, object {
   call task      => 'MyTaskValue';
   call onlyuser  => 'OnlyUser';
 }, 'String options');
-
-# --heartbeat
-$cmd = CVSLogwatcher::Cmdline->new(cmdline => '--heartbeat');
-is($cmd, object { call heartbeat => 300; }, '--heartbeat default' );
-$cmd = CVSLogwatcher::Cmdline->new(cmdline => '--heartbeat=123');
-is($cmd, object { call heartbeat => 123; }, '--heartbeat non-default' );
 
 # finish
 done_testing();

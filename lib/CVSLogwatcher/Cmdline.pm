@@ -25,7 +25,6 @@ has log        =>  ( is => 'rwp' );
 has watchonly  =>  ( is => 'rwp' );
 has task       =>  ( is => 'rwp' );
 has onlyuser   =>  ( is => 'rwp' );
-has heartbeat  =>  ( is => 'rwp' );
 has match      =>  ( is => 'ro', default => sub {[]} );
 has match_stdin => ( is => 'rwp' );
 has logs       =>  ( is => 'rwp' );
@@ -53,7 +52,6 @@ sub BUILD ($self, $args)
     'watchonly|w' => sub { $self->_set_watchonly($_[1]) },
     'task=s'      => sub { $self->_set_task($_[1]) },
     'onlyuser=s'  => sub { $self->_set_onlyuser($_[1]) },
-    'heartbeat:i' => sub { $self->_set_heartbeat($_[1] || 300) },
     'match|M=s'   => sub {
                        push($self->match->@*, $_[1]);
                        $self->_set_interactive(1);
@@ -110,7 +108,6 @@ Usage: cvs-logwatcher.pl [options]
   -i, --initonly         init everything and exit
   -w, --watchonly        only observe logfiles
       --onlyuser=USER    only changes by specified user are processed
-      --heartbeat[=N]    enable heartbeat logging every N seconds (default 300)
   -l, --log=LOGID        only process this log
   -L, --logs             display configured logfiles and exit
   -M, --match=STRING     try to match supplied string, output result and exit
@@ -142,7 +139,6 @@ sub dump ($self)
   push(@out, sprintf('log:         %s', $self->log // '--'));
   push(@out, sprintf('task:        %s', $self->task // '--'));
   push(@out, sprintf('watchonly:   %s', $self->watchonly ? 'true' : 'false'));
-  push(@out, sprintf('heartbeat:   %s', $self->heartbeat ? $self->heartbeat : 'disabled'));
   push(@out, sprintf('match:       %s', $self->match->@*
                                         ? join(',', $self->match->@*)
                                         : '--'

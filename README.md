@@ -586,10 +586,6 @@ Observe logfiles, log or display all messages, but do not act upon any triggers.
 Process only changes done by specified user, everything else will be ignored.
 This is intended for troubleshooting.
 
-**`--heartbeat[=SECONDS]`**  
-Enable heartbeat message logging. Default period is 300 seconds, different
-number can be specified. Disabled by default.
-
 **`-l`**, **`--log=LOGID`**  
 Only specified log is processed, the rest is ignored.
 
