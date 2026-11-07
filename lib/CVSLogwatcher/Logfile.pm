@@ -109,6 +109,8 @@ sub watch ($self, $loop, $cmd, $callback)
 
           # find target
           my $target = $cfg->find_target($match_id, $host);
+          my $target_id = '?';
+          $target_id = $target->id if $target;
 
           # assign logging tag
           my $logger_host = $logger->prefix("cvs/$host");
@@ -116,7 +118,7 @@ sub watch ($self, $loop, $cmd, $callback)
           # log match information
           $logger_host->info(
             '--- Match %s@%s -> %s ---',
-            $match_id, $logid, $target->id // '?'
+            $match_id, $logid, $target_id
           );
 
           $logger_host->debug(
