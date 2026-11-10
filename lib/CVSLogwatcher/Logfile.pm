@@ -127,7 +127,7 @@ sub watch ($self, $loop, $cmd, $callback)
           );
 
           # invoke callback for 'user' and 'msg' fields, if defined
-          ($user, $msg) = $target->commit_info($match);
+          ($user, $msg) = $target->commit_info($match) if $target;
 
           # log info when watching and then finish
           if($cmd->watchonly) {
