@@ -217,9 +217,6 @@ sub content_iter_factory ($self, $ignore_cb=undef)
 # instance)
 sub is_changed ($this_file, $other_file, $cb=undef)
 {
-  # the files have unequal line counts, return 'changed'
-  return 1 if $this_file->count != $other_file->count;
-
   # get iterators
   my $it_this = $this_file->content_iter_factory($cb);
   my $it_other = $other_file->content_iter_factory($cb);
