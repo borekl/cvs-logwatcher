@@ -206,11 +206,15 @@ $temp_plain->spew(join("\n", (1..10)));
   my (@content2) = @content1;
   my $file1 = CVSLogwatcher::File->new(file => 'file1', content => \@content1);
   my $file2 = CVSLogwatcher::File->new(file => 'file2', content => \@content2);
+  # files are equal -> not changed
   ok(!$file1->is_changed($file2), 'Change detection (1)');
+  # last line is different -> changed
   $file2->content->[7] = 'Xyrmv7eS+sX';
   ok($file1->is_changed($file2), 'Change detection (2)');
+  # last line is truncated in file #2 -> changed
   delete $file2->content->[7];
   ok($file1->is_changed($file2), 'Change detection (3)');
+  # last line is truncted in file #1 -> not changed
   delete $file1->content->[7];
   ok(!$file1->is_changed($file2), 'Change detection (4)');
 }
@@ -245,6 +249,18 @@ $temp_plain->spew(join("\n", (1..10)));
   # remove file
   ok(lives { $file2->remove }, 'File remove (1)');
   ok(!-f $tmp, 'File remove (2)');
+}
+
+{ # bug 1: comparing with filtering
+  my $file1 = CVSLogwatcher::File->new(
+    file => 'old',
+    content => ["a\n", "#comment\n"],
+  );
+  my $file2 = CVSLogwatcher::File->new(
+    file    => 'new',
+    content => ["a\n", "new configuration\n"],
+  );
+  ok($file1->is_changed($file2, sub ($l) { $l =~ /^#/ }), 'bug 1');
 }
 
 done_testing();

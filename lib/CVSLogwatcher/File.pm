@@ -228,7 +228,8 @@ sub is_changed ($this_file, $other_file, $cb=undef)
   while(1) {
     my $l1 = $it_this->();
     my $l2 = $it_other->();
-    return undef unless defined $l1 && defined $l2;
+    return 0 if !defined $l1 && !defined $l2;
+    return 1 unless defined $l1 && defined $l2;
     return 1 if $l1 ne $l2;
   }
 }
