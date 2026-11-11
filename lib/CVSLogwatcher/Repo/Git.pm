@@ -103,7 +103,7 @@ sub commit_file ($self, $file, $target_dir, %arg)
     $arg{msg} // 'no message'
   );
 
-  # capture the parent once, tts tree supplies the starting content, and the
+  # capture the parent once, its tree supplies the starting content, and the
   # same commit becomes the parent of the new commit
   my $git = $self->git;
   my @parents;
