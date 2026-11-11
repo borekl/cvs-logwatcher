@@ -9,6 +9,7 @@ use Moo;
 extends 'CVSLogwatcher::Repo';
 
 use Path::Tiny;
+use IPC::Run qw(run);
 
 #-------------------------------------------------------------------------------
 # returns true when 'file' exists in directory specified by 'dir_in_repo'; only
@@ -99,11 +100,21 @@ sub checkout_file($self, $file, $dir_in_repo='.')
 
   # perform checkout
   my $file_rcs = $self->base->child($dir_in_repo, $file->basename);
-  my $exec = sprintf('%s -q -p %s', $cfg->rcs('rcsco'), $file_rcs);
-  open(my $fh, '-|', "$exec 2>/dev/null")
-  or die "Could not get latest revision from '$exec'";
-  my @fc = <$fh>;
-  close($fh);
+
+  # get rcs command
+  my @command = (
+    $cfg->rcs('rcsco'),
+    '-q', '-p', '-ko',
+    $file_rcs->stringify
+  );
+
+  # run while capturing stdout and stderr
+  my ($stdout, $stderr);
+  run(\@command, \undef, \$stdout, \$stderr)
+  or die("Checkout failed for '$file_rcs', (status=$?: $stderr)");
+
+  # split result into lines and return as File instance
+  my @fc = split /(?<=\n)/, $stdout;
   return CVSLogwatcher::File->new(file => $file, content => \@fc);
 }
 
