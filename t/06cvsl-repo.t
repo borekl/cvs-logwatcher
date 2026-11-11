@@ -197,4 +197,63 @@ my $file;
   }
 }
 
+{ # git: exclude unrelated staged changes from a device backup
+  my $repo_dir = Path::Tiny->tempdir;
+  $repo_dir->child('devices')->mkdir;
+  my $watcher = CVSLogwatcher::Repo::Git->new(base => $repo_dir);
+
+  for my $device ('a', 'b') {
+    my $file = CVSLogwatcher::File->new(
+      file => "device-$device", content => [ "original $device\n" ],
+    );
+    $watcher->commit_file($file, 'devices',
+      host => "device-$device", who => 'test', msg => 'Initial backup',
+    );
+  }
+  my $parent_id = $watcher->git->head->target->id;
+
+  # Stage B through the watcher's own index, isolating this test
+  # from the separate stale-index issue.
+  my $working_b = $repo_dir->child('devices', 'device-b');
+  $working_b->spew("uncommitted B\n");
+
+  my $index = $watcher->git->index;
+  $index->add('devices/device-b');
+  $index->write;
+
+  is(
+    $index->write_tree->entry_bypath('devices/device-b')->object->content,
+    "uncommitted B\n", 'Unrelated modification to B is staged',
+  );
+  is($watcher->git->head->target->id, $parent_id,
+    'Staging B did not create a commit');
+
+  my $updated_a = CVSLogwatcher::File->new(
+    file => 'device-a', content => [ "updated A\n" ],
+  );
+  $watcher->commit_file($updated_a, 'devices',
+    host => 'device-a', who => 'test', msg => 'Updated backup',
+  );
+
+  my $head = $watcher->git->head->target;
+  my @parents = $head->parents;
+  is([ map { $_->id } @parents ], [ $parent_id ],
+    'Backup follows the original committed state');
+
+  is($head->tree->entry_bypath('devices/device-a')->object->content,
+    "updated A\n", 'Backup commits the updated device A');
+
+  is($head->tree->entry_bypath('devices/device-b')->object->content,
+    "original b\n", 'Backup excludes the unrelated staged change to B');
+
+  is($working_b->slurp, "uncommitted B\n",
+    'Backup preserves the uncommitted working file for B');
+
+  is(
+    $watcher->git->index->write_tree
+      ->entry_bypath('devices/device-b')->object->content,
+    "original b\n", 'Unrelated modification to B is now unstaged',
+  );
+}
+
 done_testing;
