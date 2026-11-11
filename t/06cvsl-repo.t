@@ -133,4 +133,68 @@ my $file;
   ok(!$file->is_changed($f), 'git: checkout file (3)');
 }
 
+{ # git: preserve external changes across backups by the same instance
+  my $repo_dir = Path::Tiny->tempdir;
+  $repo_dir->child('devices')->mkdir;
+
+  my $watcher = CVSLogwatcher::Repo::Git->new(base => $repo_dir);
+
+  my $original_a = CVSLogwatcher::File->new(
+    file => 'device-a', content => [ "original A\n" ],
+  );
+  $watcher->commit_file($original_a, 'devices',
+    host => 'device-a', who => 'test', msg => 'Initial backup',
+  );
+
+  # A separate handle represents another writer. It must not update
+  # the original watcher's cached index.
+  my $external = Git::Raw::Repository->open($repo_dir->stringify);
+  $repo_dir->child('devices', 'device-b')->spew("external B\n");
+
+  my $index = $external->index;
+  $index->add('devices/device-b');
+  $index->write;
+
+  my $tree = $index->write_tree;
+  my $author = Git::Raw::Signature->now(
+    'External writer', 'test@example.com',
+  );
+  my $external_commit = $external->commit(
+    'External backup of B', $author, $author,
+    [ $external->head->target ], $tree,
+  );
+
+  # Reuse the original watcher and its cached repository.
+  my $updated_a = CVSLogwatcher::File->new(
+    file => 'device-a', content => [ "updated A\n" ],
+  );
+  $watcher->commit_file($updated_a, 'devices',
+    host => 'device-a', who => 'test', msg => 'Updated backup',
+  );
+
+  # Inspect committed content, not working files. B can remain on disk
+  # even if the watcher accidentally deletes it from the commit.
+  my $head = $watcher->git->head->target;
+  isnt($head->id, $external_commit->id,
+    'Watcher created a new commit');
+
+  my @parents = $head->parents;
+  is([ map { $_->id } @parents ], [ $external_commit->id ],
+    'Watcher commit has the external commit as its sole parent');
+
+  is(
+    $head->tree->entry_bypath('devices/device-a')->object->content,
+    "updated A\n",
+    'Device A contains the updated configuration',
+  );
+
+  my $entry_b = $head->tree->entry_bypath('devices/device-b');
+  ok($entry_b, 'Device B remains in the committed tree');
+
+  if ($entry_b) {
+    is($entry_b->object->content, "external B\n",
+      'Device B retains the externally committed configuration');
+  }
+}
+
 done_testing;

@@ -103,16 +103,44 @@ sub commit_file ($self, $file, $target_dir, %arg)
     $arg{msg} // 'no message'
   );
 
-  # perform git commit
-  my $index = $self->git->index;
+  # capture the parent once, tts tree supplies the starting content, and the
+  # same commit becomes the parent of the new commit
+  my $git = $self->git;
+  my @parents;
+
+  unless ($git->is_empty) {
+    push @parents, $git->head->target;
+  }
+
+  # rebuild the index from the parent rather than trusting its previous or
+  # cached contents
+  my $index = $git->index;
+
+  if (@parents) {
+    $index->read_tree($parents[0]->tree);
+  } else {
+    $index->clear;
+  }
+
+  # replace only this device's file in the reconstructed index; the working file
+  # was already written above
   $index->add($target_in_repo->stringify);
   $index->write;
-  my $tree_id = $index->write_tree;
-  my $tree = $self->git->lookup($tree_id);
-  my $me = Git::Raw::Signature->now($self->name, $self->email);
-  my @parents = $self->git->head->target if !$self->git->is_empty;
-  my $commit = $self->git->commit(
-    $commit_message, $me, $me, \@parents, $tree
+
+  # Git::Raw's write_tree returns a Tree object directly
+  my $tree = $index->write_tree;
+
+  my $me = Git::Raw::Signature->now(
+    $self->name,
+    $self->email,
+  );
+
+  my $commit = $git->commit(
+    $commit_message,
+    $me,
+    $me,
+    \@parents,
+    $tree,
   );
 
   # run post-update hook if present, this is required so that serving the
