@@ -96,7 +96,11 @@ sub watch ($self, $loop, $cmd, $callback)
         chomp(my $l = $1);
 
         # if --watchonly is active, display the line
-        $logger_lid->info($l) if $cmd->watchonly;
+        if($cmd->watchonly) {
+          my $ll = $l;
+          $ll =~ s/%/%%/g;
+          $logger_lid->info($ll);
+        }
 
         # iterate over possible matches
         for my $match_id ($self->matches->@*) {
