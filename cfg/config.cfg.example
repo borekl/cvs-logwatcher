@@ -62,17 +62,6 @@
   ],
 
 #=============================================================================
-# SNMP UTILS section
-#=============================================================================
-
-  snmp => {
-
-    # define location of snmpget and snmpset
-    get => '/usr/bin/snmpget',
-    set => '/usr/bin/snmpset',
-  },
-
-#=============================================================================
 # PING section
 #=============================================================================
 
@@ -319,7 +308,7 @@
       ignoreline   => '^(!|ntp clock-period)',
       hostname     => '^(?:hostname|switchname)\s([-a-zA-Z0-9]+)',
       minsize      => 512,
-      options      => [ "snmphost", "normeol" ],
+      options      => [ "normeol" ],
       expect       => {
         spawn => '/usr/bin/ssh -o KexAlgorithms=diffie-hellman-group14-sha256,diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l cvs1 %h',
         sleep => 1,
