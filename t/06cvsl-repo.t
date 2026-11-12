@@ -74,6 +74,17 @@ my $cfg = CVSLogwatcher::Config->instance(
   ok(!$file->is_changed($file_out), 'RCS: checkout_file (5)');
 }
 
+{ # RCS/checkout_file, trying to checkout corrupted RCS file, this should
+  # result in an exception
+  my $tempdir = Path::Tiny->tempdir;
+  my $tempfile = $tempdir->child('testfile,v');
+  $tempfile->spew('not a RCS file');
+  my $rcs = CVSLogwatcher::Repo::RCS->new(base => $tempdir);
+  ok(dies {
+    my $file_out = $rcs->checkout_file($tempfile)
+  }, 'RCS checkout of corrupt file dies');
+}
+
 #--- GIT TESTS -----------------------------------------------------------------
 
 my ($tempdir, $git);
