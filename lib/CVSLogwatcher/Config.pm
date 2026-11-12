@@ -100,7 +100,7 @@ sub _build_config ($self)
   try {
     $cfg = _do_script($self->config_file);
   } catch ($e) {
-    $self->fatal($_) foreach split(/\n/, $e);
+    $self->logger->fatal($_) foreach split(/\n/, $e);
     die;
   }
 
@@ -121,7 +121,7 @@ sub _build_keyring ($self)
       return _do_script($file);
     }
   } catch($e) {
-    $self->fatal($_) foreach split(/\n/, $e);
+    $self->logger->fatal($_) foreach split(/\n/, $e);
     die;
   }
 

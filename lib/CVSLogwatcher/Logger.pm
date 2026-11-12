@@ -37,7 +37,10 @@ sub fatal ($self, $msg, @args) {
 # Create a clone of the instance with different prefix
 sub prefix ($self, $prefix)
 {
-  CVSLogwatcher::Logger->new(_prefix => $prefix, logger => $self->_logger)
+  CVSLogwatcher::Logger->new(
+    _prefix => $prefix,
+    _logger => $self->_logger
+  )
 }
 
 #-------------------------------------------------------------------------------

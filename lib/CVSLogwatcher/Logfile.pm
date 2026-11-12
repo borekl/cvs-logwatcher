@@ -163,6 +163,7 @@ sub watch ($self, $loop, $cmd, $callback)
               cmd => $cmd,
               data => $match,
               tag => "cvs/$host",
+              logger => $self->logger,
             )
           );
           last;
