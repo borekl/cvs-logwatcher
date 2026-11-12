@@ -237,19 +237,6 @@ sub _build_repos ($self)
 }
 
 #------------------------------------------------------------------------------
-# RCS binaries
-sub rcs ($self, $p)
-{
-  my $cfg = $self->config;
-
-  if($p eq 'rcsctl') { return $cfg->{rcs}{rcsctl} // 'rcs' }
-  elsif($p eq 'rcsci') { return $cfg->{rcs}{rcsci} // 'ci' }
-  elsif($p eq 'rcsco') { return $cfg->{rcs}{rcsco} // 'co' }
-
-  die "Invalid rcs argument '$p'";
-}
-
-#------------------------------------------------------------------------------
 # Ping configuration
 sub ping ($self) { $self->config->{ping} // undef }
 

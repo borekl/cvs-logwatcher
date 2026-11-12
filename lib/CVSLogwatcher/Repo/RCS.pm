@@ -11,6 +11,11 @@ extends 'CVSLogwatcher::Repo';
 use Path::Tiny;
 use IPC::Run qw(run);
 
+# define RCS binaries
+has rcsctl => ( is => 'ro', default => '/usr/bin/rcs' );
+has rcsci =>  ( is => 'ro', default => '/usr/bin/ci' );
+has rcsco =>  ( is => 'ro', default => '/usr/bin/co' );
+
 #-------------------------------------------------------------------------------
 # returns true when 'file' exists in directory specified by 'dir_in_repo'; only
 # filename is used from 'file', any path is ignored
@@ -33,7 +38,6 @@ sub is_repo_file ($self, $file, $dir_in_repo='.')
 # 'msg' and 'who' arguments must be provided
 sub commit_file ($self, $file, $target_dir, %arg)
 {
-  my $cfg = CVSLogwatcher::Config->instance;
   my $is_new = !$self->is_repo_file($file, $target_dir);
 
   # supplied file must be CVSLogwatcher::File instance
@@ -62,7 +66,7 @@ sub commit_file ($self, $file, $target_dir, %arg)
 
   # execute RCS ci to check-in new commit
   my @exec = (
-    $cfg->rcs('rcsci'),
+    $self->rcsci,
     '-q',                  # quiet mode
     '-w' . $arg{who},      # commiter name
     '-m' . $arg{msg},      # commit message
@@ -76,7 +80,7 @@ sub commit_file ($self, $file, $target_dir, %arg)
   # set soft-locking mode if the file is new (initial commit)
   if($is_new) {
     @exec = (
-      $cfg->rcs('rcsctl'),
+      $self->rcsctl,
       '-q', '-U',
       $file_target
     );
@@ -91,7 +95,6 @@ sub commit_file ($self, $file, $target_dir, %arg)
 # the repository base path
 sub checkout_file($self, $file, $dir_in_repo='.')
 {
-  my $cfg = CVSLogwatcher::Config->instance;
   $file = $file->file if $file->isa('CVSLogwatcher::File');
   $file = path($file);
 
@@ -104,7 +107,7 @@ sub checkout_file($self, $file, $dir_in_repo='.')
 
   # get rcs command
   my @command = (
-    $cfg->rcs('rcsco'),
+    $self->rcsco,
     '-q', '-p', '-ko',
     $file_rcs->stringify
   );
