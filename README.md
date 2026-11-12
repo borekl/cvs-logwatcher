@@ -20,22 +20,6 @@ that points to the directory itself (ie. CVSROOT -> .)
 
 -----
 
-## Requirements
-
-* Perl 5.36 or newer
-* Following perl modules:
-  * Expect
-  * Mojo::Log
-  * IO::Async
-  * Moo
-  * Feature::Compat::Try
-  * Path::Tiny
-  * Git::Raw
-  * File::chdir
-  * Net::SFTP::Foreign
-  * Perl6::Form
-  * Term::ReadKey
-
 ## How It Works
 
 The `cvs-logwatcher.pl` script opens and monitors one or more logs and
