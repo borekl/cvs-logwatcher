@@ -93,6 +93,7 @@ sub checkout_file($self, $file, $dir_in_repo='.')
 {
   my $cfg = CVSLogwatcher::Config->instance;
   $file = $file->file if $file->isa('CVSLogwatcher::File');
+  $file = path($file);
 
   # verify
   die "'$file' not a repository file, cannot check out"
