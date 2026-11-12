@@ -25,7 +25,7 @@ use CVSLogwatcher::TestMatch;
 use CVSLogwatcher::Logger;
 
 # get logger
-my $logger = CVSLogwatcher::Logger->instance;
+my $logger = CVSLogwatcher::Logger->new;
 
 # get command-line options
 my $cmd = CVSLogwatcher::Cmdline->new;
@@ -41,7 +41,8 @@ unless($cmd->interactive) {
 # read configuration
 my $cfg = CVSLogwatcher::Config->instance(
   basedir => path("$Bin"),
-  config_file => $cmd->config
+  config_file => $cmd->config,
+  logger => $logger,
 );
 
 # interactive code, ie. show something to user and exit
@@ -139,7 +140,8 @@ if($cmd->file) {
   my $host = CVSLogwatcher::Host->new(cmd => $cmd, target => $target);
   my $file = CVSLogwatcher::File->new(file => $cmd->file);
   my $fg = CVSLogwatcher::FileGroup->new(
-    host => $host, files => [ $file ], target => $target, cmd => $cmd
+    host => $host, files => [ $file ], target => $target, cmd => $cmd,
+    logger => $logger,
   );
   $fg->process;
 
@@ -191,6 +193,7 @@ if($cmd->trigger && !$cmd->initonly) {
         target => $target,
         cmd => $cmd,
         tag => sprintf('cvs/%s@%s', $target->id, $host),
+        logger => $logger,
       )->process;
       $fg->process;
 

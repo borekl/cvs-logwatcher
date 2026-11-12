@@ -6,6 +6,7 @@ package CVSLogwatcher::Action::Expect;
 
 use v5.36;
 use Moo;
+with 'CVSLogwatcher::Roles::Logger';
 
 use Feature::Compat::Try;
 use Expect;
@@ -53,7 +54,7 @@ sub get_task ($self, $task = undef)
 sub run ($self, $host, $task = undef)
 {
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = CVSLogwatcher::Logger->instance->prefix($host->tag);
+  my $logger = $self->logger->prefix($host->tag);
   my @files;
 
   # create local Repl instance

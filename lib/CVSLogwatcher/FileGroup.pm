@@ -8,6 +8,7 @@ package CVSLogwatcher::FileGroup;
 
 use v5.36;
 use Moo;
+with 'CVSLogwatcher::Roles::Logger';
 
 use Path::Tiny;
 use CVSLogwatcher::Logger;
@@ -29,7 +30,7 @@ sub process ($self)
 {
   # shortcut variables
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = CVSLogwatcher::Logger->instance->prefix($self->host->tag);
+  my $logger = $self->logger->prefix($self->host->tag);
   my $cmd = $self->host->cmd;
   my $target = $self->host->target;
   my $host_nodomain = $self->host->host_nodomain;

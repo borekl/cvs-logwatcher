@@ -6,6 +6,7 @@ package CVSLogwatcher::Logfile;
 
 use v5.36;
 use Moo;
+with 'CVSLogwatcher::Roles::Logger';
 
 use IO::Async::FileStream;
 use CVSLogwatcher::Logger;
@@ -57,7 +58,7 @@ sub watch ($self, $loop, $cmd, $callback)
 {
   my $logid = $self->id;
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = CVSLogwatcher::Logger->instance;
+  my $logger = $self->logger;
   my $subsequent_runs = defined $self->_cmdline;
 
   # save and reuse command-line and callback refs; these can be reused for
@@ -216,7 +217,7 @@ sub reopen ($self)
 {
   my $logid = $self->id;
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = CVSLogwatcher::Logger->instance;
+  my $logger = $self->logger;
 
   # close the original file using IO::Async::Stream method, which also removes
   # itself from the event loop

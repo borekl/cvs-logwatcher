@@ -6,6 +6,7 @@ package CVSLogwatcher::Target;
 
 use v5.36;
 use Moo;
+with 'CVSLogwatcher::Roles::Logger';
 
 use CVSLogwatcher::Action::Expect;
 use CVSLogwatcher::Action::SFTP;
@@ -46,10 +47,12 @@ sub _build_id ($self) { $self->config->{id} }
 #------------------------------------------------------------------------------
 sub _build_action ($self)
 {
+  my $logger = $self->logger;
+
   if(exists $self->config->{expect}) {
-    return CVSLogwatcher::Action::Expect->new(target => $self);
+    return CVSLogwatcher::Action::Expect->new(target => $self, logger => $logger);
   } elsif(exists $self->config->{sftp}) {
-    return CVSLogwatcher::Action::SFTP->new(target => $self);
+    return CVSLogwatcher::Action::SFTP->new(target => $self, logger => $logger);
   } else {
     return CVSLogwatcher::Action::Null->new(target => $self);
   }
@@ -205,7 +208,7 @@ sub add_files ($self, $files)
 # instance
 sub custom_action ($self, $host)
 {
-  my $logger = CVSLogwatcher::Logger->instance->prefix($host->tag) if $host->tag;
+  my $logger = $self->logger->prefix($host->tag) if $host->tag;
 
   if($self->config->{action}) {
     $logger->debug('Invoking action callback') if $logger;

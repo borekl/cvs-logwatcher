@@ -6,7 +6,6 @@ package CVSLogwatcher::Logger;
 
 use v5.36;
 use Moo;
-with 'MooX::Singleton';
 
 use Mojo::Log;
 

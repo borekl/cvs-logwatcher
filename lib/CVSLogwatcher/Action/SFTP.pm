@@ -6,6 +6,7 @@ package CVSLogwatcher::Action::SFTP;
 
 use v5.36;
 use Moo;
+with 'CVSLogwatcher::Roles::Logger';
 
 use Feature::Compat::Try;
 use Net::SFTP::Foreign;
@@ -20,7 +21,7 @@ sub run ($self, $host, @rest)
 {
   my $main_cfg = CVSLogwatcher::Config->instance;
   my $cfg = $self->target->config->{sftp};
-  my $logger = CVSLogwatcher::Logger->instance->prefix($host->tag);
+  my $logger = $self->logger->prefix($host->tag);
 
   # open stderr filehandle for ssh and send it to blackhole
   open(my $stderr, '>', '/dev/null') or die 'Unable to open /dev/null';

@@ -7,6 +7,7 @@ package CVSLogwatcher::Config;
 use v5.36;
 use Moo;
 with 'MooX::Singleton';
+with 'CVSLogwatcher::Roles::Logger';
 
 use Carp;
 use Path::Tiny;
@@ -94,7 +95,6 @@ sub _do_script ($file)
 # load and parse configuration
 sub _build_config ($self)
 {
-  my $logger = CVSLogwatcher::Logger->instance;
   my $cfg;
 
   try {
@@ -111,7 +111,6 @@ sub _build_config ($self)
 # load and parse keyring
 sub _build_keyring ($self)
 {
-  my $logger = CVSLogwatcher::Logger->instance;
   my $cfg = $self->config;
   my $file = $cfg->{config}{keyring} // undef;
 
@@ -182,7 +181,8 @@ sub _build_logfiles ($self)
     $logs{$logid} = CVSLogwatcher::Logfile->new(
       id => $logid,
       file => $logfile,
-      matches => \@log
+      matches => \@log,
+      logger => $self->logger,
     )
   }
 
@@ -193,9 +193,11 @@ sub _build_logfiles ($self)
 sub _build_targets ($self)
 {
   my $cfg = $self->config;
-
+  my $logger = $self->logger;
   return [
-    map { CVSLogwatcher::Target->new(config => $_) } $cfg->{targets}->@*
+    map {
+      CVSLogwatcher::Target->new(config => $_, logger => $logger)
+    } $cfg->{targets}->@*
   ];
 }
 

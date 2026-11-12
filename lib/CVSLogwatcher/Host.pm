@@ -6,6 +6,7 @@ package CVSLogwatcher::Host;
 
 use v5.36;
 use Moo;
+with 'CVSLogwatcher::Roles::Logger';
 
 use Path::Tiny qw(path);
 use CVSLogwatcher::File;
@@ -75,7 +76,11 @@ sub _build_admin_group ($self)
 sub _fg ($self, @files)
 {
   CVSLogwatcher::FileGroup->new(
-    files => \@files, host => $self, target => $self->target, cmd => $self->cmd
+    files =>  \@files,
+    host =>   $self,
+    target => $self->target,
+    cmd =>    $self->cmd,
+    logger => $self->logger,
   )
 }
 
@@ -87,7 +92,7 @@ sub process ($self)
 {
   # shortcut variables
   my $cfg = CVSLogwatcher::Config->instance;
-  my $logger = CVSLogwatcher::Logger->instance->prefix($self->tag) if $self->tag;
+  my $logger = $self->logger->prefix($self->tag) if $self->tag;
   my $host = $self->name;
   my $target = $self->target;
   my $cmd = $self->cmd;
