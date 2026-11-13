@@ -196,7 +196,11 @@ sub _build_targets ($self)
   my $logger = $self->logger;
   return [
     map {
-      CVSLogwatcher::Target->new(config => $_, logger => $logger)
+      CVSLogwatcher::Target->new(
+        config => $_,
+        logger => $logger,
+        repl => $self->repl->clone,
+      )
     } $cfg->{targets}->@*
   ];
 }

@@ -41,6 +41,9 @@ has validate => (
 # CVSL::Action:: instance
 has action => ( is => 'lazy' );
 
+# CVSL::Repl instance
+has repl => ( is => 'ro', required => 1);
+
 #------------------------------------------------------------------------------
 sub _build_id ($self) { $self->config->{id} }
 
@@ -191,11 +194,10 @@ sub is_ignored ($self, $l)
 sub add_files ($self, $files)
 {
   my $tcfg = $self->config;
-  my $cfg = CVSLogwatcher::Config->instance;
 
   if(exists $tcfg->{files} && $tcfg->{files}->@*) {
     foreach my $file ($tcfg->{files}->@*) {
-      my $rfile = $cfg->repl->replace($file);
+      my $rfile = $self->repl->replace($file);
       push(
         @$files, CVSLogwatcher::File->new(file => $rfile, target => $self)
       ) if -r $rfile;
