@@ -53,7 +53,7 @@ if($cmd->interactive) {
   # use more than once), --match-stdin takes lines from standard input; each
   # line produces matching results; --log option can constrain matching to one
   # specific logfile
-  my $tstm = CVSLogwatcher::TestMatch->new;
+  my $tstm = CVSLogwatcher::TestMatch->new(config => $cfg);
   my $line_count = 1;
   $cmd->match_lines(sub ($l) {
     printf("=== LINE %s ===\n", $line_count++);

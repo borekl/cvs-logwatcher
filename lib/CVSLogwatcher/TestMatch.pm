@@ -7,18 +7,18 @@ package CVSLogwatcher::TestMatch;
 use v5.36;
 use Moo;
 
-use CVSLogwatcher::Config;
-use CVSLogwatcher::Cmdline;
 use CVSLogwatcher::Stash;
 use CVSLogwatcher::Host;
 use Data::Dumper;
+
+has config => ( is => 'ro', required => 1 );
 
 #------------------------------------------------------------------------------
 # function implementing the --match commad-line option; if there is log id in
 # the arguments, then the matching is constrained only to that log
 sub test_match ($self, $match, $log=undef)
 {
-  my $cfg = CVSLogwatcher::Config->instance;
+  my $cfg = $self->config;
   my $stash = CVSLogwatcher::Stash->instance;
   my $matches = $cfg->config->{matches};
 
