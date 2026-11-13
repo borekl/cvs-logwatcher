@@ -22,6 +22,7 @@ use CVSLogwatcher::Target;
 use CVSLogwatcher::Repl;
 use CVSLogwatcher::Repo::RCS;
 use CVSLogwatcher::Repo::Git;
+use CVSLogwatcher::Regex;
 
 # base directory
 has basedir => ( is => 'ro', required => 1, coerce => sub ($b) { path $b } );
@@ -169,6 +170,15 @@ sub _build_logfiles ($self)
 {
   my $cfg = $self->config;
   my %logs;
+  my %regexes;
+
+  # instantiate all configured regexes
+  for my $matchid (keys $cfg->{matches}->%*) {
+    $regexes{$matchid} = CVSLogwatcher::Regex->new(
+      id => $matchid,
+      regex => $cfg->{matches}{$matchid},
+    );
+  }
 
   for my $logid (keys $cfg->{logfiles}->%*) {
     my @log = $cfg->{logfiles}{$logid}->@*;
@@ -177,11 +187,17 @@ sub _build_logfiles ($self)
     # handle relative filenames
     $logfile = $self->logprefix->child($logfile) if substr($logfile, 0, 1) ne '/';
 
+    # get list of regex instances
+    my @regexes = map {
+      die "Undefined matchid '$_' in logfile '$logid'" if !exists($regexes{$_});
+      $regexes{$_};
+    } @log;
+
     # instantiate a logfile
     $logs{$logid} = CVSLogwatcher::Logfile->new(
       id => $logid,
       file => $logfile,
-      matches => \@log,
+      regexes => \@regexes,
       logger => $self->logger,
     )
   }
@@ -380,8 +396,11 @@ sub display_logs ($self)
 
   # output the content of the table
   foreach my $logid (@logfiles) {
-    print form $form, $logid, $self->logfiles->{$logid}->file,
-              join(', ', $self->logfiles->{$logid}->matches->@*);
+    my @matchids = map { $_->id } $self->logfiles->{$logid}->regexes->@*;
+    print form $form,
+      $logid,
+      $self->logfiles->{$logid}->file,
+      join(', ', @matchids);
   }
 
   print "\n";
@@ -393,8 +412,8 @@ sub logfiles_with_matchid ($self, $matchid)
   my @logfiles;
   foreach my $logid (sort keys $self->logfiles->%*) {
     my $log = $self->logfiles->{$logid};
-    foreach my $matchid2 ($log->matches()->@*) {
-      push(@logfiles, $log) if $matchid eq $matchid2;
+    foreach my $re ($log->regexes->@*) {
+      push(@logfiles, $log) if $matchid eq $re->id;
     }
   }
   return @logfiles;

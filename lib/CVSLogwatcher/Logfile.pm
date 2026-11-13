@@ -15,9 +15,8 @@ has id => ( is => 'ro', required => 1 );
 has file => ( is => 'ro', required => 1 );
 has inode => ( is => 'rwp' );
 
-# array of regex names, the actual regexes are configured in 'matches' config
-# seciton
-has matches => ( is => 'ro', required => 1);
+# regexes used by this particular logfile
+has regexes => ( is => 'ro', default => sub {[]} );
 
 # these values are supplied to the 'watch' method and following attributes are
 # used to store the values for later invocations from within the instance
@@ -29,27 +28,18 @@ has _loop => ( is => 'rwp' );
 has _fs => ( is => 'rwp' );
 
 #-------------------------------------------------------------------------------
-# Match a single log line against a regular expression specified by match id and
-# return a hash reference to named capture groups that matched. The 'host' key
-# is mandatory: the caller should consider the match valid only if it is
-# present. Other keys are optional.
-sub match ($self, $l, $matchid)
+# match provided log entry against configured list of regular expressions; the
+# search stops on the first match and returns match id and contents of the
+# capture groups (from the %+ hash)
+sub match_regexes ($self, $l)
 {
-  my $cfg = CVSLogwatcher::Config->instance;
+  foreach my $re ($self->regexes->@*) {
+    if(my @result = $re->match($l)) {
+      return ($re->id, @result);
+    }
+  }
 
-  # if no matches are configured or specified match doesn't exist, return right
-  # away
-  my $matches = $cfg->config->{matches};
-  return {} unless ref $matches && $matches->{$matchid};
-
-  # if there is a match, copy named capture groups to new hash to make them
-  # scoped
-  my %re;
-  my $regex = $matches->{$matchid};
-  if($regex && $l =~ /$regex/) { $re{$_} = $+{$_} foreach (keys %+) }
-
-  # return the capture groups; if there was no match, this will be an empty hash
-  return \%re;
+  return ();
 }
 
 #-------------------------------------------------------------------------------
@@ -102,76 +92,75 @@ sub watch ($self, $loop, $cmd, $callback)
           $logger_lid->info($ll);
         }
 
-        # iterate over possible matches
-        for my $match_id ($self->matches->@*) {
+        # match line
+        my ($match_id, %cgroups) = $self->match_regexes($l);
 
-          # match line
-          my $match = $self->match($l, $match_id);
-          next unless $match->{host};
-          my $host = $match->{host};
-          my $user = $match->{user} // undef;
-          my $msg = $match->{msg} // undef;
+        # 'host' must always be defined
+        next unless $cgroups{host};
 
-          # find target
-          my $target = $cfg->find_target($match_id, $host);
-          my $target_id = '?';
-          $target_id = $target->id if $target;
+        my $host = $cgroups{host};
+        my $user = $cgroups{user} // undef;
+        my $msg = $cgroups{msg} // undef;
 
-          # assign logging tag
-          my $logger_host = $logger->prefix("cvs/$host");
+        # find target
+        my $target = $cfg->find_target($match_id, $host);
+        my $target_id = '?';
+        $target_id = $target->id if $target;
 
-          # log match information
-          $logger_host->info(
-            '--- Match %s@%s -> %s ---',
-            $match_id, $logid, $target_id
-          );
+        # assign logging tag
+        my $logger_host = $logger->prefix("cvs/$host");
 
-          $logger_host->debug(
-            'Capture groups: %s',
-            join(', ', map {sprintf('%s=%s', $_, $match->{$_}) } keys %$match)
-          );
+        # log match information
+        $logger_host->info(
+          '--- Match %s@%s -> %s ---',
+          $match_id, $logid, $target_id
+        );
 
-          # invoke callback for 'user' and 'msg' fields, if defined
-          ($user, $msg) = $target->commit_info($match) if $target;
+        $logger_host->debug(
+          'Capture groups: %s',
+          join(', ', map {sprintf('%s=%s', $_, $cgroups{$_}) } keys %cgroups)
+        );
 
-          # log info when watching and then finish
-          if($cmd->watchonly) {
-            $logger_host->info('| host: %s', $host );
-            $logger_host->info('| user: %s', $user // '-' );
-            $logger_host->info('| mesg: %s', $msg // '-' );
-            last;
-          }
+        # invoke callback for 'user' and 'msg' fields, if defined
+        ($user, $msg) = $target->commit_info(\%cgroups) if $target;
 
-          # finish if no target
-          if(!$target) {
-            $logger->warn(
-              qq{No target found for match from '%s' in source '%s/%s'},
-              $host, $logid, $match_id
-            );
-            last;
-          }
+        # log info when watching and then finish
+        if($cmd->watchonly) {
+          $logger_host->info('| host: %s', $host );
+          $logger_host->info('| user: %s', $user // '-' );
+          $logger_host->info('| mesg: %s', $msg // '-' );
+          last;
+        }
 
-          # finish when --onlyuser specified and not matched
-          if($cmd->onlyuser && $cmd->onlyuser ne $user) {
-            $logger_lid->info('Skipping user %s@%s (--onlyuser)', $user, $host);
-            last;
-          }
-
-          # invoke callback with Host instance
-          $callback->(
-            CVSLogwatcher::Host->new(
-              target => $target,
-              name => $host,
-              msg => $msg // undef,
-              who => $user // 'unknown',
-              cmd => $cmd,
-              data => $match,
-              tag => "cvs/$host",
-              logger => $self->logger,
-            )
+        # finish if no target
+        if(!$target) {
+          $logger->warn(
+            qq{No target found for match from '%s' in source '%s/%s'},
+            $host, $logid, $match_id
           );
           last;
         }
+
+        # finish when --onlyuser specified and not matched
+        if($cmd->onlyuser && $cmd->onlyuser ne $user) {
+          $logger_lid->info('Skipping user %s@%s (--onlyuser)', $user, $host);
+          last;
+        }
+
+        # invoke callback with Host instance
+        $callback->(
+          CVSLogwatcher::Host->new(
+            target => $target,
+            name => $host,
+            msg => $msg // undef,
+            who => $user // 'unknown',
+            cmd => $cmd,
+            data => \%cgroups,
+            tag => "cvs/$host",
+            logger => $self->logger,
+          )
+        );
+        last;
       }
       return 0;
     }

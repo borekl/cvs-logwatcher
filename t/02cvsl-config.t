@@ -64,6 +64,12 @@ is($cfg->logprefix, $tempdir->stringify, 'Logprefix with absolute path');
 
 $config_file->spew_utf8(<<"EOHD");
 {
+  matches => {
+    mi1 => 're1',
+    mi2 => 're2',
+    mi3 => 're3',
+    mi4 => 're4',
+  },
   logfiles => {
     abc => [ '/aaa/bbb/ccc' => 'mi1', 'mi2' ],
     def => [ 'eee' => 'mi3', 'mi4' ],
@@ -88,13 +94,11 @@ is($cfg->logfiles, hash {
     call id => 'abc';
     call file => check_isa('Path::Tiny');
     call file => object { call stringify => '/aaa/bbb/ccc'; };
-    call matches => array { item 'mi1'; item 'mi2'; end(); };
   };
   field 'def' => object {
     call id => 'def';
     call file => check_isa('Path::Tiny');
     call file => object { call stringify => '/var/log/eee'; };
-    call matches => array { item 'mi3'; item 'mi4'; end(); };
   };
 });
 
