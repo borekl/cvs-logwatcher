@@ -27,6 +27,9 @@ has _loop => ( is => 'rwp' );
 # IO::Async::FileStream instance
 has _fs => ( is => 'rwp' );
 
+# configuration (FIXME: the only thing we need is find_target method)
+has config => ( is => 'ro', required => 1);
+
 #-------------------------------------------------------------------------------
 # match provided log entry against configured list of regular expressions; the
 # search stops on the first match and returns match id and contents of the
@@ -47,7 +50,6 @@ sub match_regexes ($self, $l)
 sub watch ($self, $loop, $cmd, $callback)
 {
   my $logid = $self->id;
-  my $cfg = CVSLogwatcher::Config->instance;
   my $logger = $self->logger;
   my $subsequent_runs = defined $self->_cmdline;
 
@@ -103,7 +105,7 @@ sub watch ($self, $loop, $cmd, $callback)
         my $msg = $cgroups{msg} // undef;
 
         # find target
-        my $target = $cfg->find_target($match_id, $host);
+        my $target = $self->config->find_target($match_id, $host);
         my $target_id = '?';
         $target_id = $target->id if $target;
 
@@ -210,7 +212,6 @@ sub update_inode ($self)
 sub reopen ($self)
 {
   my $logid = $self->id;
-  my $cfg = CVSLogwatcher::Config->instance;
   my $logger = $self->logger;
 
   # close the original file using IO::Async::Stream method, which also removes

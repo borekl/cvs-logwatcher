@@ -199,6 +199,7 @@ sub _build_logfiles ($self)
       file => $logfile,
       regexes => \@regexes,
       logger => $self->logger,
+      config => $self,
     )
   }
 
