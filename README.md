@@ -206,8 +206,8 @@ which one will be used to determine what to do. Target configuration prescribes
 the interaction with given device. One log matching rule might end up in
 different targets to accommodate different device configurations, operating
 systems, etc.  The targets are defined as list of hashes, that define number of
-various options. Keys `matchid` and `hostmatch` are used when searching for
-a matching target. The first matching target is used and the rest is ignored.
+various options. Key `matchid` is used when searching for a matching target. The
+first matching target is used and the rest is ignored.
 
 **`id`**
 Target identification name. Arbitrary string, but you should use something short
@@ -222,58 +222,6 @@ directories.
 Defines one or more MATCHID's as defined in the `matches` section. This key is
 *required* and it is used for matching logfile matches to targets.
 Multiple targets can use the same MATCHID.
-
-**`hostmatch`**
-Optional. Enables additional matching by device's hostname (in addition to
-matching by `logfile`!). Hostmatch is a list of rules, where every rule can have
-one to four matching conditions: `includelist` and `excludelist` exactly (but
-case-insensitively) match lists of hostnames. `includere` and `excludere` match
-hostnames by one or more regular expressions. For example:
-
-    {
-      includelist => [ 'router01', 'router02', 'switch01' ]
-    }
-
-This will simply match the three devices in the list.
-
-    {
-      excludelist => [ 'router01', 'router02' ],
-    }
-
-This rule will match anything but the two devices in the list.
-
-    {
-      includelist => [ 'router01', 'router02', 'switch01' ],
-      excludelist => [ 'router01', 'router02' ],
-    }
-
-You can combine the two filters into one rule -- both must match at the same
-time. That means, that in above example router00 and router01 will not be
-matched by this (the results of the two matches are AND'ed together, so router01
-will pass the `includelist`, but not the `excludelist`. The switch01 will be
-matched just fine, however.
-
-    {
-      includere => [ '^router-' ],
-      excludere => [ '^router-wy-', '^router-ak-' ],
-    }
-
-Matching by regular expressions is also available and has the same semantics as
-the `lst` matches. Above example will match all devices that start with
-"router-" except those that start with "router-wy-" and "router-ak-".
-
-    {
-      excludere => [ '^sw-(london|paris)' ],
-    },
-    {
-      includelst => [ 'sw-london-01', 'sw-paris-01' ],
-    }
-
-Multiple rules can be specified in a `hostmatch` (make it a "ruleset"), though
-this is probably not very useful. At any rate, ruleset is considered a match
-when at least one rule is a match. In above example any device that doesn't
-start with "sw-london" or "sw-paris" is matched, but "sw-london-01" and
-'sw-london-01" are exempt from this exclusion and are matched anyway.
 
 **`options`**
 Define list of options that should be used for the target. Currently only one

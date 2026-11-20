@@ -308,8 +308,6 @@ sub find_target ($self, $matchid, $host)
     $target_matchid = [ $target_matchid ] unless ref $target_matchid;
     # "logfile" condition
     next unless grep { $_ eq $matchid } @$target_matchid;
-    # "hostmatch" condition
-    next if $host && !$target->match_hostname($host);
     # no mismatch, target found
     return $target;
   }

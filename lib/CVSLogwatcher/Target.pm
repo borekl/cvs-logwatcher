@@ -29,11 +29,14 @@ has hostname =>   ( is => 'ro', predicate => 1 );
 has filter =>     ( is => 'ro' );
 has validate =>   ( is => 'ro', predicate => 1 );
 has minsize =>    ( is => 'ro', predicate => 1 );
-has action =>     ( is => 'lazy' );
 has options =>    ( is => 'ro', default => sub {[]} );
 has validrange => ( is => 'ro' );
 has ignoreline => ( is => 'ro', predicate => 1 );
 has files =>      ( is => 'ro', default => sub {[]} );
+
+# CVSL::Action:: instance that performs configuration retrieval, currently
+# available are Expect, SFTP and Null
+has action =>     ( is => 'lazy' );
 
 # CVSL::Repl instance
 has repl => ( is => 'ro', required => 1);
@@ -72,85 +75,6 @@ sub _build_action ($self)
   } else {
     return CVSLogwatcher::Action::Null->new(target => $self);
   }
-}
-
-#------------------------------------------------------------------------------
-# Function to match hostname (obtained from logfile) against an array of rules
-# and decide the result (MATCH or NO MATCH).
-#
-# A hostname is considered a rule match when all conditions in the rule are
-# evaluated as matching. A hostname is considered a ruleset match when at
-# least one rule results in a match.
-#
-# Following conditions are supported in a rule:
-#
-# {
-#   includere => [],
-#   excludere => [],
-#   includelist => [],
-#   excludelist => [],
-# }
-#
-sub match_hostname ($self, $hostname)
-{
-  my $rules = $self->target_config->{hostmatch} // [];
-
-  # empty list of rules or completely misssing 'hostmatch' key is taken as an
-  # unconditional match
-  return 1 if !@$rules;
-
-  # rules iteration
-  foreach my $rule (@$rules) {
-
-    my ($match_incre, $match_inclst, $match_excre, $match_exclst);
-
-    # 'includere' condition
-    if(exists $rule->{'includere'}) {
-      for my $re (@{$rule->{'includere'}}) {
-        $match_incre ||= ($hostname =~ /$re/i);
-      }
-    }
-
-    # 'includelist' condition
-    if(exists $rule->{'includelist'}) {
-      for my $en (@{$rule->{'includelist'}}) {
-        $match_inclst ||= (lc($hostname) eq lc($en));
-      }
-    }
-
-    # 'excludere' condition
-    if(exists $rule->{'excludere'}) {
-      my $match_excre_local = 'magic';
-      for my $re (@{$rule->{'excludere'}}) {
-        $match_excre_local &&= ($hostname !~ /$re/i);
-      }
-      $match_excre = $match_excre_local eq 'magic' ? '' : $match_excre_local
-    }
-
-    # 'excludelist' condition
-    if(exists $rule->{'excludelist'}) {
-      my $match_exclst_local = 'magic';
-      for my $en (@{$rule->{'excludelist'}}) {
-        $match_exclst_local &&= (lc($hostname) ne lc($en));
-      }
-      $match_exclst = $match_exclst_local eq 'magic' ? '' : $match_exclst_local
-    }
-
-    # evaluate the result of current rule
-    my $result = 1;
-    for my $val ($match_incre, $match_inclst, $match_excre, $match_exclst) {
-      if(
-        defined $val
-        && !$val
-      ) {
-        $result = '';
-      }
-    }
-
-    return 1 if $result;
-  }
-
-  return '';
 }
 
 #------------------------------------------------------------------------------
