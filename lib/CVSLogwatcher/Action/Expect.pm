@@ -24,14 +24,14 @@ has sleep => ( is => 'lazy' );
 sub _build_sleep ($self) { $self->target->{expect}{sleep} // 1 };
 
 sub _build_spawn ($self) {
-  $self->target->config->{expect}{spawn} // die "No expect 'spawn' line defined";
+  $self->target->target_config->{expect}{spawn} // die "No expect 'spawn' line defined";
 }
 
 #------------------------------------------------------------------------------
 # Return task by its name; FIXME more configuration checks needed
 sub get_task ($self, $task = undef)
 {
-  my $cfg = $self->target->config->{expect};
+  my $cfg = $self->target->target_config->{expect};
 
   # if task not specified, use default task
   $task = $cfg->{deftask} // undef unless $task;
@@ -96,7 +96,7 @@ sub run ($self, $host, $task = undef)
 
     # iterate over all chats in the task
     foreach my $chid (@chats) {
-      my $chat = $self->target->config->{expect}{chats}{$chid};
+      my $chat = $self->target->target_config->{expect}{chats}{$chid};
 
       # iterate over chat lines
       my $line_count = 1;

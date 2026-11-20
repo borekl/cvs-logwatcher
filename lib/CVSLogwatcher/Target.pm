@@ -1,8 +1,11 @@
-#==============================================================================
-# Target configuration and handling
-#==============================================================================
-
 package CVSLogwatcher::Target;
+
+# target is the next link after a logfile match has occurred; it is selected
+# by its matchid property, which contains one ore more match identifications
+# that link it to the regular expressions; the target then defines how such
+# match is to be handled, how configuration is retrieved from remote device,
+# how it is extracted from received file(s) and how it is commited into defined
+# repositories
 
 use v5.36;
 use Moo;
@@ -14,47 +17,57 @@ use CVSLogwatcher::Action::Null;
 use CVSLogwatcher::File;
 use CVSLogwatcher::Stash;
 
-# full config as parsed from the config file
-has config => ( is => 'ro', required => 1 );
+# full config as parsed from the config file, it is used to populate some of
+# the other attributes
+has target_config => ( is => 'ro', required => 1 );
 
-# target id
-has id => ( is => 'lazy' );
-
-# default administrative group
-has defgroup => (
-  is => 'ro',
-  default => sub ($s) { $s->config->{defgrp} // undef }
-);
-
-# filter expressions for filtering configuration
-has filter => (
-  is => 'ro',
-  default => sub ($s) { $s->config->{filter} // [] }
-);
-
-# validation list
-has validate => (
-  is => 'ro',
-  default => sub ($s) { $s->config->{validate} // [] }
-);
-
-# CVSL::Action:: instance
-has action => ( is => 'lazy' );
+# these come directly from the configuration
+has id =>         ( is => 'ro', required => 1 );
+has defgrp =>     ( is => 'ro' );
+has matchid =>    ( is => 'ro', default => sub {[]} );
+has hostname =>   ( is => 'ro', predicate => 1 );
+has filter =>     ( is => 'ro' );
+has validate =>   ( is => 'ro', predicate => 1 );
+has minsize =>    ( is => 'ro', predicate => 1 );
+has action =>     ( is => 'lazy' );
+has options =>    ( is => 'ro', default => sub {[]} );
+has validrange => ( is => 'ro' );
+has ignoreline => ( is => 'ro', predicate => 1 );
+has files =>      ( is => 'ro', default => sub {[]} );
 
 # CVSL::Repl instance
 has repl => ( is => 'ro', required => 1);
 
 #------------------------------------------------------------------------------
-sub _build_id ($self) { $self->config->{id} }
+around BUILDARGS => sub ($orig, $class, %args)
+{
+  if($args{target_config} && ref $args{target_config}) {
+    my $tcfg = $args{target_config};
+    # scalar attributes
+    foreach my $key (qw(id defgrp minsize)) {
+      if($tcfg->{$key}) { $args{$key} = $tcfg->{$key} }
+    }
+    # array attributes
+    foreach my $key (qw(filter validate options validrange ignoreline files)) {
+      if($tcfg->{$key}) {
+        if(!ref($tcfg->{$key})) { $args{$key} = [ $tcfg->{$key} ] }
+        else { $args{$key} = $tcfg->{$key} }
+      }
+    }
+  }
+  return \%args;
+};
 
 #------------------------------------------------------------------------------
 sub _build_action ($self)
 {
   my $logger = $self->logger;
 
-  if(exists $self->config->{expect}) {
-    return CVSLogwatcher::Action::Expect->new(target => $self, logger => $logger);
-  } elsif(exists $self->config->{sftp}) {
+  if(exists $self->target_config->{expect}) {
+    CVSLogwatcher::Action::Expect->new(
+      target => $self, logger => $logger
+    );
+  } elsif(exists $self->target_config->{sftp}) {
     return CVSLogwatcher::Action::SFTP->new(target => $self, logger => $logger);
   } else {
     return CVSLogwatcher::Action::Null->new(target => $self);
@@ -80,8 +93,7 @@ sub _build_action ($self)
 #
 sub match_hostname ($self, $hostname)
 {
-  my $cfg = $self->config;
-  my $rules = $cfg->{hostmatch} // [];
+  my $rules = $self->target_config->{hostmatch} // [];
 
   # empty list of rules or completely misssing 'hostmatch' key is taken as an
   # unconditional match
@@ -145,31 +157,26 @@ sub match_hostname ($self, $hostname)
 # Return true if the target has the option given as an argument
 sub has_option ($self, $o)
 {
-  my $cfg = $self->config;
-
-  if(
-    exists $cfg->{options}
-    && ref $cfg->{options}
-    && grep { $_ eq $o } @{$cfg->{options}}
-  ) {
-    return 1;
-  } else {
-    return undef;
-  }
+  grep { $_ eq $o } $self->options->@*;
 }
 
 #------------------------------------------------------------------------------
 # Return true if "validrange" feature is configured correctly
 sub has_validrange ($self)
 {
-  exists $self->config->{validrange}
-  && ref $self->config->{validrange}
-  && $self->config->{validrange}->@* == 2
+  $self->validrange
+  && ref $self->validrange
+  && $self->validrange->@* == 2
 }
 
 #------------------------------------------------------------------------------
 # Custom predicate for filter
-sub has_filter ($self) { return scalar(@{$self->filter}) }
+sub has_filter ($self)
+{
+  $self->filter
+  && ref $self->filter
+  && $self->filter->@*
+}
 
 #------------------------------------------------------------------------------
 # Return true if the line of configuration is passed through the filter; no
@@ -184,8 +191,12 @@ sub filter_pass ($self, $l)
 # option. Returns false if no ignoreline is defined.
 sub is_ignored ($self, $l)
 {
-  my $re = $self->config->{ignoreline} // undef;
-  return 1 if $re && $l =~ /$re/;
+  if($self->has_ignoreline) {
+    foreach my $re ($self->ignoreline->@*) {
+      return 1 if $l =~ /$re/;
+    }
+  }
+
   return undef;
 }
 
@@ -193,10 +204,8 @@ sub is_ignored ($self, $l)
 # Add explicitly defined files, if they exist
 sub add_files ($self, $files)
 {
-  my $tcfg = $self->config;
-
-  if(exists $tcfg->{files} && $tcfg->{files}->@*) {
-    foreach my $file ($tcfg->{files}->@*) {
+  if($self->files->@*) {
+    foreach my $file ($self->files->@*) {
       my $rfile = $self->repl->replace($file);
       push(
         @$files, CVSLogwatcher::File->new(file => $rfile, target => $self)
@@ -212,9 +221,9 @@ sub custom_action ($self, $host)
 {
   my $logger = $self->logger->prefix($host->tag) if $host->tag;
 
-  if($self->config->{action}) {
+  if($self->target_config->{action}) {
     $logger->debug('Invoking action callback') if $logger;
-    $self->config->{action}->(
+    $self->target_config->{action}->(
       CVSLogwatcher::Stash->instance->host($host->name),
       $host->data
     );
@@ -231,12 +240,12 @@ sub commit_info ($self, $match)
   $user = $match->{user} // 'unknown';
   $msg = $match->{msg} if exists $match->{msg};
 
-  if(exists $self->config->{commit}) {
-    if($self->config->{commit}{user}) {
-      $user = $self->config->{commit}{user}->($stash, $match)
+  if(exists $self->target_config->{commit}) {
+    if($self->target_config->{commit}{user}) {
+      $user = $self->target_config->{commit}{user}->($stash, $match)
     }
-    if($self->config->{commit}{msg}) {
-      $msg = $self->config->{commit}{msg}->($stash, $match)
+    if($self->target_config->{commit}{msg}) {
+      $msg = $self->target_config->{commit}{msg}->($stash, $match)
     }
   }
 
@@ -247,7 +256,7 @@ sub commit_info ($self, $match)
 # returns true if this target has either expect or sftp configured
 sub has_retrieval ($self)
 {
-  return $self->config->{expect} || $self->config->{sftp}
+  return $self->target_config->{expect} || $self->target_config->{sftp}
 }
 
 

@@ -47,10 +47,7 @@ sub process ($self)
     );
 
     # enforce minimum file size
-    if(
-      $target->config->{minsize}
-      && $target->config->{minsize} > $file->size)
-    {
+    if($target->has_minsize && $target->minsize > $file->size) {
       $logger->warn('File below minimum size, aborting check in');
       next;
     }
@@ -65,25 +62,15 @@ sub process ($self)
     }
 
     # filter out junk at the start and the end ("validrange" option)
-    if(
-      $cmd->mangle
-      && exists $target->config->{validrange}
-      && ref $target->config->{validrange}
-      && $target->config->{validrange}->@*
-    ) {
-      my $diff = $file->validrange($target->config->{validrange}->@*);
+    if($cmd->mangle && $target->has_validrange) {
+      my $diff = $file->validrange($target->validrange->@*);
       $logger->debug('%d bytes stripped (validrange)', $diff);
       push(@mangle, sprintf("validrange=%d", $diff));
     }
 
     # filter out lines anywhere in the configuration ("filter" option)
-    if(
-      $cmd->mangle
-      && exists $target->config->{filter}
-      && ref $target->config->{filter}
-      && $target->config->{filter}->@*
-    ) {
-      my $diff = $file->filter($target->config->{filter}->@*);
+    if($cmd->mangle && $target->has_filter) {
+      my $diff = $file->filter($target->target_config->{filter}->@*);
       $logger->debug('%d bytes stripped (filter)', $diff);
       push(@mangle, sprintf("filter=%d", $diff));
     }
@@ -92,8 +79,8 @@ sub process ($self)
     $logger->info('Mangle summary: %s', join(', ', @mangle)) if @mangle;
 
     # validate the configuration
-    if($target->config->{validate}) {
-      if(my @failed = $file->validate($target->config->{validate}->@*)) {
+    if($target->validate) {
+      if(my @failed = $file->validate($target->validate->@*)) {
         $logger->warn('Validation required but failed, aborting check in');
         $logger->debug(
           'Failed validation expressions: %s',
@@ -105,8 +92,8 @@ sub process ($self)
 
     # extract hostname from the configuration and set the extracted hostname
     # as the new filename
-    if($target->config->{hostname}) {
-      my $regex = $target->config->{hostname};
+    if($target->target_config->{hostname}) {
+      my $regex = $target->target_config->{hostname};
       $regex = [ $regex ] unless ref $regex;
       if(my $confname = $file->extract_hostname(@$regex)) {
         $host_nodomain = $confname;

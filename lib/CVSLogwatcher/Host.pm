@@ -68,7 +68,7 @@ sub _build_host_nodomain ($self) { host_strip_domain($self->name) }
 sub _build_admin_group ($self)
 {
   CVSLogwatcher::Config->instance->admin_group($self->host_nodomain)
-  // $self->target->defgroup // undef;
+  // $self->target->defgrp // undef;
 }
 
 #-----------------------------------------------------------------------------

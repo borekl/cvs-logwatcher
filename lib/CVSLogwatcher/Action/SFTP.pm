@@ -20,7 +20,7 @@ has target => ( is => 'ro', required => 1 );
 sub run ($self, $host, @rest)
 {
   my $main_cfg = CVSLogwatcher::Config->instance;
-  my $cfg = $self->target->config->{sftp};
+  my $cfg = $self->target->target_config->{sftp};
   my $logger = $self->logger->prefix($host->tag);
 
   # open stderr filehandle for ssh and send it to blackhole

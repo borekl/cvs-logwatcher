@@ -214,7 +214,7 @@ sub _build_targets ($self)
   return [
     map {
       CVSLogwatcher::Target->new(
-        config => $_,
+        target_config => $_,
         logger => $logger,
         repl => $self->repl->clone,
       )
@@ -304,7 +304,7 @@ sub find_target ($self, $matchid, $host)
 
   foreach my $target ($self->targets->@*) {
     # both single matchids and arrays of multiple matchids are supported
-    my $target_matchid = $target->config->{'matchid'} // [];
+    my $target_matchid = $target->target_config->{'matchid'} // [];
     $target_matchid = [ $target_matchid ] unless ref $target_matchid;
     # "logfile" condition
     next unless grep { $_ eq $matchid } @$target_matchid;
