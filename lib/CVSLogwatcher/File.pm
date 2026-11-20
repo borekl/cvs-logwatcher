@@ -32,7 +32,6 @@ has prev_size => ( is => 'rwp', default => 0 );
 # checked out and read instead of just reading it.
 sub _build_content ($self)
 {
-  my $cfg = CVSLogwatcher::Config->instance;
   my $f = $self->file->stringify;
   my @fc;
 
