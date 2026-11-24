@@ -170,7 +170,7 @@ sub match_lines ($self, $cb)
     foreach my $l ($self->match->@*) { $cb->($l) }
   }
 
-  # test lines supplied through stdin
+  # test lines supplied through optional positional arguments and stdin
   if($self->match_stdin) {
     while(my $l = <>) { chomp $l; $cb->($l) }
   }

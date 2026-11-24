@@ -549,9 +549,11 @@ target configuration (as described earlier).
 
 **`--match-stdin`**  
 This works the same as `--match`, but the lines to be matched are read from
-standard input. Both options can be used at the same time; in that case the
-lines provided on the command-line are used first. This option lets you feed
-real log to the application without the need to copy the entries like this:
+standard input. If there are positional files on the command-line, they are read
+first, in the order of appearance. Both options can be used at the same time; in
+that case the lines provided on the command-line are used first. This option
+lets you feed real log to the application without the need to copy the entries
+like this:
 
      grep -i london-hq-01 /var/log/network.log | ./cvs-logwatcher.pl --match-stdin
 
