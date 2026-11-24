@@ -14,6 +14,7 @@ with 'CVSLogwatcher::Roles::Logger';
 use CVSLogwatcher::Action::Expect;
 use CVSLogwatcher::Action::SFTP;
 use CVSLogwatcher::Action::Null;
+use CVSLogwatcher::Action::Custom;
 use CVSLogwatcher::File;
 use CVSLogwatcher::Stash;
 
@@ -35,13 +36,15 @@ has ignoreline => ( is => 'ro', predicate => 1 );
 has files =>      ( is => 'ro', default => sub {[]} );
 
 # CVSL::Action:: instance that performs configuration retrieval, currently
-# available are Expect, SFTP and Null
+# available are Expect, SFTP, Custom and Null
 has action =>     ( is => 'lazy' );
 
 # CVSL::Repl instance
 has repl => ( is => 'ro', required => 1);
 
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# convert target configuration into instance constructor arguments; this expects
+# target_config with reference to target configuration hash
 around BUILDARGS => sub ($orig, $class, %args)
 {
   if($args{target_config} && ref $args{target_config}) {
@@ -72,6 +75,12 @@ sub _build_action ($self)
     );
   } elsif(exists $self->target_config->{sftp}) {
     return CVSLogwatcher::Action::SFTP->new(target => $self, logger => $logger);
+  } elsif(exists $self->target_config->{action}) {
+    return CVSLogwatcher::Action::Custom->new(
+      target => $self,
+      coderef => $self->target_config->{action},
+      logger => $logger
+    );
   } else {
     return CVSLogwatcher::Action::Null->new(target => $self);
   }
@@ -139,22 +148,6 @@ sub add_files ($self, $files)
 }
 
 #------------------------------------------------------------------------------
-# Invoke custom target action if it is defined. The argument is the Host
-# instance
-sub custom_action ($self, $host)
-{
-  my $logger = $self->logger->prefix($host->tag) if $host->tag;
-
-  if($self->target_config->{action}) {
-    $logger->debug('Invoking action callback') if $logger;
-    $self->target_config->{action}->(
-      CVSLogwatcher::Stash->instance->host($host->name),
-      $host->data
-    );
-  }
-}
-
-#------------------------------------------------------------------------------
 # Invoke custom commit usr/message getter if defined
 sub commit_info ($self, $match)
 {
@@ -180,8 +173,9 @@ sub commit_info ($self, $match)
 # returns true if this target has either expect or sftp configured
 sub has_retrieval ($self)
 {
-  return $self->target_config->{expect} || $self->target_config->{sftp}
+  return
+    $self->action->isa('CVSLogwatcher::Action::Expect')
+    || $self->action->isa('CVSLogwatcher::Action::SFTP');
 }
-
 
 1;

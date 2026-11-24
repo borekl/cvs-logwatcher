@@ -109,7 +109,9 @@ sub process ($self)
   ) if $logger;
 
   # if custom action is configured, perform it
-  $target->custom_action($self);
+  if($target->action->can('invoke')) {
+    $target->action->invoke($self);
+  }
 
   # ensure reachability, FIXME: this should probably be part of the action
   # itself, so that we don't need to special-case it here
