@@ -24,14 +24,15 @@ use CVSLogwatcher::Host;
 use CVSLogwatcher::TestMatch;
 use CVSLogwatcher::Logger;
 
-# get logger
-my $logger = CVSLogwatcher::Logger->new;
-
 # get command-line options
 my $cmd = CVSLogwatcher::Cmdline->new;
 
-# title
-unless($cmd->interactive) {
+# enable logging if we're not in interactive mode and log header
+my $logger;
+if($cmd->interactive) {
+  $logger = CVSLogwatcher::DummyLogger->new;
+} else {
+  $logger = CVSLogwatcher::Logger->new;
   $logger->info('--------------------------------');
   $logger->info('NetIT CVS // Log Watcher started');
   $logger->level($cmd->debug ? 'debug' : 'info');
