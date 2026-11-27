@@ -46,13 +46,12 @@ my $cfg = CVSLogwatcher::Config->instance(
   logger => $logger,
 );
 
+# create a global stash, this is only used in match testing (ie. --match and
+# --match-stdin)
+my $stash = CVSLogwatcher::Stash->new;
+
 # interactive code, ie. show something to user and exit
 if($cmd->interactive) {
-
-  # note, that there's one shared stash for everything during testing; this is
-  # bacause when testing, there is no concept of source logfile; to avoid
-  # unwanted data leaks, the --log option should be used
-  my $stash = CVSLogwatcher::Stash->new;
 
   # --match allows user to supply line on the command-line itself to test
   # matching; the command can be used multiple times to supply multiple lines at
@@ -70,7 +69,9 @@ if($cmd->interactive) {
   # supplied by --match are read first
   #
   # --log option can constrain matching to one specific logfile (ie. regular
-  # expressions that are bound to that logfile in configuration)
+  # expressions that are bound to that logfile in configuration); this might be
+  # important to prevent data to be shared between logfiles as the testing code
+  # uses the global stash, not per-logfile stash like the main loop does
 
   my $tstm = CVSLogwatcher::TestMatch->new(config => $cfg, stash => $stash);
   my $line_count = 1;
@@ -160,7 +161,9 @@ if($cmd->file) {
   }
 
   # initialize required instances
-  my $host = CVSLogwatcher::Host->new(cmd => $cmd, target => $target);
+  my $host = CVSLogwatcher::Host->new(
+    cmd => $cmd, target => $target, stash => $stash
+  );
   my $file = CVSLogwatcher::File->new(file => $cmd->file);
   my $fg = CVSLogwatcher::FileGroup->new(
     host => $host, files => [ $file ], target => $target, cmd => $cmd,
@@ -217,6 +220,7 @@ if($cmd->trigger && !$cmd->initonly) {
         cmd => $cmd,
         tag => sprintf('cvs/%s@%s', $target->id, $host),
         logger => $logger,
+        stash => $stash,
       )->process;
       $fg->process;
 
