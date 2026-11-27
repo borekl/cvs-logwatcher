@@ -6,7 +6,6 @@ package CVSLogwatcher::Stash;
 
 use v5.36;
 use Moo;
-with 'MooX::Singleton';
 
 has _stash => ( is => 'ro', default => sub {{}} );
 

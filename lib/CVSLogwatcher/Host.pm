@@ -40,6 +40,9 @@ has tag => ( is => 'ro' );
 # from log entries
 has data => ( is => 'ro', required => 1, default => sub {{}} );
 
+# logfile's stash
+has stash => ( is => 'ro', required => 1 );
+
 #-----------------------------------------------------------------------------
 # name, who, msg and tag are taken from ::Comandline instance unless provided
 # explicitly
@@ -111,6 +114,7 @@ sub process ($self)
   # if custom action is configured, perform it
   if($target->action->can('invoke')) {
     $target->action->invoke($self);
+    return $self->_fg;
   }
 
   # ensure reachability, FIXME: this should probably be part of the action

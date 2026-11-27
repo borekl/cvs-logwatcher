@@ -79,7 +79,7 @@ sub _build_action ($self)
     return CVSLogwatcher::Action::Custom->new(
       target => $self,
       coderef => $self->target_config->{action},
-      logger => $logger
+      logger => $logger,
     );
   } else {
     return CVSLogwatcher::Action::Null->new(target => $self);
@@ -149,9 +149,9 @@ sub add_files ($self, $files)
 
 #------------------------------------------------------------------------------
 # Invoke custom commit usr/message getter if defined
-sub commit_info ($self, $match)
+sub commit_info ($self, $match, $stash)
 {
-  my $stash = CVSLogwatcher::Stash->instance->host($match->{host});
+  $stash = $stash->host($match->{host});
   my ($user, $msg);
 
   $user = $match->{user} // 'unknown';

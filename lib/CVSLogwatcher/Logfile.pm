@@ -10,6 +10,7 @@ with 'CVSLogwatcher::Roles::Logger';
 
 use IO::Async::FileStream;
 use CVSLogwatcher::Logger;
+use CVSLogwatcher::Stash;
 
 has id => ( is => 'ro', required => 1 );
 has file => ( is => 'ro', required => 1 );
@@ -29,6 +30,9 @@ has _fs => ( is => 'rwp' );
 
 # configuration (FIXME: the only thing we need is find_target method)
 has config => ( is => 'ro', required => 1);
+
+# per-logfile stash, useful for collating data from more than one entry
+has stash => ( is => 'ro', default => sub { CVSLogwatcher::Stash->new });
 
 #-------------------------------------------------------------------------------
 # match provided log entry against configured list of regular expressions; the
@@ -124,7 +128,7 @@ sub watch ($self, $loop, $cmd, $callback)
         );
 
         # invoke callback for 'user' and 'msg' fields, if defined
-        ($user, $msg) = $target->commit_info(\%cgroups) if $target;
+        ($user, $msg) = $target->commit_info(\%cgroups, $self->stash) if $target;
 
         # log info when watching and then finish
         if($cmd->watchonly) {
@@ -160,6 +164,7 @@ sub watch ($self, $loop, $cmd, $callback)
             data => \%cgroups,
             tag => "cvs/$host",
             logger => $self->logger,
+            stash => $self->stash,
           )
         );
         last;

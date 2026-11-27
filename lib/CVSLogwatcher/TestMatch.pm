@@ -7,8 +7,10 @@ use v5.36;
 use Moo;
 
 use CVSLogwatcher::Host;
+use CVSLogwatcher::Stash;
 
 has config => ( is => 'ro', required => 1 );
+has stash => ( is => 'ro', required => 1 );
 
 #------------------------------------------------------------------------------
 # match a single line against the battery of configured regular expressions and
@@ -54,6 +56,7 @@ sub test_match ($self, $line, $log=undef)
         cmd => CVSLogwatcher::Cmdline->dummy,
         data => \%re,
         tag => undef,
+        stash => $self->stash,
       );
 
       # invoke custom action
@@ -65,7 +68,7 @@ sub test_match ($self, $line, $log=undef)
       foreach (keys %re) { push(@info, sprintf('+%s=%s', $_, $re{$_}) ) }
 
       # get commit info
-      my ($user, $msg) = $target->commit_info(\%re);
+      my ($user, $msg) = $target->commit_info(\%re, $self->stash);
       push(@info, '%user=' . $user) if $user;
       push(@info, '%message=' . $msg) if $msg;
 

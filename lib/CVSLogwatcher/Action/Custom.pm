@@ -6,8 +6,6 @@ use v5.36;
 use Moo;
 with 'CVSLogwatcher::Roles::Logger';
 
-use CVSLogwatcher::Stash;
-
 has target => ( is => 'ro', required => 1 );
 has coderef => ( is => 'ro', required => 1 );
 
@@ -15,7 +13,7 @@ has coderef => ( is => 'ro', required => 1 );
 sub invoke($self, $host)
 {
   my $logger = $self->logger->prefix($host->tag) if $host->tag;
-  my $stash = CVSLogwatcher::Stash->instance->host($host->name);
+  my $stash = $host->stash->host($host->name);
   $self->logger->debug('Invoking action callback');
   $self->coderef->($stash, $host->data);
 }
