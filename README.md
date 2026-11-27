@@ -557,5 +557,10 @@ like this:
 
      grep -i london-hq-01 /var/log/network.log | ./cvs-logwatcher.pl --match-stdin
 
+This option only outputs matched lines, unmatched lines are silently dropped. If
+you want to output all lines, even unmatched ones, use this option in
+conjunction with `--match=STRING` where STRING is some dummy value that never
+matches.
+
 **`-d`, **`--debug`**  
 Raises loglevel to DEBUG, which means debugging info will go to the log.

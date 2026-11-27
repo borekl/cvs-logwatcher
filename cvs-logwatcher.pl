@@ -49,16 +49,38 @@ my $cfg = CVSLogwatcher::Config->instance(
 # interactive code, ie. show something to user and exit
 if($cmd->interactive) {
 
-  # --match, --match-stdin // options for troubleshooting logfile entries
-  # matching; the --match option allows pass string on the command-line (can be
-  # use more than once), --match-stdin takes lines from standard input; each
-  # line produces matching results; --log option can constrain matching to one
-  # specific logfile
-  my $tstm = CVSLogwatcher::TestMatch->new(config => $cfg);
+  # note, that there's one shared stash for everything during testing; this is
+  # bacause when testing, there is no concept of source logfile; to avoid
+  # unwanted data leaks, the --log option should be used
+  my $stash = CVSLogwatcher::Stash->new;
+
+  # --match allows user to supply line on the command-line itself to test
+  # matching; the command can be used multiple times to supply multiple lines at
+  # once; this command-line will always output match result for each line, even
+  # if the line was not matched (match result will be indicated, obviously)
+  #
+  # --match-stdin lets user supply match testing lines from either standard
+  # input and also from files specified on the command-line; the explicitly
+  # defined files are used first, then standard input is read until end-of-file
+  # mark; only matching lines will cause matching result being output; if you
+  # want to see every line's matching result use --match option (e.g.
+  # --match="x" if you don't want supply explicit line)
+  #
+  # --match and --match-stdin can be combined; in that case explicit lines
+  # supplied by --match are read first
+  #
+  # --log option can constrain matching to one specific logfile (ie. regular
+  # expressions that are bound to that logfile in configuration)
+
+  my $tstm = CVSLogwatcher::TestMatch->new(config => $cfg, stash => $stash);
   my $line_count = 1;
   $cmd->match_lines(sub ($l) {
-    printf("=== LINE %s ===\n", $line_count++);
-    $tstm->test_match($l, $cmd->log);
+    my ($matched, @output) = $tstm->test_match($l, $cmd->log);
+    if($matched || $cmd->match->@*) {
+      printf("=== LINE %s ===\n", $line_count);
+      say join("\n", @output);
+    }
+    $line_count++;
   });
 
   # --logs // display configured logs along with match definitions
